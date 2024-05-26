@@ -316,7 +316,7 @@ class CheeseScreen(Screen):
             self.smile_label.font_size = SMALL_FONT
             self.smile_label.text = 'Please wait ...'
             self._clock = Clock.schedule_once(self.timer_event, 1)
-        elif self.app.SHOTS_TO_TAKE == 1:
+        elif self.app.get_shots_to_take() == 1:
             self.app.transition_to(ScreenMgr.PROCESSING)
         else:
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, self._current_shot)
@@ -346,7 +346,7 @@ class ConfirmCaptureScreen(Screen):
         self.layout.add_widget(overlay_layout)
 
         self.title = Button(
-            text='Photo 1 sur {}'.format(self.app.SHOTS_TO_TAKE), # On la garde ?
+            text='Photo 1 sur {}'.format(self.app.get_shots_to_take()), # On la garde ?
             border=(30, 30, 30, 30),
             size_hint=(0.8, 0.1),
             pos_hint={'x': 0.1, 'y': 0.8},
@@ -370,7 +370,7 @@ class ConfirmCaptureScreen(Screen):
         if len(args) == 0 or len(args[0]) == 0: return self.app.transition_to(ScreenMgr.ERROR, 'An error occured !')
         self._current_shot = int(args[0][0]) if len(args) and len(args[0]) else 0
         self.time_remaining = 10
-        self.title.text = 'Photo {} sur {}'.format(self._current_shot + 1, self.app.SHOTS_TO_TAKE)
+        self.title.text = 'Photo {} sur {}'.format(self._current_shot + 1, self.app.get_shots_to_take())
         self.yes_button.text = 'Keep it ({})'.format(self.time_remaining)
         self.preview.source = self.app.get_shot(self._current_shot)
         self.auto_confirm = Clock.schedule_once(self.timer_event, 10)
@@ -383,7 +383,7 @@ class ConfirmCaptureScreen(Screen):
     def yes_event(self, obj):
         Clock.unschedule(self.auto_confirm)
         Clock.unschedule(self._clock)
-        if self._current_shot == self.app.SHOTS_TO_TAKE - 1: self.app.transition_to(ScreenMgr.PROCESSING)
+        if self._current_shot == self.app.get_shots_to_take() - 1: self.app.transition_to(ScreenMgr.PROCESSING)
         else: self.app.transition_to(ScreenMgr.COUNTDOWN, self._current_shot + 1)
 
     def no_event(self, obj):
@@ -398,7 +398,7 @@ class ConfirmCaptureScreen(Screen):
 
     def timer_event(self, obj):
         Logger.info('ConfirmCaptureScreen: timer_event().')
-        if self._current_shot == self.app.SHOTS_TO_TAKE - 1: self.app.transition_to(ScreenMgr.PROCESSING)
+        if self._current_shot == self.app.get_shots_to_take() - 1: self.app.transition_to(ScreenMgr.PROCESSING)
         else: self.app.transition_to(ScreenMgr.COUNTDOWN, self._current_shot + 1)
 
 class ProcessingScreen(Screen):
@@ -537,7 +537,7 @@ class ConfirmSaveScreen(Screen):
     def no_event(self, obj):
         Clock.unschedule(self.auto_confirm)
         Clock.unschedule(self._clock)
-        if self.app.SHOTS_TO_TAKE == 1: self.app.transition_to(ScreenMgr.WAITING)
+        if self.app.get_shots_to_take() == 1: self.app.transition_to(ScreenMgr.WAITING)
         else: self.app.transition_to(ScreenMgr.SUCCESS)
 
     def tick_event(self, obj):
@@ -652,7 +652,7 @@ class ConfirmPrintScreen(Screen):
     def no_event(self, obj):
         Clock.unschedule(self.auto_decline)
         Clock.unschedule(self._clock)
-        if self.app.SHOTS_TO_TAKE == 1: self.app.transition_to(ScreenMgr.WAITING)
+        if self.app.get_shots_to_take() == 1: self.app.transition_to(ScreenMgr.WAITING)
         else: self.app.transition_to(ScreenMgr.SUCCESS)
 
     def tick_event(self, obj):
@@ -662,7 +662,7 @@ class ConfirmPrintScreen(Screen):
 
     def timer_event(self, obj):
         Logger.info('ConfirmPrintScreen: timer_event().')
-        if self.app.SHOTS_TO_TAKE == 1: self.app.transition_to(ScreenMgr.WAITING)
+        if self.app.get_shots_to_take() == 1: self.app.transition_to(ScreenMgr.WAITING)
         else: self.app.transition_to(ScreenMgr.SUCCESS)
 
 class PrintingScreen(Screen):
