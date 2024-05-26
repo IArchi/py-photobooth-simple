@@ -56,6 +56,9 @@ class PhotoboothApp(App):
     def get_collage(self):
         return os.path.join(self.tmp_directory, 'collage.jpg')
 
+    def get_shots_to_take(self):
+        return self.SHOTS_TO_TAKE
+
     def trigger_shot(self, shot_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
         self.process = self.devices.capture(self.get_shot(shot_idx))
@@ -68,7 +71,7 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_collage().')
         # Create a list with all the shots and the logo
         photos = []
-        for i in range(0, self.SHOTS_TO_TAKE): photos.append(self.get_shot(i))
+        for i in range(0, self.get_shots_to_take()): photos.append(self.get_shot(i))
         photos.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png'))
 
         collage_process = Collage.create_collage(self.get_collage(), photos, dual=self.PRINT_DUAL)

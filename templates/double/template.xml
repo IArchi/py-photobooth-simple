@@ -1,0 +1,42 @@
+<?xml version="1.0" ?>
+
+<!-- Main Template Tag. Should always be here -->
+<PhotoTemplate
+	xmlns="http://www.scottmckittrick.com/schema/PiBooth/PhotoTemplate"
+	>
+
+  <!-- The name of the template. Will be shown on the template selection screen -->
+  <name>Sample Template</name>
+
+  <!-- A description of the template. -->
+  <description>Sample template for QtPy Photobooth</description>
+
+  <!-- Preview Image to be displayed on the template selection screen. -->
+  <previewImage src="preview.jpg" />
+
+  <!-- The Canvas tag contains attributes describing the size and background color of the result image as well as other tags describing the components of the result image. -->
+  <canvas width="1280" height="1280"  backgroundColor="#FFFFFF">
+
+    <!-- The background photo is pasted onto the canvas first. -->
+    <backgroundPhoto src="background.jpg" />
+
+    <!-- The foreground photo is pasted onto the canvas over the background and the photos taken by the user. -->
+    <foregroundPhoto src="overlay.png" />
+
+    <!-- This is the list of photos to be taken by the booth and information about them.
+          Each photospec  describes a photo to be taken.
+	   Attributes:
+	   Width - The width of the photo to be taken
+	   Height - the height of the photo to be taken
+	    Rotation - the number of degrees to rotate the image counter clockwise
+	    x,y - For placement on the canvas, the x,y coordinates of the bounding box containing the rotated image.-->
+    <photos>
+
+
+      <photoSpec width="654" height="367" x="66" y="218" rotation="0" />
+      <photoSpec width="654" height="367" x="66" y="686" rotation="0" />
+
+    </photos>
+  </canvas>
+
+</PhotoTemplate>
