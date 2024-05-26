@@ -1,0 +1,7 @@
+numpy
+gphoto2cffi
+Pillow
+adafruit-blinka
+adafruit-circuitpython-neopixel-spi
+kivy
+python3-lxml
