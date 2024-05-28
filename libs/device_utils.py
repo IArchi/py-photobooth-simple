@@ -80,7 +80,7 @@ class DeviceUtils:
             return None, None
 
         Logger.info('Connected to printer \'%s\'', name)
-        return cups_conn, printer_name
+        return cups_conn, name
 
     def get_picamera2_proxy(self, port=None):
         """
@@ -191,7 +191,7 @@ class DeviceUtils:
             pil_image = pil_image.convert('RGB')
             raw_data = np.array(pil_image)
             bgr_data = raw_data[..., ::-1].tobytes() # Convert 'RGB' to 'BGR'
-            width, height = image.size
+            width, height = pil_image.size
             return (width, height), bgr_data
         return None, None
 
@@ -234,10 +234,10 @@ class DeviceUtils:
             return []
         return []
 
-    def print(self, file_path, copies=1, dual=False):
+    def print(self, file_path, copies=1, print_format=None):
         if not self._printer_proxy: return
         options = {'orientation-requested':'6', 'copies':str(copies)}
-        options['media'] = 'Custom.6x8in' if dual else 'Custom.3x8in'
+        if print_format: options['media'] = print_format
         return self._printer_proxy.printFile(self._printer_name, file_path, ' ', options)
 
     def get_print_status(self, task_id):

@@ -4,4 +4,5 @@ Pillow
 adafruit-blinka
 adafruit-circuitpython-neopixel-spi
 kivy
-python3-lxml
+lxml
+opencv-python
