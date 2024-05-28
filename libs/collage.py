@@ -14,13 +14,13 @@ class Collage:
     def get_photos_required(self):
         Logger.info('Collage: get_photos_required()')
         return self._count
-    
+
     def get_print_format(self):
         Logger.info('Collage: get_print_format()')
         return self._print_format
-    
+
     def assemble(self, output_name='collage.jpg', photos=[], logo=None):
-        Logger.info('Collage: assemble()')
+        Logger.info('Collage: assemble({})'.format(output_name))
         if len(photos) != self._count: raise Exception('Invalid photos amount. Expected', self._count, 'got', len(photos))
         if self._two_cols:
             columns = [
@@ -87,14 +87,14 @@ class Collage:
             output_margin_bottom = 0
         else:
             output_margin_bottom = free_space_height
-        
+
         # Add margins to match paper format
         output_margin_left = math.floor(free_space_width / 2)
         output_margin_right = free_space_width - output_margin_left
         result = cv2.copyMakeBorder(result, 0, output_margin_bottom, output_margin_left, output_margin_right, cv2.BORDER_CONSTANT, value=(255, 255, 255))
 
         return result
-    
+
 class CollageManager:
     PORTRAIT_8x3 = Collage(count=3, hw_ratio=8/3, print_format='Custom.3x8in')
     PORTRAIT_8x6 = Collage(count=2, hw_ratio=8/6, print_format='Custom.6x8in')

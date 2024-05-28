@@ -234,6 +234,9 @@ class DeviceUtils:
             return []
         return []
 
+    def has_printer(self):
+        return self._printer_proxy is not None
+
     def print(self, file_path, copies=1, print_format=None):
         if not self._printer_proxy: return
         options = {'orientation-requested':'6', 'copies':str(copies)}
