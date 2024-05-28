@@ -737,7 +737,7 @@ class SuccessScreen(Screen):
 
         self.app = app
         self.start_button = Button(
-            text=messages[0],
+            text=self.messages[0],
             halign='center',
             valign='middle',
             font_size=LARGE_FONT,
