@@ -14,7 +14,7 @@ from libs.usb_transfer import UsbTransfer
 class PhotoboothApp(App):
     # Configuration
     COUNTDOWN = 3
-    ROOT_DIRECTORY = '/tmp/photobooth'
+    ROOT_DIRECTORY = './DCIM' #'/tmp/photobooth'
     PRINTER = 'truc'
     PRINT_FORMAT = CollageManager.PORTRAIT_8x3
 
@@ -52,7 +52,7 @@ class PhotoboothApp(App):
 
     def get_collage(self):
         return os.path.join(self.tmp_directory, 'collage.jpg')
-    
+
     def get_logo(self):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png')
 
@@ -61,7 +61,9 @@ class PhotoboothApp(App):
 
     def trigger_shot(self, shot_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
-        self.processes = [threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx),))]
+        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx),))
+        self.processes = [t]
+        t.start()
 
     def is_shot_completed(self, shot_idx):
         if any((process.is_alive() is None for process in self.processes)): return False
@@ -71,11 +73,16 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_collage().')
         photos = []
         for i in range(0, self.get_shots_to_take()): photos.append(self.get_shot(i))
-        self.processes = [threading.Thread(target=self.PRINT_FORMAT.assemble, kwargs={'photos':photos, 'logo':self.get_logo()})]
+        t = threading.Thread(target=self.PRINT_FORMAT.assemble, kwargs={'output_name':self.get_collage(), 'photos':photos, 'logo':self.get_logo()})
+        self.processes = [t]
+        t.start()
 
     def is_collage_completed(self):
         if any((process.is_alive() is None for process in self.processes)): return False
         return True
+
+    def has_printer(self):
+        return self.devices.has_printer()
 
     def trigger_print(self, copies):
         Logger.info('PhotoboothApp: trigger_print().')
@@ -97,10 +104,10 @@ class PhotoboothApp(App):
 
         # Move to save_directory
         for f in all_files:
+            print(f)
             src_path = os.path.join(self.tmp_directory, f)
             dst_path = os.path.join(destination, f)
             os.rename(src_path, dst_path)
-            os.remove(src_path)
 
 if __name__ == '__main__':
     PhotoboothApp().run()

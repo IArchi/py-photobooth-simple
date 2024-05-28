@@ -52,7 +52,7 @@ class ScreenMgr(ScreenManager):
         for screen in self.pb_screens.values(): self.add_widget(screen)
 
         self.current = self.WAITING
-        Window.fullscreen = True
+        #Window.fullscreen = True
 
 class WaitingScreen(Screen):
     """
@@ -126,7 +126,7 @@ class InstructionsScreen(Screen):
         overlay_layout.add_widget(title)
 
         instructions = Label(
-            text='Lorem ipsum\ndolor sit amet\nLorem ipsum\ndolor sit amet\nLorem ipsum\ndolor sit amet\nLorem ipsum\ndolor sit amet',
+            text='1. Grab some friends\n2. Grab a prop\n3. Be ready\n4. Strike a pose\n5. <b>{} shots</b> will be taken !'.format(self.app.get_shots_to_take()),
             size_hint=(0.6, 0.6),
             pos_hint={'x': 0.1, 'y': 0.3},
             font_size=SMALL_FONT,
@@ -240,11 +240,12 @@ class CountdownScreen(Screen):
         self.time_remaining = self.app.COUNTDOWN
         self._current_shot = int(args[0][0]) if len(args) and len(args[0]) else 0
         self.time_remaining_label.text = str(self.time_remaining)
-        Clock.schedule_once(self.timer_event, 1)
+        self._clock = Clock.schedule_once(self.timer_event, 1)
         self.app.ringled.start_countdown(self.time_remaining)
 
     def on_leave(self, *args):
         Logger.info('CountdownScreen: on_leave().')
+        Clock.unschedule(self._clock)
         self.app.ringled.stop()
         self.camera.stop()
 
@@ -373,6 +374,7 @@ class ConfirmCaptureScreen(Screen):
         self.title.text = 'Photo {} sur {}'.format(self._current_shot + 1, self.app.get_shots_to_take())
         self.yes_button.text = 'Keep it ({})'.format(self.time_remaining)
         self.preview.source = self.app.get_shot(self._current_shot)
+        self.preview.reload()
         self.auto_confirm = Clock.schedule_once(self.timer_event, 10)
         self._clock = Clock.schedule_once(self.tick_event, 1)
 
@@ -410,17 +412,10 @@ class ProcessingScreen(Screen):
     +-----------------+
     """
     waiting = [
-        '',
         'Processing...',
-        '',
         'Still processing...',
-        '',
-        'Waiting on the camera...',
-        '',
         'Almost done...',
-        '',
-        'Any second now...',
-        ''
+        'Any second now...'
     ]
 
     def __init__(self, app, **kwargs):
@@ -443,14 +438,11 @@ class ProcessingScreen(Screen):
 
     def on_entry(self, *args):
         Logger.info('ProcessingScreen: on_entry().')
-        self._clock = Clock.schedule_once(self.timer_event, 2)
+        self._clock = Clock.schedule_once(self.timer_event, 1)
         self.app.ringled.start_rainbow()
 
         # Perform collage
-        try:
-            self.app.trigger_collage()
-        except:
-            return self.app.transition_to(ScreenMgr.ERROR, 'Cannot assemble images.')
+        self.app.trigger_collage()
 
     def on_leave(self, *args):
         Logger.info('ProcessingScreen: on_leave().')
@@ -484,7 +476,7 @@ class ConfirmSaveScreen(Screen):
         super(ConfirmSaveScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.time_remaining = 10
+        self.time_remaining = 20
 
         # Display collage
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
@@ -504,7 +496,7 @@ class ConfirmSaveScreen(Screen):
         )
         overlay_layout.add_widget(title)
 
-        self.yes_button = Button(text='Yes (10)', background_normal='assets/green_normal.png', background_down='assets/green_down.png', border=(30, 30, 30, 30), size_hint=(0.2, 0.1), pos_hint={'x': 0.05, 'y': 0.1},)
+        self.yes_button = Button(text='Yes (20)', background_normal='assets/green_normal.png', background_down='assets/green_down.png', border=(30, 30, 30, 30), size_hint=(0.2, 0.1), pos_hint={'x': 0.05, 'y': 0.1},)
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
 
@@ -520,7 +512,7 @@ class ConfirmSaveScreen(Screen):
         self._clock = Clock.schedule_once(self.tick_event, 1)
         self.app.ringled.start_rainbow()
         self.preview.source = self.app.get_collage()
-        self.time_remaining = 10
+        self.time_remaining = 20
         self.yes_button.text = 'Yes ({})'.format(self.time_remaining)
 
     def on_leave(self, *args):
@@ -547,6 +539,9 @@ class ConfirmSaveScreen(Screen):
 
     def timer_event(self, obj):
         Logger.info('ConfirmSaveScreen: timer_event().')
+        Clock.unschedule(self.auto_confirm)
+        Clock.unschedule(self._clock)
+        self.app.save_collage()
         self.app.transition_to(ScreenMgr.SUCCESS)
 
 class ConfirmPrintScreen(Screen):
