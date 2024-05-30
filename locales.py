@@ -13,17 +13,16 @@ class Locales:
                 'default': 'An error occured.\nClick to continue',
                 'content': '{}\nClick to continue',
             },
+            'ready': {
+                'content': ['Be ready !', 'Hold on !'],
+            },
             'cheese': {
                 'content': ['Cheese!', 'Smile!'],
                 'wait': 'Please wait ...',
-                'error_args': 'An error occured !',
-                'error_camera': 'Cannot trigger camera.',
+                'error': 'Cannot trigger camera.',
             },
             'capture': {
                 'title': 'Photo {} sur {}',
-                'yes': 'Keep it ({})',
-                'no': 'New take',
-                'error_args': 'An error occured !',
             },
             'processing': {
                 'content': ['Processing...', 'Still processing...', 'Almost done...', 'Any second now...'],

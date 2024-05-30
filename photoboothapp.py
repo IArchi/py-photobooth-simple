@@ -19,7 +19,7 @@ class PhotoboothApp(App):
     COUNTDOWN = 3
     ROOT_DIRECTORY = './DCIM' #'/tmp/photobooth'
     PRINTER = 'truc'
-    PRINT_FORMATS = [CollageManager.PORTRAIT_8x3, CollageManager.LANDSCAPE_6x8]
+    PRINT_FORMATS = [CollageManager.PORTRAIT_8x3, CollageManager.PORTRAIT_8x6]
 
     def __init__(self, **kwargs):
         Logger.info('PhotoboothApp: __init__().')
@@ -45,10 +45,10 @@ class PhotoboothApp(App):
         self.sm = ScreenMgr(self, transition=NoTransition(), locales=self.LOCALES())
         return self.sm
 
-    def transition_to(self, new_state, *args):
+    def transition_to(self, new_state, **kwargs):
         self.sm.current_screen.on_leave()
         self.sm.current = new_state
-        self.sm.current_screen.on_entry(args)
+        self.sm.current_screen.on_entry(kwargs)
 
     def get_shot(self, shot_idx):
         return os.path.join(self.tmp_directory, "capture-{}.jpg".format(shot_idx))
@@ -57,7 +57,7 @@ class PhotoboothApp(App):
         return os.path.join(self.tmp_directory, 'collage.jpg')
 
     def get_logo(self):
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo_thick.png')
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png')
 
     def get_shots_to_take(self, format=0):
         return self.PRINT_FORMATS[format].get_photos_required()
@@ -65,9 +65,12 @@ class PhotoboothApp(App):
     def get_layout_previews(self, format=0):
         return [f.get_preview() for f in self.PRINT_FORMATS]
 
-    def trigger_shot(self, shot_idx):
+    def is_square_format(self, format_idx):
+        return self.PRINT_FORMATS[format_idx].is_squared()
+
+    def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
-        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx),))
+        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), self.PRINT_FORMATS[format_idx].is_squared()))
         self.processes = [t]
         t.start()
 
@@ -78,7 +81,7 @@ class PhotoboothApp(App):
     def trigger_collage(self, format=0):
         Logger.info('PhotoboothApp: trigger_collage().')
         photos = []
-        for i in range(0, self.get_shots_to_take()): photos.append(self.get_shot(i))
+        for i in range(0, self.get_shots_to_take(format)): photos.append(self.get_shot(i))
         t = threading.Thread(target=self.PRINT_FORMATS[format].assemble, kwargs={'output_name':self.get_collage(), 'photos':photos, 'logo':self.get_logo()})
         self.processes = [t]
         t.start()
@@ -88,6 +91,7 @@ class PhotoboothApp(App):
         return True
 
     def has_printer(self):
+        return True
         return self.devices.has_printer()
 
     def trigger_print(self, copies, format=0):
@@ -110,10 +114,17 @@ class PhotoboothApp(App):
 
         # Move to save_directory
         for f in all_files:
-            print(f)
             src_path = os.path.join(self.tmp_directory, f)
             dst_path = os.path.join(destination, f)
             os.rename(src_path, dst_path)
+
+    def purge_tmp(self):
+        # List existing files and delete
+        all_files = os.listdir(self.tmp_directory)
+        if len(all_files) == 0: return
+        for f in all_files:
+            src_path = os.path.join(self.tmp_directory, f)
+            os.remove(src_path)
 
 if __name__ == '__main__':
     PhotoboothApp().run()

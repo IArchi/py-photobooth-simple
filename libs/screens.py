@@ -11,7 +11,7 @@ from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.core.window import Window
 
-from libs.kivywidgets import KivyCamera, ImageButton, BorderedLabel
+from libs.kivywidgets import *
 
 XLARGE_FONT = 400
 LARGE_FONT = 130
@@ -25,6 +25,7 @@ class ScreenMgr(ScreenManager):
     """Screen Manager for the photobooth screens."""
     # Screen names.
     WAITING = 'waiting'
+    READY = 'ready'
     SELECT_FORMAT = 'select_format'
     ERROR = 'error'
     COUNTDOWN = 'countdown'
@@ -42,8 +43,9 @@ class ScreenMgr(ScreenManager):
         self.app = app
         self.pb_screens = {
             self.WAITING            : WaitingScreen(app, locales=locales, name=self.WAITING),
-            self.SELECT_FORMAT       : SelectFormatScreen(app, locales=locales, name=self.SELECT_FORMAT),
+            self.SELECT_FORMAT      : SelectFormatScreen(app, locales=locales, name=self.SELECT_FORMAT),
             self.ERROR              : ErrorScreen(app, locales=locales, name=self.ERROR),
+            self.READY              : ReadyScreen(app, locales=locales, name=self.READY),
             self.COUNTDOWN          : CountdownScreen(app, locales=locales, name=self.COUNTDOWN),
             self.CHEESE             : CheeseScreen(app, locales=locales, name=self.CHEESE),
             self.CONFIRM_CAPTURE    : ConfirmCaptureScreen(app, locales=locales, name=self.CONFIRM_CAPTURE),
@@ -120,16 +122,17 @@ class WaitingScreen(BackgroundScreen):
 
         self.add_widget(overlay_layout)
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('WaitingScreen: on_entry().')
         self.app.ringled.start_rainbow()
+        self.app.purge_tmp()
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('WaitingScreen: on_leave().')
         self.app.ringled.stop()
 
     def on_click(self, obj, pos):
-        Logger.info('WaitingScreen: on_click(%s).', obj)
+        Logger.info('WaitingScreen: on_click().')
         self.app.transition_to(ScreenMgr.SELECT_FORMAT)
 
 class SelectFormatScreen(BackgroundScreen):
@@ -153,14 +156,12 @@ class SelectFormatScreen(BackgroundScreen):
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
-        title = BorderedLabel(
+        title = Label(
             text=self.locales['select_format']['title'],
             font_size=LARGE_FONT,
-            border_color=(1,1,1,1),
-            border_width=5,
             size_hint=(0.7, 0.2),
             padding=(30,30,30,30),
-            pos_hint={'x': 0.15, 'y': 0.75},
+            pos_hint={'x': 0.15, 'y': 0.8},
         )
         overlay_layout.add_widget(title)
 
@@ -170,7 +171,7 @@ class SelectFormatScreen(BackgroundScreen):
             source=available_formats[0],
             fit_mode='contain',
             size_hint=(0.2, 0.7),
-            pos_hint={'x': 0.75, 'y': 0.02},
+            pos_hint={'x': 0.75, 'y': 0.05},
         )
         overlay_layout.add_widget(preview_left)
         preview_left.bind(on_release=self.on_click_left)
@@ -178,7 +179,7 @@ class SelectFormatScreen(BackgroundScreen):
             source=available_formats[1],
             fit_mode='contain',
             size_hint=(0.4, 0.7),
-            pos_hint={'x': 0.05, 'y': 0.02},
+            pos_hint={'x': 0.05, 'y': 0.05},
         )
         overlay_layout.add_widget(preview_right)
         preview_right.bind(on_release=self.on_click_right)
@@ -188,7 +189,7 @@ class SelectFormatScreen(BackgroundScreen):
             source='./assets/icons/arrow_left.png',
             fit_mode='contain',
             size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.5, 'y': 0.38},
+            pos_hint={'x': 0.5, 'y': 0.2},
         )
         overlay_layout.add_widget(arrow_left)
         arrow_right = Image(
@@ -201,21 +202,21 @@ class SelectFormatScreen(BackgroundScreen):
 
         self.add_widget(self.layout)
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_entry().')
         self.app.ringled.start_rainbow()
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_leave().')
         self.app.ringled.stop()
 
     def on_click_left(self, x, y=0):
         Logger.info('SelectFormatScreen: on_click_left().')
-        self.app.transition_to(ScreenMgr.COUNTDOWN, 0, 0)
+        self.app.transition_to(ScreenMgr.READY, shot=0, format=0)
 
     def on_click_right(self, x, y=0):
         Logger.info('SelectFormatScreen: on_click_right().')
-        self.app.transition_to(ScreenMgr.COUNTDOWN, 0, 1)
+        self.app.transition_to(ScreenMgr.READY, shot=0, format=1)
 
 class ErrorScreen(BackgroundScreen):
     """
@@ -244,19 +245,63 @@ class ErrorScreen(BackgroundScreen):
         self.layout.add_widget(self.continue_button)
         self.add_widget(self.layout)
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
-        if len(args): self.continue_button.text = "{}\nClick to continue".format(str(args[0]))
+        if 'error' in kwargs: self.continue_button.text = "{}\nClick to continue".format(str(kwargs.get('error')))
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('ErrorScreen: on_leave().')
 
     def set_error(self, label):
         self.continue_button.text = self.locales['error']['content'].format(label)
 
-    def on_click_continue(self, obj):
-        Logger.info('ErrorScreen: on_click_continue(%s).', obj)
+    def on_click_continue(self):
+        Logger.info('ErrorScreen: on_click_continue().')
         self.app.transition_to(ScreenMgr.WAITING)
+
+class ReadyScreen(BackgroundScreen):
+    """
+    +-----------------+
+    |                 |
+    |      Ready      |
+    |                 |
+    +-----------------+
+    """
+    def __init__(self, app, locales, **kwargs):
+        Logger.info('ReadyScreen: __init__().')
+        super(ReadyScreen, self).__init__(**kwargs)
+
+        self.app = app
+        self.locales = locales
+
+        self.start_button = Button(
+            text=self.locales['ready']['content'][0],
+            halign='center',
+            valign='middle',
+            font_size=LARGE_FONT,
+            background_color=(0, 0, 1, 1)
+        )
+
+        self.layout = BoxLayout()
+        self.layout.add_widget(self.start_button)
+        self.add_widget(self.layout)
+
+    def on_entry(self, kwargs={}):
+        Logger.info('ReadyScreen: on_entry().')
+        self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
+        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self.start_button.text = random.choice(self.locales['ready']['content'])
+        self._clock = Clock.schedule_once(self.timer_event, 2)
+        self.app.ringled.blink((0, 0, 255, 0))
+
+    def on_leave(self, kwargs={}):
+        Logger.info('ReadyScreen: on_leave().')
+        Clock.unschedule(self._clock)
+        self.app.ringled.stop()
+
+    def timer_event(self, obj):
+        Logger.info('ReadyScreen: timer_event().')
+        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
 
 class CountdownScreen(Screen):
     """
@@ -295,17 +340,17 @@ class CountdownScreen(Screen):
 
         self.add_widget(self.layout)
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('CountdownScreen: on_entry().')
-        self.camera.start()
         self.time_remaining = self.app.COUNTDOWN
-        self._current_shot = int(args[0][0]) if len(args) and len(args[0]) else 0
-        self._current_format = int(args[0][1]) if len(args) and len(args[0]) else 0
+        self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
+        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self.camera.start(self.app.is_square_format(self._current_format))
         self.time_remaining_label.text = str(self.time_remaining)
         self._clock = Clock.schedule_once(self.timer_event, 1)
         self.app.ringled.start_countdown(self.time_remaining)
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('CountdownScreen: on_leave().')
         Clock.unschedule(self._clock)
         self.app.ringled.stop()
@@ -318,7 +363,7 @@ class CountdownScreen(Screen):
             self.time_remaining_label.text = str(self.time_remaining)
             Clock.schedule_once(self.timer_event, 1)
         else:
-            self.app.transition_to(ScreenMgr.CHEESE, self._current_shot, self._current_format)
+            self.app.transition_to(ScreenMgr.CHEESE, shot=self._current_shot, format=self._current_format)
 
 class CheeseScreen(Screen):
     """
@@ -341,7 +386,9 @@ class CheeseScreen(Screen):
             valign='middle',
             font_size=XLARGE_FONT
         )
-        self.layout = BoxLayout()
+        self.layout = BackgroundBoxLayout(
+            background_color=(0,0,0,1),
+        )
         self.layout.add_widget(self.smile_label)
         self.add_widget(self.layout)
 
@@ -349,39 +396,48 @@ class CheeseScreen(Screen):
         self._current_shot = 0
         self._current_format = 0
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('CheeseScreen: on_entry().')
-        if len(args) == 0: return self.app.transition_to(ScreenMgr.ERROR, self.locales['cheese']['error_args'])
-        self._current_shot = int(args[0][0]) if len(args) and len(args[0]) else 0
-        self._current_format = int(args[0][1]) if len(args) and len(args[0]) else 0
+        self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
+        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
 
         self.smile_label.font_size = LARGE_FONT
         self.smile_label.text = random.choice(self.locales['cheese']['content'])
         self.wait_idx = -1
         self.wait_count = 0
-        self._clock = Clock.schedule_once(self.timer_event, 2)
+        self._clock = Clock.schedule_once(self.timer_event, 1.5)
+        self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
+
+    def on_leave(self, kwargs={}):
+        Logger.info('CheeseScreen: on_leave().')
+        Clock.unschedule(self._clock)
+        Clock.unschedule(self._clock_trigger)
+
+    def timer_trigger(self, obj):
+        # Make window full white
+        self.layout.background_color=(1,1,1,1)
+        self.layout.canvas.ask_update()
 
         # Trigger shot
         try:
             self.app.ringled.flash()
-            self.app.trigger_shot(self._current_shot)
+            self.app.trigger_shot(self._current_shot, self._current_format)
         except:
-            return self.app.transition_to(ScreenMgr.ERROR, self.locales['cheese']['error_camera'])
-
-    def on_leave(self, *args):
-        Logger.info('CheeseScreen: on_leave().')
-        Clock.unschedule(self._clock)
+            return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['cheese']['error'])
 
     def timer_event(self, obj):
         Logger.info('CheeseScreen: timer_event().')
+        # Make window back to black
+        self.layout.background_color=(0,0,0,1)
+        self.layout.canvas.ask_update()
+
         if not(self.app.is_shot_completed(self._current_shot)):
-            self.smile_label.font_size = SMALL_FONT
             self.smile_label.text = self.locales['cheese']['wait']
             self._clock = Clock.schedule_once(self.timer_event, 1)
         elif self.app.get_shots_to_take(self._current_format) == 1:
-            self.app.transition_to(ScreenMgr.PROCESSING, self._current_format)
+            self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
         else:
-            self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, self._current_shot, self._current_format)
+            self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
 
 class ConfirmCaptureScreen(BackgroundScreen):
     """
@@ -403,69 +459,74 @@ class ConfirmCaptureScreen(BackgroundScreen):
 
         # Display taken photo
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
-        self.preview = Image(fit_mode='contain')
-        self.layout.add_widget(self.preview)
 
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
-        self.title = Button(
-            text=self.locales['capture']['title'].format(1, self.app.get_shots_to_take(self._current_format)), # On la garde ?
-            border=(30, 30, 30, 30),
+        # Add title
+        self.title = Label(
+            text=self.locales['capture']['title'].format(1, 'n'),
             size_hint=(0.8, 0.1),
-            pos_hint={'x': 0.1, 'y': 0.8},
+            pos_hint={'x': 0.1, 'y': 0.85},
             font_size=NORMAL_FONT,
-            background_normal='assets/title.png', background_down='assets/title.png'
         )
         overlay_layout.add_widget(self.title)
 
-        self.yes_button = Button(text=self.locales['capture']['yes'].format(self.time_remaining), font_size=SMALL_FONT, background_normal='assets/green_normal.png', background_down='assets/green_down.png', border=(30, 30, 30, 30), size_hint=(0.2, 0.1), pos_hint={'x': 0.05, 'y': 0.1},)
+        # Display capture
+        self.preview = Image(
+            fit_mode='contain',
+            size_hint=(1, 0.80),
+            pos_hint={'x': 0, 'y': 0.05},
+        )
+        overlay_layout.add_widget(self.preview)
+
+        # Add buttons
+        self.yes_button = ImageButton(
+            source='./assets/icons/save.png',
+            fit_mode='contain',
+            size_hint=(0.15, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.25},
+            background_color=(.4, .733, .416, 1),
+        )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
-
-        self.no_button = Button(text=self.locales['capture']['no'], font_size=SMALL_FONT, background_normal='assets/red_normal.png', background_down='assets/red_down.png', border=(30, 30, 30, 30), size_hint=(0.2, 0.1), pos_hint={'x': 0.75, 'y': 0.1})
+        self.no_button = ImageButton(
+            source='./assets/icons/trash.png',
+            fit_mode='contain',
+            size_hint=(0.15, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.05},
+            background_color=(.937, .325, .314, 1),
+        )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
 
         self.add_widget(self.layout)
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('ConfirmCaptureScreen: on_entry().')
-        if len(args) == 0 or len(args[0]) == 0: return self.app.transition_to(ScreenMgr.ERROR, self.locales['capture']['error_args'])
-        self._current_shot = int(args[0][0]) if len(args) and len(args[0]) else 0
-        self._current_format = int(args[0][1]) if len(args) and len(args[0]) else 0
+        self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
+        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self.title.text=self.locales['capture']['title'].format(self._current_shot + 1, self.app.get_shots_to_take(self._current_format))
         self.time_remaining = 10
-        self.title.text = self.locales['capture']['title'].format(self._current_shot + 1, self.app.get_shots_to_take(self._current_format))
-        self.yes_button.text = self.locales['capture']['yes'].format(self.time_remaining)
         self.preview.source = self.app.get_shot(self._current_shot)
         self.preview.reload()
-        self.auto_confirm = Clock.schedule_once(self.timer_event, 10)
-        self._clock = Clock.schedule_once(self.tick_event, 1)
+        self.auto_leave = Clock.schedule_once(self.timer_event, 60)
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('ConfirmCaptureScreen: on_leave().')
-        Clock.unschedule(self._clock)
 
     def yes_event(self, obj):
-        Clock.unschedule(self.auto_confirm)
-        Clock.unschedule(self._clock)
-        if self._current_shot == self.app.get_shots_to_take(self._current_format) - 1: self.app.transition_to(ScreenMgr.PROCESSING, self._current_format)
-        else: self.app.transition_to(ScreenMgr.COUNTDOWN, self._current_shot + 1, self._current_format)
+        Clock.unschedule(self.auto_leave)
+        if self._current_shot == self.app.get_shots_to_take(self._current_format) - 1: self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
+        else: self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot + 1, format=self._current_format)
 
     def no_event(self, obj):
-        Clock.unschedule(self.auto_confirm)
-        Clock.unschedule(self._clock)
-        self.app.transition_to(ScreenMgr.COUNTDOWN, self._current_shot, self._current_format)
-
-    def tick_event(self, obj):
-        self.time_remaining -= 1
-        self.yes_button.text = self.locales['capture']['yes'].format(self.time_remaining)
-        self._clock = Clock.schedule_once(self.tick_event, 1)
+        Clock.unschedule(self.auto_leave)
+        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
 
     def timer_event(self, obj):
         Logger.info('ConfirmCaptureScreen: timer_event().')
-        if self._current_shot == self.app.get_shots_to_take() - 1: self.app.transition_to(ScreenMgr.PROCESSING, self._current_format)
-        else: self.app.transition_to(ScreenMgr.COUNTDOWN, self._current_shot + 1, self._current_format)
+        self.app.transition_to(ScreenMgr.WAITING)
 
 class ProcessingScreen(BackgroundScreen):
     """
@@ -496,16 +557,16 @@ class ProcessingScreen(BackgroundScreen):
         self.wait_idx = 0
         self.wait_count = 0
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('ProcessingScreen: on_entry().')
-        self._current_format = int(args[0][0]) if len(args) and len(args[0]) else 0
+        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self._clock = Clock.schedule_once(self.timer_event, 1)
         self.app.ringled.start_rainbow()
 
         # Perform collage
         self.app.trigger_collage(self._current_format)
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('ProcessingScreen: on_leave().')
         Clock.unschedule(self._clock)
         self.app.ringled.stop()
@@ -520,7 +581,7 @@ class ProcessingScreen(BackgroundScreen):
                 self.smile_label.text = self.locales['processing']['content'][self.wait_idx]
             self._clock = Clock.schedule_once(self.timer_event, 1)
         elif self.app.has_printer():
-            self.app.transition_to(ScreenMgr.CONFIRM_PRINT, self._current_format)
+            self.app.transition_to(ScreenMgr.CONFIRM_PRINT, format=self._current_format)
         else:
             self.app.transition_to(ScreenMgr.CONFIRM_SAVE)
 
@@ -538,73 +599,76 @@ class ConfirmSaveScreen(BackgroundScreen):
 
         self.app = app
         self.locales = locales
-        self.time_remaining = 20
 
-        # Display collage
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
-        self.preview = Image(fit_mode='contain')
-        self.layout.add_widget(self.preview)
 
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
-        title = Button(
-            text=self.locales['save']['title'], # On les garde ?
-            border=(30, 30, 30, 30),
+        # Add title
+        title = Label(
+            text=self.locales['save']['title'],
             size_hint=(0.8, 0.1),
-            pos_hint={'x': 0.1, 'y': 0.8},
+            pos_hint={'x': 0.1, 'y': 0.85},
             font_size=NORMAL_FONT,
-            background_normal='assets/title.png', background_down='assets/title.png'
         )
         overlay_layout.add_widget(title)
 
-        self.yes_button = Button(text=self.locales['save']['yes'].format(self.time_remaining), font_size=SMALL_FONT, background_normal='assets/green_normal.png', background_down='assets/green_down.png', border=(30, 30, 30, 30), size_hint=(0.2, 0.1), pos_hint={'x': 0.05, 'y': 0.1},)
+        # Display collage
+        self.preview = Image(
+            fit_mode='contain',
+            size_hint=(0.5, 0.75),
+            pos_hint={'x': 0.1, 'y': 0.05},
+        )
+        overlay_layout.add_widget(self.preview)
+
+        # Add buttons
+        self.yes_button = ImageButton(
+            source='./assets/icons/save.png',
+            fit_mode='contain',
+            size_hint=(0.15, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.25},
+            background_color=(.4, .733, .416, 1),
+        )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
-
-        self.no_button = Button(text=self.locales['save']['no'], font_size=SMALL_FONT, background_normal='assets/red_normal.png', background_down='assets/red_down.png', border=(30, 30, 30, 30), size_hint=(0.2, 0.1), pos_hint={'x': 0.75, 'y': 0.1})
+        self.no_button = ImageButton(
+            source='./assets/icons/trash.png',
+            fit_mode='contain',
+            size_hint=(0.15, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.05},
+            background_color=(.937, .325, .314, 1),
+        )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
 
         self.add_widget(self.layout)
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('ConfirmSaveScreen: on_entry().')
-        self.auto_confirm = Clock.schedule_once(self.timer_event, 20)
-        self._clock = Clock.schedule_once(self.tick_event, 1)
+        self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
         self.preview.source = self.app.get_collage()
-        self.time_remaining = 20
-        self.yes_button.text = self.locales['save']['yes'].format(self.time_remaining)
+        self.preview.reload()
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('ConfirmSaveScreen: on_leave().')
         self.app.ringled.stop()
-        Clock.unschedule(self._clock)
 
     def yes_event(self, obj):
         Clock.unschedule(self.auto_confirm)
-        Clock.unschedule(self._clock)
         self.app.save_collage()
         self.app.transition_to(ScreenMgr.SUCCESS)
 
     def no_event(self, obj):
         Clock.unschedule(self.auto_confirm)
-        Clock.unschedule(self._clock)
-        if self.app.get_shots_to_take() == 1: self.app.transition_to(ScreenMgr.WAITING)
-        else: self.app.transition_to(ScreenMgr.SUCCESS)
-
-    def tick_event(self, obj):
-        self.time_remaining -= 1
-        self.yes_button.text = self.locales['save']['yes'].format(self.time_remaining)
-        self._clock = Clock.schedule_once(self.tick_event, 1)
+        self.app.transition_to(ScreenMgr.WAITING)
 
     def timer_event(self, obj):
         Logger.info('ConfirmSaveScreen: timer_event().')
         Clock.unschedule(self.auto_confirm)
-        Clock.unschedule(self._clock)
         self.app.save_collage()
-        self.app.transition_to(ScreenMgr.SUCCESS)
+        self.app.transition_to(ScreenMgr.WAITING)
 
 class ConfirmPrintScreen(BackgroundScreen):
     """
@@ -621,112 +685,102 @@ class ConfirmPrintScreen(BackgroundScreen):
 
         self.app = app
         self.locales = locales
-        self.time_remaining = 10
         self._current_format = 0
 
-        # Display collage
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
-        self.preview = Image(fit_mode='contain')
-        self.layout.add_widget(self.preview)
 
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
-        title = Button(
-            text=self.locales['print']['title'], # On l'imprime ?
-            border=(30, 30, 30, 30),
+        # Display collage
+        self.preview = Image(
+            fit_mode='contain',
+            size_hint=(0.5, 0.75),
+            pos_hint={'x': 0.1, 'y': 0.05},
+        )
+        overlay_layout.add_widget(self.preview)
+
+        # Add title
+        title = Label(
+            text=self.locales['print']['title'],
             size_hint=(0.8, 0.1),
-            pos_hint={'x': 0.1, 'y': 0.8},
+            pos_hint={'x': 0.1, 'y': 0.85},
             font_size=NORMAL_FONT,
-            background_normal='assets/title.png', background_down='assets/title.png'
         )
         overlay_layout.add_widget(title)
 
-        btn_once = Button(
-            text=self.locales['print']['one_copy'],
-            font_size=SMALL_FONT,
-            background_normal='assets/green_normal.png', background_down='assets/green_down.png',
-            border=(30, 30, 30, 30),
-            size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.05, 'y': 0.1}
+        # Add buttons
+        self.btn_once = ImageButton(
+            source='./assets/icons/save.png',
+            fit_mode='contain',
+            size_hint=(0.15, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.65},
+            background_color=(.4, .733, .416, 1),
         )
-        btn_once.bind(on_release=self.print_once)
-        overlay_layout.add_widget(btn_once)
-
-        btn_twice = Button(
-            text=self.locales['print']['two_copies'],
-            font_size=SMALL_FONT,
-            background_normal='assets/green_normal.png', background_down='assets/green_down.png',
-            border=(30, 30, 30, 30),
-            size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.05, 'y': 0.25}
+        self.btn_once.bind(on_release=self.print_once)
+        overlay_layout.add_widget(self.btn_once)
+        self.btn_twice = ImageButton(
+            source='./assets/icons/save.png',
+            fit_mode='contain',
+            size_hint=(0.15, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.45},
+            background_color=(.4, .733, .416, 1),
         )
-        btn_twice.bind(on_release=self.print_twice)
-        overlay_layout.add_widget(btn_twice)
-
-        btn_3times = Button(
-            text=self.locales['print']['three_copies'],
-            font_size=SMALL_FONT,
-            background_normal='assets/green_normal.png', background_down='assets/green_down.png',
-            border=(30, 30, 30, 30),
-            size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.05, 'y': 0.4}
+        self.btn_twice.bind(on_release=self.print_twice)
+        overlay_layout.add_widget(self.btn_twice)
+        self.btn_3times = ImageButton(
+            source='./assets/icons/save.png',
+            fit_mode='contain',
+            size_hint=(0.15, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.25},
+            background_color=(.4, .733, .416, 1),
         )
-        btn_3times.bind(on_release=self.print_3times)
-        overlay_layout.add_widget(btn_3times)
-
-        self.no_button = Button(text=self.locales['print']['no'].format(self.time_remaining), font_size=SMALL_FONT, background_normal='assets/red_normal.png', background_down='assets/red_down.png', border=(30, 30, 30, 30), size_hint=(0.2, 0.1), pos_hint={'x': 0.75, 'y': 0.1})
+        self.btn_3times.bind(on_release=self.print_3times)
+        overlay_layout.add_widget(self.btn_3times)
+        self.no_button = ImageButton(
+            source='./assets/icons/trash.png',
+            fit_mode='contain',
+            size_hint=(0.15, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.05},
+            background_color=(.937, .325, .314, 1),
+        )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
 
         self.add_widget(self.layout)
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_entry().')
-        self._current_format = int(args[0][0]) if len(args) and len(args[0]) else 0
-        self.auto_decline = Clock.schedule_once(self.timer_event, 10)
-        self._clock = Clock.schedule_once(self.tick_event, 1)
+        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self.auto_decline = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
         self.preview.source = self.app.get_collage()
-        self.time_remaining = 10
-        self.no_button.text = self.locales['print']['no'].format(self.time_remaining)
+        self.preview.reload()
         self.app.save_collage()
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_leave().')
         self.app.ringled.stop()
-        Clock.unschedule(self._clock)
 
     def print_once(self, obj):
         Clock.unschedule(self.auto_decline)
-        Clock.unschedule(self._clock)
-        self.app.transition_to(ScreenMgr.PRINTING, 1, self._current_format)
+        self.app.transition_to(ScreenMgr.PRINTING, copies=1, format=self._current_format)
 
     def print_twice(self, obj):
         Clock.unschedule(self.auto_decline)
-        Clock.unschedule(self._clock)
-        self.app.transition_to(ScreenMgr.PRINTING, 2, self._current_format)
+        self.app.transition_to(ScreenMgr.PRINTING, copies=2, format=self._current_format)
 
     def print_3times(self, obj):
         Clock.unschedule(self.auto_decline)
-        Clock.unschedule(self._clock)
-        self.app.transition_to(ScreenMgr.PRINTING, 3, self._current_format)
+        self.app.transition_to(ScreenMgr.PRINTING, copies=3, format=self._current_format)
 
     def no_event(self, obj):
         Clock.unschedule(self.auto_decline)
-        Clock.unschedule(self._clock)
-        if self.app.get_shots_to_take(self._current_format) == 1: self.app.transition_to(ScreenMgr.WAITING)
-        else: self.app.transition_to(ScreenMgr.SUCCESS)
-
-    def tick_event(self, obj):
-        self.time_remaining -= 1
-        self.no_button.text = self.locales['print']['no'].format(self.time_remaining)
-        self._clock = Clock.schedule_once(self.tick_event, 1)
+        self.app.transition_to(ScreenMgr.WAITING)
 
     def timer_event(self, obj):
         Logger.info('ConfirmPrintScreen: timer_event().')
-        if self.app.get_shots_to_take(self._current_format) == 1: self.app.transition_to(ScreenMgr.WAITING)
-        else: self.app.transition_to(ScreenMgr.SUCCESS)
+        self.app.transition_to(ScreenMgr.WAITING)
 
 class PrintingScreen(BackgroundScreen):
     """
@@ -757,20 +811,20 @@ class PrintingScreen(BackgroundScreen):
         self.wait_idx = 0
         self.wait_count = 0
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('PrintingScreen: on_entry().')
         self.app.ringled.start_rainbow()
-        copies = int(args[0][0]) if len(args) and len(args[0]) else 1
-        self._current_format = int(args[0][1]) if len(args) and len(args[0]) else 0
+        self._current_copies = kwargs.get('copies') if 'copies' in kwargs else 0
+        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
 
         # Trigger print
         try:
-            self._print_task_id = self.app.trigger_print(copies, self._current_format)
+            self._print_task_id = self.app.trigger_print(self._current_copies, self._current_format)
             self._clock = Clock.schedule_once(self.timer_event, 1)
         except:
-            return self.app.transition_to(ScreenMgr.ERROR, self.locales['printing']['error'])
+            return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error'])
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('PrintingScreen: on_leave().')
         Clock.unschedule(self._clock)
         self.app.ringled.stop()
@@ -815,13 +869,13 @@ class SuccessScreen(BackgroundScreen):
         self.layout.add_widget(self.start_button)
         self.add_widget(self.layout)
 
-    def on_entry(self, *args):
+    def on_entry(self, kwargs={}):
         Logger.info('SuccessScreen: on_entry().')
         self.start_button.text = random.choice(self.locales['success']['content'])
-        self._clock = Clock.schedule_once(self.timer_event, 5)
+        self._clock = Clock.schedule_once(self.timer_event, 2)
         self.app.ringled.blink((0, 255, 0, 0))
 
-    def on_leave(self, *args):
+    def on_leave(self, kwargs={}):
         Logger.info('SuccessScreen: on_leave().')
         Clock.unschedule(self._clock)
         self.app.ringled.stop()
