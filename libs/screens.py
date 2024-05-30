@@ -11,7 +11,7 @@ from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.core.window import Window
 
-from libs.kivywidgets import KivyCamera, BorderedLabel
+from libs.kivywidgets import KivyCamera, ImageButton, BorderedLabel
 
 XLARGE_FONT = 400
 LARGE_FONT = 130
@@ -166,22 +166,22 @@ class SelectFormatScreen(BackgroundScreen):
 
         # Add preview
         available_formats = self.app.get_layout_previews()
-        preview_left = Image(
+        preview_left = ImageButton(
             source=available_formats[0],
             fit_mode='contain',
             size_hint=(0.2, 0.7),
             pos_hint={'x': 0.75, 'y': 0.02},
         )
         overlay_layout.add_widget(preview_left)
-        preview_left.bind(on_touch_down=self.on_click_left)
-        preview_right = Image(
+        preview_left.bind(on_release=self.on_click_left)
+        preview_right = ImageButton(
             source=available_formats[1],
             fit_mode='contain',
             size_hint=(0.4, 0.7),
             pos_hint={'x': 0.05, 'y': 0.02},
         )
         overlay_layout.add_widget(preview_right)
-        preview_right.bind(on_touch_down=self.on_click_right)
+        preview_right.bind(on_release=self.on_click_right)
 
         # Add arrows
         arrow_left = Image(

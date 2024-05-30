@@ -2,6 +2,7 @@ from kivy.clock import Clock
 from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.lang import Builder
+from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics.texture import Texture
 from kivy.graphics import Rectangle, Color
 
@@ -32,6 +33,9 @@ class KivyCamera(Image):
         self.texture = image_texture
         if not self._stop:
             self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)
+
+class ImageButton(ButtonBehavior, Image):
+    pass
 
 Builder.load_string("""
 <BorderedLabel@Label>:
