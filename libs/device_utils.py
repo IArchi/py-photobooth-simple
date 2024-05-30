@@ -1,6 +1,7 @@
 import io
 import os
 import shlex
+import tempfile
 import subprocess
 import numpy as np
 from PIL import Image
@@ -176,27 +177,34 @@ class DeviceUtils:
         elif self._gp_cam_proxy:
             self._gp_cam_proxy.exit()
 
-    def get_preview(self):
+    def get_preview(self, square=False):
         if self._rpi_cam_proxy:
             im = self._rpi_cam_proxy.capture_array()
-            return (1280, 960), im.tostring()
+            nparr = np.fromstring(im, np.uint8)
+            img_np = cv2.imdecode(nparr, cv2.CV_LOAD_IMAGE_COLOR)
+            img_np = cv2.cvtColor(img_np, cv2.cv.CV_BGR2RGB)
+            if square: img_np = self._crop_to_square(img_np)
+            return (img_np.shape[1], img_np.shape[0]), img_np.tostring()
+            #return (1280, 960), im.tostring()
         elif self._cv_cam_proxy:
-            ret, frame = self._cv_cam_proxy.read()
+            ret, im = self._cv_cam_proxy.read()
             if not ret: return None
-            buf1 = cv2.flip(frame, 0)
-            return (frame.shape[1], frame.shape[0]), buf1.tostring()
+            im = cv2.flip(im, 0)
+            im = cv2.flip(im, 1)
+            if square: im = self._crop_to_square(im)
+            return (im.shape[1], im.shape[0]), im.tostring()
         elif self._gp_cam_proxy:
             im = self._gp_cam_proxy.get_preview()
-            pil_image = Image.open(io.BytesIO(im))
-            pil_image = pil_image.convert('RGB')
-            raw_data = np.array(pil_image)
-            bgr_data = raw_data[..., ::-1].tobytes() # Convert 'RGB' to 'BGR'
-            width, height = pil_image.size
-            return (width, height), bgr_data
+            nparr = np.fromstring(im, np.uint8)
+            img_np = cv2.imdecode(nparr, cv2.CV_LOAD_IMAGE_COLOR)
+            img_np = cv2.cvtColor(img_np, cv2.cv.CV_BGR2RGB)
+            if square: img_np = self._crop_to_square(img_np)
+            return (img_np.shape[1], img_np.shape[0]), img_np.tostring()
         return None, None
 
-    def capture(self, output_name):
-        Logger.info('DeviceUtils: capture({}).'.format(output_name))
+    def capture(self, output_name, square=False):
+        Logger.info('DeviceUtils: capture({}, {}).'.format(output_name, square))
+        tmp_file, tmp_filename = tempfile.mkstemp()
         if self._gp_cam_proxy:
             # Use gphoto2
             #cmd = 'gphoto2 --capture-image-and-download --filename {filename} --set-config manualfocusdrive=6 --keep --force-overwrite'.format(filename=output_name)
@@ -217,22 +225,50 @@ class DeviceUtils:
             file_path = self._gp_cam_proxy.capture(to_camera_storage=True)
             Logger.info('Camera file path: {0}/{1}'.format(file_path.folder, file_path.name))
             camera_file = self._gp_cam_proxy.file_get(file_path.folder, file_path.name, gp.GP_FILE_TYPE_NORMAL)
-            camera_file.save(output_name)
-            return []
+
+            if square:
+                camera_file.save(tmp_filename)
+                im_cv = cv2.imread(tmp_filename)
+                im_cv = self._crop_to_square(im_cv)
+                cv2.imwrite(output_name, im_cv)
+            else:
+                camera_file.save(output_name)
+
         # Fallback using the PiCamera
         elif self._rpi_cam_proxy:
             self._rpi_cam_proxy.start()
-            self._rpi_cam_proxy.switch_mode_and_capture_file(self._rpi_cam_proxy.create_still_configuration(main={'size': (1280, 720)},lores={'size': (1280, 720)},encode='lores',buffer_count=3,display='lores',transform=Transform(hflip=True, vflip=False)), output_name)
+            self._rpi_cam_proxy.switch_mode_and_capture_file(self._rpi_cam_proxy.create_still_configuration(main={'size': (1280, 720)},lores={'size': (1280, 720)},encode='lores',buffer_count=3,display='lores',transform=Transform(hflip=True, vflip=False)), tmp_filename if square else output_name)
             self._rpi_cam_proxy.stop()
-            return []
+
+            if square:
+                im_cv = cv2.imread(tmp_filename)
+                im_cv = self._crop_to_square(im_cv)
+                cv2.imwrite(output_name, im_cv)
+
         # Fallback using the Cv2 webcam
         elif self._cv_cam_proxy:
-            ret, frame = self._cv_cam_proxy.read()
+            ret, im_cv = self._cv_cam_proxy.read()
             if ret:
-                buf1 = cv2.flip(frame, 0)
-                cv2.imwrite(output_name, frame)
-            return []
-        return []
+                #im_cv = cv2.flip(im_cv, 0)
+                if square: im_cv = self._crop_to_square(im_cv)
+                cv2.imwrite(output_name, im_cv)
+
+        os.remove(tmp_filename)
+
+    def _crop_to_square(self, image):
+        height, width, _ = image.shape
+
+        # Determine the size of the square
+        size = min(width, height)
+
+        # Calculate the coordinates for the crop
+        left = (width - size) // 2
+        top = (height - size) // 2
+        right = left + size
+        bottom = top + size
+
+        # Crop the image
+        return image[top:bottom, left:right]
 
     def has_printer(self):
         return self._printer_proxy is not None
