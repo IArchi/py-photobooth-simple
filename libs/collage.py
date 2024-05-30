@@ -4,12 +4,14 @@ import math
 from kivy.logger import Logger
 
 class Collage:
-    def __init__(self, count=1, hw_ratio=8/6, two_cols=False, print_format=None):
+    # TODO : Use a better way to create layout. PSD with replace images ?
+    def __init__(self, count=1, hw_ratio=8/6, two_cols=False, print_format=None, preview=None):
         Logger.info('Collage: __init__()')
         self._count = count
         self._hw_ratio = hw_ratio
         self._two_cols = two_cols
         self._print_format = print_format
+        self._preview = preview
 
     def get_photos_required(self):
         Logger.info('Collage: get_photos_required()')
@@ -18,6 +20,10 @@ class Collage:
     def get_print_format(self):
         Logger.info('Collage: get_print_format()')
         return self._print_format
+
+    def get_preview(self):
+        Logger.info('Collage: get_preview()')
+        return self._preview
 
     def assemble(self, output_name='collage.jpg', photos=[], logo=None):
         Logger.info('Collage: assemble({})'.format(output_name))
@@ -96,7 +102,7 @@ class Collage:
         return result
 
 class CollageManager:
-    PORTRAIT_8x3 = Collage(count=3, hw_ratio=8/3, print_format='Custom.3x8in')
-    PORTRAIT_8x6 = Collage(count=2, hw_ratio=8/6, print_format='Custom.6x8in')
-    LANDSCAPE_6x8 = Collage(count=1, hw_ratio=6/8, print_format='Custom.6x8in')
-    LANDSCAPE_6x8_2COLS = Collage(count=3, hw_ratio=6/8, two_cols=True, print_format='Custom.6x8in')
+    PORTRAIT_8x3 = Collage(count=3, hw_ratio=8/3, print_format='Custom.3x8in', preview='./assets/layouts/PORTRAIT_8x3.jpg')
+    PORTRAIT_8x6 = Collage(count=2, hw_ratio=8/6, print_format='Custom.6x8in', preview='./assets/layouts/PORTRAIT_8x6.jpg')
+    LANDSCAPE_6x8 = Collage(count=1, hw_ratio=6/8, print_format='Custom.6x8in', preview='./assets/layouts/LANDSCAPE_6x8.jpg')
+    LANDSCAPE_6x8_2COLS = Collage(count=3, hw_ratio=6/8, two_cols=True, print_format='Custom.6x8in', preview='./assets/layouts/LANDSCAPE_6x8_2COLS.jpg')
