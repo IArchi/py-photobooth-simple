@@ -1,6 +1,7 @@
 # TODO
 
- - Select backgrounds
+ - Improve print icons
  - Improve ImageButton to have some text on the right
  - Test with DSLR and piCamera2
- - Display a black image when camera is loading
+ - Find a better way to create layout. PSD with replace images ?
+ - UI for Ready, Processing and Success
