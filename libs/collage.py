@@ -4,7 +4,6 @@ import math
 from kivy.logger import Logger
 
 class Collage:
-    # TODO : Use a better way to create layout. PSD with replace images ?
     def __init__(self, count=1, hw_ratio=8/6, squared=False, two_cols=False, print_format=None, preview=None):
         Logger.info('Collage: __init__()')
         self._count = count

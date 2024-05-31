@@ -6,8 +6,9 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics.texture import Texture
 from kivy.graphics import Rectangle, Color
-from kivy.properties import ColorProperty
+from kivy.properties import ColorProperty, StringProperty, ListProperty, NumericProperty
 from kivy.logger import Logger
+import numpy as np
 
 # Widget to display camera
 class KivyCamera(Image):
@@ -16,7 +17,7 @@ class KivyCamera(Image):
         self._app = app
         self._fps = fps
         self._stop = False
-
+        self.create_empty_texture()
 
     def start(self, square=False):
         self._stop = False
@@ -28,6 +29,18 @@ class KivyCamera(Image):
         self._stop = True
         Clock.unschedule(self._clock)
         self._app.devices.stop_preview()
+
+    def create_empty_texture(self):
+        width, height = self.size
+        # Create a numpy array in 'bgr' format
+        black_color = np.zeros((height, width, 3), dtype=np.uint8)
+
+        # Create a texture
+        texture = Texture.create(size=(width, height), colorfmt='bgr')
+        texture.blit_buffer(black_color.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
+        texture.flip_vertical()
+
+        self.texture = texture
 
     def _update(self, args):
         try:
@@ -58,20 +71,39 @@ class BackgroundBoxLayout(BoxLayout):
     background_color = ColorProperty()
 
 Builder.load_string("""
-<ImageButton@Image>:
-    background_color: 0, 0, 0, 0
-    padding: (0, 0, 0, 0)
-
+<ImageButton>:
+    orientation: 'horizontal'
     canvas.before:
         Color:
             rgba: self.background_color
         RoundedRectangle:
-            size: (self.size[0]+self.size[0]*0.2, self.size[1]+self.size[1]*0.6)
-            pos: (self.pos[0]-self.size[0]*0.1, self.pos[1]-self.size[1]*0.3)
-            radius: [15, 0, 0, 15]
+            size: (self.size[0]+self.size[0]*0.2, self.size[1]+self.size[1]*0.2)
+            pos: (self.pos[0]-self.size[0]*0.1, self.pos[1]-self.size[1]*0.1)
+            radius: [self.border_radius, 0, 0, self.border_radius]
+
+    Image:
+        source: root.source
+        size_hint: None, None
+        size: root.height * 0.8, root.height
+        fit_mode: 'contain'
+        keep_ratio: True
+
+    Label:
+        text: root.text
+        size_hint: None, None
+        size: root.width - root.height * 0.8, root.height
+        color: root.text_color
+        halign: 'center'
+        valign: 'middle'
+        text_size: self.size
 """)
-class ImageButton(ButtonBehavior, Image):
-    pass
+class ImageButton(ButtonBehavior, BoxLayout):
+    source = StringProperty('')  # Path to the image
+    text = StringProperty('')  # Text to display on the button
+    text_color = ListProperty([1, 1, 1, 1])  # Color of the text
+    background_color = ListProperty([0, 0, 0, 0])  # Background color
+    border_radius = NumericProperty(15)  # Border radius
+
 
 Builder.load_string("""
 <BorderedLabel@Label>:

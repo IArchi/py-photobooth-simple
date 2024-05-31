@@ -61,7 +61,7 @@ class ScreenMgr(ScreenManager):
         if self.app.FULLSCREEN: Window.fullscreen = True
 
 class BackgroundScreen(Screen):
-    def __init__(self, bg='./assets/backgrounds/background0.jpeg', **kwargs):
+    def __init__(self, bg='./assets/backgrounds/bg_default.jpeg', **kwargs):
         super(BackgroundScreen, self).__init__(**kwargs)
         with self.canvas.before:
             self.background_image = Rectangle(pos=self.pos, size=self.size, source=bg)
@@ -169,17 +169,15 @@ class SelectFormatScreen(BackgroundScreen):
         available_formats = self.app.get_layout_previews()
         preview_left = ImageButton(
             source=available_formats[0],
-            fit_mode='contain',
             size_hint=(0.2, 0.7),
-            pos_hint={'x': 0.75, 'y': 0.05},
+            pos_hint={'x': 0.05, 'y': 0.05},
         )
         overlay_layout.add_widget(preview_left)
         preview_left.bind(on_release=self.on_click_left)
         preview_right = ImageButton(
             source=available_formats[1],
-            fit_mode='contain',
-            size_hint=(0.4, 0.7),
-            pos_hint={'x': 0.05, 'y': 0.05},
+            size_hint=(0.2, 0.7),
+            pos_hint={'x': 0.65, 'y': 0.05},
         )
         overlay_layout.add_widget(preview_right)
         preview_right.bind(on_release=self.on_click_right)
@@ -483,19 +481,21 @@ class ConfirmCaptureScreen(BackgroundScreen):
         # Add buttons
         self.yes_button = ImageButton(
             source='./assets/icons/save.png',
-            fit_mode='contain',
-            size_hint=(0.15, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.25},
+            size_hint=(0.2, 0.1),
+            pos_hint={'x': 0.8, 'y': 0.20},
             background_color=(.4, .733, .416, 1),
+            text=self.locales['capture']['save'],
+            text_color=[1, 1, 1, 1],
         )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
         self.no_button = ImageButton(
             source='./assets/icons/trash.png',
-            fit_mode='contain',
-            size_hint=(0.15, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.05},
+            size_hint=(0.2, 0.1),
+            pos_hint={'x': 0.8, 'y': 0.05},
             background_color=(.937, .325, .314, 1),
+            text=self.locales['capture']['trash'],
+            text_color=[1, 1, 1, 1],
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
@@ -625,19 +625,21 @@ class ConfirmSaveScreen(BackgroundScreen):
         # Add buttons
         self.yes_button = ImageButton(
             source='./assets/icons/save.png',
-            fit_mode='contain',
             size_hint=(0.15, 0.1),
             pos_hint={'x': 0.85, 'y': 0.25},
             background_color=(.4, .733, .416, 1),
+            text=self.locales['save']['save'],
+            text_color=[1, 1, 1, 1],
         )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
         self.no_button = ImageButton(
             source='./assets/icons/trash.png',
-            fit_mode='contain',
             size_hint=(0.15, 0.1),
             pos_hint={'x': 0.85, 'y': 0.05},
             background_color=(.937, .325, .314, 1),
+            text=self.locales['save']['trash'],
+            text_color=[1, 1, 1, 1],
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
@@ -678,7 +680,6 @@ class ConfirmPrintScreen(BackgroundScreen):
     | NO          YES |
     +-----------------+
     """
-    # TODO : Add copies with 3 buttons (1, 2, 3 or Ignore)
     def __init__(self, app, locales, **kwargs):
         Logger.info('ConfirmPrintScreen: __init__().')
         super(ConfirmPrintScreen, self).__init__(**kwargs)
@@ -711,38 +712,42 @@ class ConfirmPrintScreen(BackgroundScreen):
 
         # Add buttons
         self.btn_once = ImageButton(
-            source='./assets/icons/save.png',
-            fit_mode='contain',
-            size_hint=(0.15, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.65},
+            source='./assets/icons/print-1.png',
+            size_hint=(0.2, 0.1),
+            pos_hint={'x': 0.8, 'y': 0.46},
             background_color=(.4, .733, .416, 1),
+            text=self.locales['print']['one_copy'],
+            text_color=[1, 1, 1, 1],
         )
         self.btn_once.bind(on_release=self.print_once)
         overlay_layout.add_widget(self.btn_once)
         self.btn_twice = ImageButton(
-            source='./assets/icons/save.png',
-            fit_mode='contain',
-            size_hint=(0.15, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.45},
+            source='./assets/icons/print-2.png',
+            size_hint=(0.2, 0.1),
+            pos_hint={'x': 0.8, 'y': 0.33},
             background_color=(.4, .733, .416, 1),
+            text=self.locales['print']['two_copies'],
+            text_color=[1, 1, 1, 1],
         )
         self.btn_twice.bind(on_release=self.print_twice)
         overlay_layout.add_widget(self.btn_twice)
         self.btn_3times = ImageButton(
-            source='./assets/icons/save.png',
-            fit_mode='contain',
-            size_hint=(0.15, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.25},
+            source='./assets/icons/print-3.png',
+            size_hint=(0.2, 0.1),
+            pos_hint={'x': 0.8, 'y': 0.20},
             background_color=(.4, .733, .416, 1),
+            text=self.locales['print']['three_copies'],
+            text_color=[1, 1, 1, 1],
         )
         self.btn_3times.bind(on_release=self.print_3times)
         overlay_layout.add_widget(self.btn_3times)
         self.no_button = ImageButton(
-            source='./assets/icons/trash.png',
-            fit_mode='contain',
-            size_hint=(0.15, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.05},
+            source='./assets/icons/cancel.png',
+            size_hint=(0.2, 0.1),
+            pos_hint={'x': 0.8, 'y': 0.05},
             background_color=(.937, .325, .314, 1),
+            text=self.locales['print']['no'],
+            text_color=[1, 1, 1, 1],
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)

@@ -19,7 +19,7 @@ class PhotoboothApp(App):
     COUNTDOWN = 3
     ROOT_DIRECTORY = './DCIM' #'/tmp/photobooth'
     PRINTER = 'truc'
-    PRINT_FORMATS = [CollageManager.PORTRAIT_8x3, CollageManager.PORTRAIT_8x6]
+    PRINT_FORMATS = [CollageManager.PORTRAIT_8x6, CollageManager.PORTRAIT_8x3]
 
     def __init__(self, **kwargs):
         Logger.info('PhotoboothApp: __init__().')
@@ -91,7 +91,6 @@ class PhotoboothApp(App):
         return True
 
     def has_printer(self):
-        return True
         return self.devices.has_printer()
 
     def trigger_print(self, copies, format=0):

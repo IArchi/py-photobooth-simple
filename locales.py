@@ -23,21 +23,23 @@ class Locales:
             },
             'capture': {
                 'title': 'Photo {} sur {}',
+                'save': 'Save',
+                'trash': 'Trash',
             },
             'processing': {
                 'content': ['Processing...', 'Still processing...', 'Almost done...', 'Any second now...'],
             },
             'save': {
                 'title': 'Do you want to save this collage ?',
-                'yes': 'Yes ({})',
-                'no': 'No',
+                'save': 'Save',
+                'trash': 'Trash',
             },
             'print': {
                 'title': 'Do you want to print this collage ?',
                 'one_copy': 'One copy',
                 'two_copies': 'Two copies',
                 'three_copies': 'Three copies',
-                'no': 'Ignore ({})',
+                'no': 'Ignore',
             },
             'printing': {
                 'content': ['Resizing...', 'Montaging...', 'Compositing...', 'Printing...'],
