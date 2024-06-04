@@ -7,9 +7,12 @@ from pathlib import Path
 from threading import Event, Thread
 from kivy.logger import Logger
 
+from libs.screens import ScreenMgr
+
 class UsbTransfer:
-    def __init__(self, folder):
+    def __init__(self, app, folder):
         Logger.info('UsbTransfer: __init__().')
+        self._app = app
         self._folder = folder
         self._worker_thread: Thread = None
         self._stop_event = Event()
@@ -46,7 +49,13 @@ class UsbTransfer:
 
         if device.mountpoint:
             if self.has_enough_space(device.mountpoint):
-                self.copy_folders_to_usb(device.mountpoint)
+                self._app.transition_to(ScreenMgr.COPYING)
+                try:
+                    self.copy_folders_to_usb(device.mountpoint)
+                except:
+                    Logger.error('UsbTransfer: Failed to perform folder copy.')
+                finally:
+                    self._app.transition_to(ScreenMgr.WAITING)
             else:
                 Logger.warning("UsbTransfer: Not enough space on USB device {}".format(device.mountpoint))
         else:

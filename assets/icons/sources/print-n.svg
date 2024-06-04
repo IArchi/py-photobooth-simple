@@ -6,8 +6,8 @@
   <path d="m56.25 70.312c4.3086 0 7.8125-3.5039 7.8125-7.8125s-3.5039-7.8125-7.8125-7.8125-7.8125 3.5039-7.8125 7.8125 3.5039 7.8125 7.8125 7.8125zm0-12.5c2.5859 0 4.6875 2.1016 4.6875 4.6875s-2.1016 4.6875-4.6875 4.6875-4.6875-2.1016-4.6875-4.6875 2.1016-4.6875 4.6875-4.6875z"/>
   <path d="m7.8125 68.75c0 2.082-3.125 2.082-3.125 0s3.125-2.082 3.125 0"/>
  </g>
-<g transform="scale(0.5) translate(150, -10)" fill="white">
+<g transform="scale(0.7) translate(85, -10)" fill="white">
   <path d="m91.668 19.832v60.336c-0.023438 6.3398-5.1602 11.477-11.5 11.5h-60.336c-6.3398-0.023438-11.477-5.1602-11.5-11.5v-60.336c0.023438-6.3398 5.1602-11.477 11.5-11.5h60.336c6.3398 0.023438 11.477 5.1602 11.5 11.5z"/>
 </g>
-<text xmlns="http://www.w3.org/2000/svg" x="81" y="32" font-size="35" font-weight="bold" font-family="Arbeit Regular, Helvetica, Arial-Unicode, Arial, Sans-serif" fill="black">x1</text>
+<text xmlns="http://www.w3.org/2000/svg" x="73" y="43" font-size="45" font-weight="bold" font-family="Arbeit Regular, Helvetica, Arial-Unicode, Arial, Sans-serif" fill="black">x1</text>
 </svg>

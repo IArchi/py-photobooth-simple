@@ -65,6 +65,7 @@ class DeviceUtils:
             return  None, None
 
         # Try to detect connected printer
+        printer_found = False
         cups_conn = cups.Connection()
         if not name or name.lower() == 'default':
             printer_found = cups_conn.getDefault()

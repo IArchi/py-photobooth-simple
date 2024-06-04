@@ -6,3 +6,4 @@ adafruit-circuitpython-neopixel-spi
 kivy
 lxml
 opencv-python
+psutil
