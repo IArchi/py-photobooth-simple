@@ -44,6 +44,10 @@ You can also edit `photoboothapp.py` to change some parameters such as:
  - ROOT_DIRECTORY = './DCIM' (Directory in which the photos and collages are stored)
  - PRINTER = 'truc' (The printer's name in CUPS)
 
+## USB dump
+A dedicated thread will handle USB dongles and automatically dump the whole content of the `ROOT_DIRECTORY` to the device.
+Application will not be usable during the copy process but will display a message.
+
 ## TODO
  - Improve print icons
  - Test with DSLR and piCamera2
