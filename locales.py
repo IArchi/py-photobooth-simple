@@ -7,7 +7,7 @@ class Locales:
                 'version': 'Version 1.0',
             },
             'select_format': {
-                'title': 'Select format',
+                'title': 'Select output format',
             },
             'error': {
                 'default': 'An error occured.\nClick to continue',
@@ -17,12 +17,12 @@ class Locales:
                 'content': ['Be ready !', 'Hold on !'],
             },
             'cheese': {
-                'content': ['Cheese!', 'Smile!'],
+                'content': ['Cheese !', 'Smile !'],
                 'wait': 'Please wait ...',
                 'error': 'Cannot trigger camera.',
             },
             'capture': {
-                'title': 'Photo {} on {}',
+                'title': 'Shot {} on {}',
                 'save': 'Save',
                 'trash': 'Trash',
             },
@@ -36,14 +36,15 @@ class Locales:
             },
             'print': {
                 'title': 'Do you want to print this collage ?',
-                'one_copy': 'One copy',
-                'two_copies': 'Two copies',
-                'three_copies': 'Three copies',
+                'one_copy': 'Print once',
+                'two_copies': 'Print twice',
+                'three_copies': 'Print three copies',
                 'no': 'Ignore',
             },
             'printing': {
-                'content': ['Resizing...', 'Montaging...', 'Compositing...', 'Printing...'],
+                'content': ['Printing...', 'Be patient...', 'Almost done...', 'Any second now...'],
                 'error': 'Cannot print collage.\nDon\'t worry, collage has been saved ;)',
+                'error_toolong': 'Printer might be stuck.',
             },
             'success': {
                 'content': ['Perfect !', 'Awesome !', 'Wahou !'],
@@ -98,6 +99,7 @@ class Locales:
             'printing': {
                 'content': ['Impression en cours ...', 'Patience ...', 'Ça arrive ...', 'On y est presque ...'],
                 'error': 'Impossible d\'imprimer l\'image.\nElle a quand même été sauvegardée ;)',
+                'error_toolong': 'L\'imprimante est peut être bloquée.',
             },
             'success': {
                 'content': ['Parfait !', 'Merci !', 'Wahou !', 'Trop classe !'],
