@@ -232,31 +232,28 @@ class ErrorScreen(BackgroundScreen):
         self.app = app
         self.locales = locales
 
-        self.continue_button = Button(
+        self.label = ShadowLabel(
             text=self.locales['error']['default'],
             halign='center',
             valign='middle',
-            font_size=LARGE_FONT,
-            background_color=(0, 0, 1, 1)
+            font_size=LARGE_FONT
         )
-        self.continue_button.bind(on_release=self.on_click_continue)
 
         self.layout = BoxLayout()
-        self.layout.add_widget(self.continue_button)
+        self.layout.add_widget(self.label)
+        self.layout.bind(on_touch_down=self.on_click)
+        
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
-        if 'error' in kwargs: self.continue_button.text = "{}\nClick to continue".format(str(kwargs.get('error')))
+        if 'error' in kwargs: self.label.text = "{}\nClick to continue".format(str(kwargs.get('error')))
 
     def on_leave(self, kwargs={}):
         Logger.info('ErrorScreen: on_leave().')
 
-    def set_error(self, label):
-        self.continue_button.text = self.locales['error']['content'].format(label)
-
-    def on_click_continue(self):
-        Logger.info('ErrorScreen: on_click_continue().')
+    def on_click(self):
+        Logger.info('ErrorScreen: on_click().')
         self.app.transition_to(ScreenMgr.WAITING)
 
 class ReadyScreen(BackgroundScreen):

@@ -22,7 +22,7 @@ class Locales:
                 'error': 'Cannot trigger camera.',
             },
             'capture': {
-                'title': 'Photo {} sur {}',
+                'title': 'Photo {} on {}',
                 'save': 'Save',
                 'trash': 'Trash',
             },
@@ -50,5 +50,59 @@ class Locales:
             },
             'copying': {
                 'content': 'Copying to USB dongle\nDo not remove or turn off !',
+            },
+        }
+    
+    @staticmethod
+    def get_FR(self):
+        return {
+            'waiting': {
+                'action': 'Appuyez pour démarrer',
+                'version': 'Version 1.0',
+            },
+            'select_format': {
+                'title': 'Selectionnez le format de sortie',
+            },
+            'error': {
+                'default': 'Une erreur s\'est produite.\nApouyez pour continuer.',
+                'content': '{}\nApouyez pour continuer.',
+            },
+            'ready': {
+                'content': ['Prêts ?', 'Parés ?', 'Au taquet ?'],
+            },
+            'cheese': {
+                'content': ['Souriez !', 'Cheese !'],
+                'wait': 'Veuillez patienter ...',
+                'error': 'Impossible de prendre la photo.',
+            },
+            'capture': {
+                'title': 'Photo {} sur {}',
+                'save': 'Sauver',
+                'trash': 'Refaire',
+            },
+            'processing': {
+                'content': ['Traitement en cours ...', 'Ça mouline toujours ...', 'On y est presque ...', 'Encore un peu de patience ...'],
+            },
+            'save': {
+                'title': 'Voulez-vous sauvegarder ce montage ?',
+                'save': 'Sauver',
+                'trash': 'Non',
+            },
+            'print': {
+                'title': 'Voulez-vous imprimer ce montage ?',
+                'one_copy': 'Imprimer 1 fois',
+                'two_copies': 'Imprimer 2 fois',
+                'three_copies': 'Imprimer 3 fois',
+                'no': 'Ignore',
+            },
+            'printing': {
+                'content': ['Impression en cours ...', 'Patience ...', 'Ça arrive ...', 'On y est presque ...'],
+                'error': 'Impossible d\'imprimer l\'image.\nElle a quand même été sauvegardée ;)',
+            },
+            'success': {
+                'content': ['Parfait !', 'Merci !', 'Wahou !', 'Trop classe !'],
+            },
+            'copying': {
+                'content': 'Transfert des photos sur le support USB.\nNe le retirez pas jusqu\'à ce que cet écran disparaisse !',
             },
         }
