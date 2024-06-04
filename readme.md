@@ -21,7 +21,7 @@ By default, it will try to use the best available quality:
 If one of these is not available, it will use the first available one.
 
 ## Compatibility
-Tested on MacOs Sonoma and RaspberryPi 5 8GB.
+Tested on MacOs Sonoma and RaspberryPi 5 8GB with Arducam 64MB.
 
 ## Installation
 To install dependencies:
