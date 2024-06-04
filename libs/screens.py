@@ -13,11 +13,11 @@ from kivy.core.window import Window
 
 from libs.kivywidgets import *
 
-XLARGE_FONT = 400
-LARGE_FONT = 130
-NORMAL_FONT = 80
-SMALL_FONT = 50
-TINY_FONT = 30
+XLARGE_FONT = '200sp'
+LARGE_FONT = '70sp'
+NORMAL_FONT = '50sp'
+SMALL_FONT = '30sp'
+TINY_FONT = '15sp'
 
 BACKGROUND_PINK_100 = (0.97, 0.73, 0.81, 1)
 
@@ -232,17 +232,32 @@ class ErrorScreen(BackgroundScreen):
         self.app = app
         self.locales = locales
 
+        self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
+
+        overlay_layout = FloatLayout()
+        self.layout.add_widget(overlay_layout)
+
+        # Display icon
+        icon = Image(
+            source='./assets/icons/error.png',
+            fit_mode='contain',
+            size_hint=(0.2, 0.2),
+            pos_hint={'x': 0.4, 'y': 0.7},
+        )
+        overlay_layout.add_widget(icon)
+
+        # Display message
         self.label = ShadowLabel(
             text=self.locales['error']['default'],
             halign='center',
-            valign='middle',
-            font_size=LARGE_FONT
+            valign='top',
+            font_size=NORMAL_FONT,
+            size_hint=(0.8, 0.6),
+            pos_hint={'x': 0.1, 'y': 0.2},
         )
+        overlay_layout.add_widget(self.label)
 
-        self.layout = BoxLayout()
-        self.layout.add_widget(self.label)
         self.layout.bind(on_touch_down=self.on_click)
-        
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
@@ -252,7 +267,7 @@ class ErrorScreen(BackgroundScreen):
     def on_leave(self, kwargs={}):
         Logger.info('ErrorScreen: on_leave().')
 
-    def on_click(self):
+    def on_click(self, obj, pos):
         Logger.info('ErrorScreen: on_click().')
         self.app.transition_to(ScreenMgr.WAITING)
 
@@ -380,7 +395,7 @@ class CheeseScreen(Screen):
             text=self.locales['cheese']['content'][0],
             halign='center',
             valign='middle',
-            font_size=XLARGE_FONT
+            font_size=LARGE_FONT
         )
         self.layout = BackgroundBoxLayout(
             background_color=(0,0,0,1),
@@ -811,6 +826,8 @@ class PrintingScreen(BackgroundScreen):
 
         self.wait_idx = 0
         self.wait_count = 0
+        self._clock = None
+        self._auto_cancel = None
 
     def on_entry(self, kwargs={}):
         Logger.info('PrintingScreen: on_entry().')
@@ -822,12 +839,14 @@ class PrintingScreen(BackgroundScreen):
         try:
             self._print_task_id = self.app.trigger_print(self._current_copies, self._current_format)
             self._clock = Clock.schedule_once(self.timer_event, 1)
+            self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
         except:
             return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error'])
 
     def on_leave(self, kwargs={}):
         Logger.info('PrintingScreen: on_leave().')
-        Clock.unschedule(self._clock)
+        if self._clock: Clock.unschedule(self._clock)
+        if self._auto_cancel: Clock.unschedule(self._auto_cancel)
         self.app.ringled.stop()
 
     def timer_event(self, obj):
@@ -836,11 +855,16 @@ class PrintingScreen(BackgroundScreen):
             self.wait_count += 1
             if self.wait_count % 3 == 0:
                 self.wait_idx = (self.wait_idx + 1) % len(self.locales['printing']['content'])
-                self.status.font_size = SMALL_FONT
                 self.status.text = self.locales['printing']['content'][self.wait_idx]
             self._clock = Clock.schedule_once(self.timer_event, 1)
         else:
+            if self._clock: Clock.unschedule(self._clock)
+            if self._auto_cancel: Clock.unschedule(self._auto_cancel)
             self.app.transition_to(ScreenMgr.SUCCESS)
+
+    def timer_toolong(self, obj):
+        Logger.info('PrintingScreen: timer_toolong().')
+        self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error_toolong'])
 
 class SuccessScreen(BackgroundScreen):
     """
