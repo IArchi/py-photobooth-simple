@@ -34,6 +34,16 @@ To start the application:
 python3 photoboothapp.py
 ```
 
+## Customization
+To customize collages, you can edit `logo.png`. As a PNG file, you can use transparency.
+
+You can also edit `photoboothapp.py` to change some parameters such as:
+ - LOCALES = Locales.get_EN (To select language to use)
+ - FULLSCREEN = False (If set to True, the window fill take all available space)
+ - COUNTDOWN = 3 (Countdown before the photo is taken)
+ - ROOT_DIRECTORY = './DCIM' (Directory in which the photos and collages are stored)
+ - PRINTER = 'truc' (The printer's name in CUPS)
+
 ## TODO
  - Improve print icons
  - Test with DSLR and piCamera2
