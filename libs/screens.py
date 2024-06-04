@@ -19,8 +19,6 @@ NORMAL_FONT = '50sp'
 SMALL_FONT = '30sp'
 TINY_FONT = '15sp'
 
-BACKGROUND_PINK_100 = (0.97, 0.73, 0.81, 1)
-
 class ScreenMgr(ScreenManager):
     """Screen Manager for the photobooth screens."""
     # Screen names.
