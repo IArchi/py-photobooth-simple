@@ -904,21 +904,31 @@ class CopyingScreen(BackgroundScreen):
 
         self.app = app
         self.locales = locales
+        self._count = 0
 
-        label = ShadowLabel(
+        self.label = ShadowLabel(
             text=self.locales['copying']['content'],
             halign='center',
             valign='middle',
             font_size=LARGE_FONT
         )
         self.layout = BoxLayout()
-        self.layout.add_widget(label)
+        self.layout.add_widget(self.label)
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('CopyingScreen: on_entry().')
         self.app.ringled.start_rainbow()
+        self._clock = Clock.schedule_once(self.timer_event, 1)
 
     def on_leave(self, kwargs={}):
         Logger.info('CopyingScreen: on_leave().')
+        Clock.unschedule(self._clock)
         self.app.ringled.stop()
+
+    def timer_event(self, obj):
+        Logger.info('CopyingScreen: timer_event().')
+        self._count += 1
+        self._count = self._count % 3
+        self.label.text = self.locales['copying']['content'] + ('.' * self._count)
+        
