@@ -19,7 +19,6 @@ class PhotoboothApp(App):
     COUNTDOWN = 3
     ROOT_DIRECTORY = './DCIM' #'/tmp/photobooth'
     PRINTER = 'truc'
-    PRINT_FORMATS = [CollageManager.PORTRAIT_8x6, CollageManager.PORTRAIT_8x3]
 
     def __init__(self, **kwargs):
         Logger.info('PhotoboothApp: __init__().')
@@ -29,6 +28,7 @@ class PhotoboothApp(App):
         self.processes = []
         self.ringled = RingLed()
         self.devices = DeviceUtils(printer_name=self.PRINTER)
+        self.print_formats = [CollageManager.POLAROID, CollageManager.STRIP]
 
         # Create required directories
         self.tmp_directory = os.path.join(self.ROOT_DIRECTORY, 'tmp')
@@ -38,7 +38,7 @@ class PhotoboothApp(App):
         if not os.path.exists(self.save_directory): os.makedirs(self.save_directory)
 
         # Start USB transfer
-        UsbTransfer(self.save_directory).start()
+        UsbTransfer(self, self.save_directory).start()
 
     def build(self):
         Logger.info('PhotoboothApp: build().')
@@ -60,17 +60,17 @@ class PhotoboothApp(App):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png')
 
     def get_shots_to_take(self, format=0):
-        return self.PRINT_FORMATS[format].get_photos_required()
+        return self.print_formats[format].get_photos_required()
 
     def get_layout_previews(self, format=0):
-        return [f.get_preview() for f in self.PRINT_FORMATS]
+        return [f.get_preview(self.get_logo()) for f in self.print_formats]
 
     def is_square_format(self, format_idx):
-        return self.PRINT_FORMATS[format_idx].is_squared()
+        return self.print_formats[format_idx].is_squared()
 
     def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
-        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), self.PRINT_FORMATS[format_idx].is_squared()))
+        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), self.print_formats[format_idx].is_squared()))
         self.processes = [t]
         t.start()
 
@@ -82,7 +82,7 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_collage().')
         photos = []
         for i in range(0, self.get_shots_to_take(format)): photos.append(self.get_shot(i))
-        t = threading.Thread(target=self.PRINT_FORMATS[format].assemble, kwargs={'output_name':self.get_collage(), 'photos':photos, 'logo':self.get_logo()})
+        t = threading.Thread(target=self.print_formats[format].assemble, kwargs={'output_path':self.get_collage(), 'image_paths':photos, 'logo_path':self.get_logo()})
         self.processes = [t]
         t.start()
 
@@ -91,11 +91,12 @@ class PhotoboothApp(App):
         return True
 
     def has_printer(self):
+        return True
         return self.devices.has_printer()
 
     def trigger_print(self, copies, format=0):
         Logger.info('PhotoboothApp: trigger_print().')
-        return self.devices.print(self.get_collage(), copies=copies, print_format=self.PRINT_FORMATS[format].get_print_format())
+        return self.devices.print(self.get_collage(), copies=copies, print_format=self.print_formats[format].get_print_format())
 
     def is_print_completed(self, print_task_id):
         return self.devices.get_print_status(print_task_id) == 'done'

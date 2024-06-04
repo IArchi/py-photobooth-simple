@@ -71,7 +71,22 @@ class BackgroundBoxLayout(BoxLayout):
     background_color = ColorProperty()
 
 Builder.load_string("""
-<ImageButton>:
+<ImageButton@Image>:
+    background_color: 0, 0, 0, 0
+    padding: (0, 0, 0, 0)
+    canvas.before:
+        Color:
+            rgba: self.background_color
+        RoundedRectangle:
+            size: (self.size[0]+self.size[0]*0.2, self.size[1]+self.size[1]*0.2)
+            pos: (self.pos[0]-self.size[0]*0.1, self.pos[1]-self.size[1]*0.1)
+            radius: [15, 0, 0, 15]
+""")
+class ImageButton(ButtonBehavior, Image):
+    pass
+
+Builder.load_string("""
+<ImageLabelButton>:
     orientation: 'horizontal'
     canvas.before:
         Color:
@@ -97,7 +112,7 @@ Builder.load_string("""
         valign: 'middle'
         text_size: self.size
 """)
-class ImageButton(ButtonBehavior, BoxLayout):
+class ImageLabelButton(ButtonBehavior, BoxLayout):
     source = StringProperty('')  # Path to the image
     text = StringProperty('')  # Text to display on the button
     text_color = ListProperty([1, 1, 1, 1])  # Color of the text
@@ -124,3 +139,24 @@ class BorderedLabel(Label):
         if 'border_width' in kwargs:
             self.border_width = kwargs.pop('border_width')
         super(BorderedLabel, self).__init__(**kwargs)
+
+Builder.load_string("""
+<ShadowLabel>:
+    canvas.before:
+        Color:
+            rgba: root.tint
+
+        Rectangle:
+            pos:
+                int(self.center_x - self.texture_size[0] / 2.) + root.decal[0],\
+                int(self.center_y - self.texture_size[1] / 2.) + root.decal[1]
+
+            size: root.texture_size
+            texture: root.texture
+
+        Color:
+            rgba: 1, 1, 1, 1
+""")
+class ShadowLabel(Label):
+    decal = ListProperty([7, -7])
+    tint = ListProperty([.5, .5, 1, .5])

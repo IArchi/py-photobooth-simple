@@ -36,6 +36,7 @@ class ScreenMgr(ScreenManager):
     CONFIRM_PRINT = 'confirm_print'
     PRINTING = 'printing'
     SUCCESS = 'success'
+    COPYING = 'copying'
 
     def __init__(self, app, locales, **kwargs):
         Logger.info('ScreenMgr: __init__().')
@@ -53,7 +54,8 @@ class ScreenMgr(ScreenManager):
             self.CONFIRM_SAVE       : ConfirmSaveScreen(app, locales=locales, name=self.CONFIRM_SAVE),
             self.CONFIRM_PRINT      : ConfirmPrintScreen(app, locales=locales, name=self.CONFIRM_PRINT),
             self.PRINTING           : PrintingScreen(app, locales=locales, name=self.PRINTING),
-            self.SUCCESS            : SuccessScreen(app, locales=locales, name=self.SUCCESS)
+            self.SUCCESS            : SuccessScreen(app, locales=locales, name=self.SUCCESS),
+            self.COPYING            : CopyingScreen(app, locales=locales, name=self.COPYING),
         }
         for screen in self.pb_screens.values(): self.add_widget(screen)
 
@@ -169,14 +171,14 @@ class SelectFormatScreen(BackgroundScreen):
         available_formats = self.app.get_layout_previews()
         preview_left = ImageButton(
             source=available_formats[0],
-            size_hint=(0.2, 0.7),
-            pos_hint={'x': 0.05, 'y': 0.05},
+            size_hint=(0.3, 0.7),
+            pos_hint={'x': 0.1, 'y': 0.05},
         )
         overlay_layout.add_widget(preview_left)
         preview_left.bind(on_release=self.on_click_left)
         preview_right = ImageButton(
             source=available_formats[1],
-            size_hint=(0.2, 0.7),
+            size_hint=(0.3, 0.7),
             pos_hint={'x': 0.65, 'y': 0.05},
         )
         overlay_layout.add_widget(preview_right)
@@ -187,14 +189,14 @@ class SelectFormatScreen(BackgroundScreen):
             source='./assets/icons/arrow_left.png',
             fit_mode='contain',
             size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.5, 'y': 0.2},
+            pos_hint={'x': 0.45, 'y': 0.2},
         )
         overlay_layout.add_widget(arrow_left)
         arrow_right = Image(
             source='./assets/icons/arrow_right.png',
             fit_mode='contain',
             size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.5, 'y': 0.50},
+            pos_hint={'x': 0.45, 'y': 0.50},
         )
         overlay_layout.add_widget(arrow_right)
 
@@ -272,23 +274,22 @@ class ReadyScreen(BackgroundScreen):
         self.app = app
         self.locales = locales
 
-        self.start_button = Button(
+        self.label = ShadowLabel(
             text=self.locales['ready']['content'][0],
             halign='center',
             valign='middle',
-            font_size=LARGE_FONT,
-            background_color=(0, 0, 1, 1)
+            font_size=LARGE_FONT
         )
 
         self.layout = BoxLayout()
-        self.layout.add_widget(self.start_button)
+        self.layout.add_widget(self.label)
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ReadyScreen: on_entry().')
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self.start_button.text = random.choice(self.locales['ready']['content'])
+        self.label.text = random.choice(self.locales['ready']['content'])
         self._clock = Clock.schedule_once(self.timer_event, 2)
         self.app.ringled.blink((0, 0, 255, 0))
 
@@ -319,7 +320,7 @@ class CountdownScreen(Screen):
         self._current_format = 0
 
         self.time_remaining = self.app.COUNTDOWN
-        self.time_remaining_label = Label(
+        self.time_remaining_label = ShadowLabel(
             text=str(self.time_remaining),
             halign='center',
             valign='middle',
@@ -378,7 +379,7 @@ class CheeseScreen(Screen):
         self.app = app
         self.locales = locales
 
-        self.smile_label = Label(
+        self.label = Label(
             text=self.locales['cheese']['content'][0],
             halign='center',
             valign='middle',
@@ -387,7 +388,7 @@ class CheeseScreen(Screen):
         self.layout = BackgroundBoxLayout(
             background_color=(0,0,0,1),
         )
-        self.layout.add_widget(self.smile_label)
+        self.layout.add_widget(self.label)
         self.add_widget(self.layout)
 
         self.wait_count = 0
@@ -399,8 +400,7 @@ class CheeseScreen(Screen):
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
 
-        self.smile_label.font_size = LARGE_FONT
-        self.smile_label.text = random.choice(self.locales['cheese']['content'])
+        self.label.text = random.choice(self.locales['cheese']['content'])
         self.wait_idx = -1
         self.wait_count = 0
         self._clock = Clock.schedule_once(self.timer_event, 1.5)
@@ -430,7 +430,7 @@ class CheeseScreen(Screen):
         self.layout.canvas.ask_update()
 
         if not(self.app.is_shot_completed(self._current_shot)):
-            self.smile_label.text = self.locales['cheese']['wait']
+            self.label.text = self.locales['cheese']['wait']
             self._clock = Clock.schedule_once(self.timer_event, 1)
         elif self.app.get_shots_to_take(self._current_format) == 1:
             self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
@@ -479,7 +479,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
         overlay_layout.add_widget(self.preview)
 
         # Add buttons
-        self.yes_button = ImageButton(
+        self.yes_button = ImageLabelButton(
             source='./assets/icons/save.png',
             size_hint=(0.2, 0.1),
             pos_hint={'x': 0.8, 'y': 0.20},
@@ -489,7 +489,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
         )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
-        self.no_button = ImageButton(
+        self.no_button = ImageLabelButton(
             source='./assets/icons/trash.png',
             size_hint=(0.2, 0.1),
             pos_hint={'x': 0.8, 'y': 0.05},
@@ -544,14 +544,14 @@ class ProcessingScreen(BackgroundScreen):
         self.locales = locales
         self._current_format = 0
 
-        self.smile_label = Label(
+        self.label = ShadowLabel(
             text=self.locales['processing']['content'][0],
             halign='center',
             valign='middle',
             font_size=LARGE_FONT
         )
         self.layout = BoxLayout()
-        self.layout.add_widget(self.smile_label)
+        self.layout.add_widget(self.label)
         self.add_widget(self.layout)
 
         self.wait_idx = 0
@@ -577,8 +577,7 @@ class ProcessingScreen(BackgroundScreen):
             self.wait_count += 1
             if self.wait_count % 3 == 0:
                 self.wait_idx = (self.wait_idx + 1) % len(self.locales['processing']['content'])
-                self.smile_label.font_size = SMALL_FONT
-                self.smile_label.text = self.locales['processing']['content'][self.wait_idx]
+                self.label.text = self.locales['processing']['content'][self.wait_idx]
             self._clock = Clock.schedule_once(self.timer_event, 1)
         elif self.app.has_printer():
             self.app.transition_to(ScreenMgr.CONFIRM_PRINT, format=self._current_format)
@@ -623,7 +622,7 @@ class ConfirmSaveScreen(BackgroundScreen):
         overlay_layout.add_widget(self.preview)
 
         # Add buttons
-        self.yes_button = ImageButton(
+        self.yes_button = ImageLabelButton(
             source='./assets/icons/save.png',
             size_hint=(0.15, 0.1),
             pos_hint={'x': 0.85, 'y': 0.25},
@@ -633,7 +632,7 @@ class ConfirmSaveScreen(BackgroundScreen):
         )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
-        self.no_button = ImageButton(
+        self.no_button = ImageLabelButton(
             source='./assets/icons/trash.png',
             size_hint=(0.15, 0.1),
             pos_hint={'x': 0.85, 'y': 0.05},
@@ -711,7 +710,7 @@ class ConfirmPrintScreen(BackgroundScreen):
         overlay_layout.add_widget(title)
 
         # Add buttons
-        self.btn_once = ImageButton(
+        self.btn_once = ImageLabelButton(
             source='./assets/icons/print-1.png',
             size_hint=(0.2, 0.1),
             pos_hint={'x': 0.8, 'y': 0.46},
@@ -721,7 +720,7 @@ class ConfirmPrintScreen(BackgroundScreen):
         )
         self.btn_once.bind(on_release=self.print_once)
         overlay_layout.add_widget(self.btn_once)
-        self.btn_twice = ImageButton(
+        self.btn_twice = ImageLabelButton(
             source='./assets/icons/print-2.png',
             size_hint=(0.2, 0.1),
             pos_hint={'x': 0.8, 'y': 0.33},
@@ -731,7 +730,7 @@ class ConfirmPrintScreen(BackgroundScreen):
         )
         self.btn_twice.bind(on_release=self.print_twice)
         overlay_layout.add_widget(self.btn_twice)
-        self.btn_3times = ImageButton(
+        self.btn_3times = ImageLabelButton(
             source='./assets/icons/print-3.png',
             size_hint=(0.2, 0.1),
             pos_hint={'x': 0.8, 'y': 0.20},
@@ -741,7 +740,7 @@ class ConfirmPrintScreen(BackgroundScreen):
         )
         self.btn_3times.bind(on_release=self.print_3times)
         overlay_layout.add_widget(self.btn_3times)
-        self.no_button = ImageButton(
+        self.no_button = ImageLabelButton(
             source='./assets/icons/cancel.png',
             size_hint=(0.2, 0.1),
             pos_hint={'x': 0.8, 'y': 0.05},
@@ -803,7 +802,7 @@ class PrintingScreen(BackgroundScreen):
         self.locales = locales
         self._current_format = 0
 
-        self.status = Label(
+        self.status = ShadowLabel(
             text=self.locales['printing']['content'][0],
             halign='center',
             valign='middle',
@@ -861,22 +860,20 @@ class SuccessScreen(BackgroundScreen):
         self.app = app
         self.locales = locales
 
-        self.start_button = Button(
+        self.label = ShadowLabel(
             text=self.locales['success']['content'][0],
             halign='center',
             valign='middle',
-            font_size=LARGE_FONT,
-            background_color=(0, 0, 1, 1)
+            font_size=LARGE_FONT
         )
-        self.start_button.bind(on_release=self.on_click_start)
 
         self.layout = BoxLayout()
-        self.layout.add_widget(self.start_button)
+        self.layout.add_widget(self.label)
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('SuccessScreen: on_entry().')
-        self.start_button.text = random.choice(self.locales['success']['content'])
+        self.label.text = random.choice(self.locales['success']['content'])
         self._clock = Clock.schedule_once(self.timer_event, 2)
         self.app.ringled.blink((0, 255, 0, 0))
 
@@ -892,3 +889,36 @@ class SuccessScreen(BackgroundScreen):
     def timer_event(self, obj):
         Logger.info('SuccessScreen: timer_event().')
         self.app.transition_to(ScreenMgr.WAITING)
+
+class CopyingScreen(BackgroundScreen):
+    """
+    +-----------------+
+    |                 |
+    |     Copying     |
+    |                 |
+    +-----------------+
+    """
+    def __init__(self, app, locales, **kwargs):
+        Logger.info('CopyingScreen: __init__().')
+        super(CopyingScreen, self).__init__(**kwargs)
+
+        self.app = app
+        self.locales = locales
+
+        label = ShadowLabel(
+            text=self.locales['copying']['content'],
+            halign='center',
+            valign='middle',
+            font_size=LARGE_FONT
+        )
+        self.layout = BoxLayout()
+        self.layout.add_widget(label)
+        self.add_widget(self.layout)
+
+    def on_entry(self, kwargs={}):
+        Logger.info('CopyingScreen: on_entry().')
+        self.app.ringled.start_rainbow()
+
+    def on_leave(self, kwargs={}):
+        Logger.info('CopyingScreen: on_leave().')
+        self.app.ringled.stop()

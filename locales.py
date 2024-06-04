@@ -48,4 +48,7 @@ class Locales:
             'success': {
                 'content': ['Perfect !', 'Awesome !', 'Wahou !'],
             },
+            'copying': {
+                'content': 'Copying to USB dongle\nDo not remove or turn off !',
+            },
         }
