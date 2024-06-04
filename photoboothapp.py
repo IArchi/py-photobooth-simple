@@ -91,7 +91,6 @@ class PhotoboothApp(App):
         return True
 
     def has_printer(self):
-        return True
         return self.devices.has_printer()
 
     def trigger_print(self, copies, format=0):
