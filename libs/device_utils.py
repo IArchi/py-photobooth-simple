@@ -189,7 +189,7 @@ class DeviceUtils:
             #return (1280, 960), im.tostring()
         elif self._cv_cam_proxy:
             ret, im = self._cv_cam_proxy.read()
-            if not ret: return None
+            if not ret: return None, None
             im = cv2.flip(im, 0)
             im = cv2.flip(im, 1)
             if square: im = self._crop_to_square(im)
