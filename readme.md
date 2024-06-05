@@ -49,5 +49,4 @@ A dedicated thread will handle USB dongles and automatically dump the whole cont
 Application will not be usable during the copy process but will display a message.
 
 ## TODO
- - Improve print icons
  - Test with DSLR and piCamera2
