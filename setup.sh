@@ -19,10 +19,11 @@ chmod +x install_pivariety_pkgs.sh
 ./install_pivariety_pkgs.sh -p libcamera_apps
 sudo dpkg -i libcamera*.deb
 sudo dpkg -i rpicam-apps*deb
-rm libcamera* install_pivariety_pkgs.sh packages.txt rpicam-apps_1.4.4-2_arm64.deb 
+rm libcamera* install_pivariety_pkgs.sh packages.txt rpicam-apps_1.4.4-2_arm64.deb
 
 # Test camera
 libcamera-hello
+libcamera-still -t 5000 --viewfinder-width 2312 --viewfinder-height 1736 -o pi_hawk_eye.jpg --autofocus
 
 # Install dependencies
 sudo apt -y install ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev fonts-noto-color-emoji rclone inotify-tools
@@ -41,7 +42,7 @@ echo "  IdentityFile ~/.ssh/id_ed25519" >> ~/.ssh/config
 
 echo 'Connect to Github and add the following key to SSH tab'
 # Add to settings
-cat ~/.ssh/id_ed25519.pub 
+cat ~/.ssh/id_ed25519.pub
 read -p "Press [Enter] when done ..."
 ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 
@@ -49,7 +50,7 @@ ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 git clone git@github.com:IArchi/py-photobooth-simple.git photobooth
 cd photobooth
 pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-packages
-pip3 install -r requirements.txt --break-system-packages 
+pip3 install -r requirements.txt --break-system-packages
 
 # Install Kiosk & autostart
 sudo apt install wtype -y
