@@ -5,10 +5,6 @@ import numpy as np
 sys.path.append('..')
 from libs.device_utils import DeviceUtils
 
-# Connect to camera
-devices = DeviceUtils()
-pi2_camera = devices.get_picamera2_proxy()
-
 from picamera2 import Picamera2
 
 picam2 = Picamera2()
@@ -19,6 +15,11 @@ while True:
     im = picam2.capture_array()
     cv2.imshow("PiCamera2", im)
     cv2.waitKey(0)
+
+
+# # Connect to camera
+# devices = DeviceUtils()
+# pi2_camera = devices.get_picamera2_proxy()
 
 # if pi2_camera:
 #     while True:
