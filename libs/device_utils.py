@@ -1,8 +1,6 @@
 import io
 import os
-import shlex
 import tempfile
-import subprocess
 import numpy as np
 from PIL import Image
 from kivy.logger import Logger
@@ -93,32 +91,29 @@ class DeviceUtils:
         """
         if not Picamera2: return None  # picamera is not installed
         try:
-            process = subprocess.Popen(['vcgencmd', 'get_camera'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, _stderr = process.communicate()
-            if stdout and u'detected=1' in stdout.decode('utf-8'):
-                if port is not None: cam = Picamera2(camera_num=port)
-                else: cam = Picamera2()
+            if port is not None: cam = Picamera2(camera_num=port)
+            else: cam = Picamera2()
 
-                # Enable auto exposure
-                try:
-                    cam.set_controls({'AeExposureMode': 1}) # Usually 0=normal exposure, 1=short, 2=long
-                except RuntimeError as exc:
-                    Logger.error(f"set_ae_exposure failed! {exc}")
+            # Enable auto exposure
+            try:
+                cam.set_controls({'AeExposureMode': 1}) # Usually 0=normal exposure, 1=short, 2=long
+            except RuntimeError as exc:
+                Logger.error(f"set_ae_exposure failed! {exc}")
 
-                # Enable auto focus
-                try:
-                    cam.set_controls({'AfMode': controls.AfModeEnum.Continuous})
-                except RuntimeError as exc:
-                    Logger.critical(f"control not available on camera - autofocus not working properly {exc}")
-                try:
-                    cam.set_controls({'AfSpeed': controls.AfSpeedEnum.Fast})
-                except RuntimeError as exc:
-                    Logger.info(f"control not available on all cameras - can ignore {exc}")
+            # Enable auto focus
+            try:
+                cam.set_controls({'AfMode': controls.AfModeEnum.Continuous})
+            except RuntimeError as exc:
+                Logger.critical(f"control not available on camera - autofocus not working properly {exc}")
+            try:
+                cam.set_controls({'AfSpeed': controls.AfSpeedEnum.Fast})
+            except RuntimeError as exc:
+                Logger.info(f"control not available on all cameras - can ignore {exc}")
 
-                return cam
-        except OSError as e:
-            print('PiCamera2 is not available')
-            print(e)
+            return cam
+        except Exception as e:
+            Logger.warning('PiCamera2 is not available')
+            Logger.warning(e)
             pass
         return None
 

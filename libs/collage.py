@@ -26,7 +26,7 @@ class Collage:
 
     def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
         return
-    
+
     def _create_dummy_photo(self, filename, squared=False):
         height, width = (1080, 1920) if not squared else (1080, 1080)
         b, g, r = 0x75, 0x75, 0x75
@@ -44,7 +44,6 @@ class StripCollage(Collage):
         Logger.info('StripCollage: get_preview()')
         photos = [tempfile.mkstemp(suffix='.jpg') for i in range(0, 3)]
         photos = [p[1] for p in photos]
-        print(photos)
         for p in photos: self._create_dummy_photo(p)
         tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
         self.assemble(tmp_output, photos, logo_path)
@@ -74,33 +73,33 @@ class StripCollage(Collage):
 
         # Compute free spaces
         available_height = output_height - strip_image.shape[0]
-        
+
         # Create border to fill output's height
         strip_image = cv2.copyMakeBorder(strip_image, 0, available_height, 0, 0, cv2.BORDER_CONSTANT, value=(255, 255, 255))
 
         if logo_path:
             # Load logo with alpha channel
             logo_image = cv2.imread(logo_path, cv2.IMREAD_UNCHANGED)
-            
+
             # Check if the logo image has an alpha channel
             if logo_image.shape[2] == 4:
                 alpha_channel = logo_image[:, :, 3]
             else:
                 # Create an alpha channel filled with 255 (fully opaque)
                 alpha_channel = np.ones((logo_image.shape[0], logo_image.shape[1]), dtype=logo_image.dtype) * 255
-            
+
             # Resize logo to fit the available height and width
             logo_aspect_ratio = logo_image.shape[1] / logo_image.shape[0]
             logo_width = min(int(logo_aspect_ratio * available_height), output_width)
             logo_height = int(logo_width / logo_aspect_ratio)
-            
+
             resized_logo = cv2.resize(logo_image, (logo_width, logo_height))
             resized_alpha = cv2.resize(alpha_channel, (logo_width, logo_height))
-        
+
             # Calculate the position to paste the logo
             logo_start_x = (output_width - logo_width) // 2
             logo_start_y = output_height - available_height + (available_height - logo_height) // 2  # Center vertically in the available space
-            
+
             # Blend the logo onto the collage
             for c in range(0, 3):
                 strip_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] = \
@@ -127,57 +126,57 @@ class PolaroidCollage(Collage):
 
         # Load the input image
         input_image = cv2.imread(image_paths[0])
-        
+
         # Define the size of the output image
         output_width, output_height = 6000, 8000
-        
+
         # Create a new image with white background
         polaroid_image = np.ones((output_height, output_width, 3), dtype=np.uint8) * 255
-        
+
         # Calculate the size and position to paste the input image
         border_size = int(output_width * 0.05)
         image_size = output_width - 2 * border_size
-        
+
         # Resize the input image to fit within the borders
         input_image = cv2.resize(input_image, (image_size, image_size))
-        
+
         # Calculate the position to paste the input image
         start_y = border_size
         start_x = border_size
-        
+
         # Paste the input image onto the polaroid image
         polaroid_image[start_y:start_y+image_size, start_x:start_x+image_size] = input_image
-        
+
         # Calculate available height for the logo including the bottom border
         available_height = output_height - (start_y + image_size + 2 * border_size)
-        
+
         if logo_path:
             # Load logo with alpha channel
             logo_image = cv2.imread(logo_path, cv2.IMREAD_UNCHANGED)
-            
+
             # Check if the logo image has an alpha channel
             if logo_image.shape[2] == 4:
                 alpha_channel = logo_image[:, :, 3]
             else:
                 # Create an alpha channel filled with 255 (fully opaque)
                 alpha_channel = np.ones((logo_image.shape[0], logo_image.shape[1]), dtype=logo_image.dtype) * 255
-            
+
             # Resize logo to fit the available height
             logo_height = available_height
             logo_width = int(logo_image.shape[1] * (logo_height / logo_image.shape[0]))
             resized_logo = cv2.resize(logo_image, (logo_width, logo_height))
             resized_alpha = cv2.resize(alpha_channel, (logo_width, logo_height))
-        
+
             # Calculate the position to paste the logo
             logo_start_x = (output_width - logo_width) // 2
             logo_start_y = start_y + image_size + border_size
-            
+
             # Blend the logo onto the polaroid image
             for c in range(0, 3):
                 polaroid_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] = \
                     resized_logo[:, :, c] * (resized_alpha / 255.0) + \
                     polaroid_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] * (1.0 - resized_alpha / 255.0)
-        
+
         # Write to file
         cv2.imwrite(output_path, polaroid_image)
 

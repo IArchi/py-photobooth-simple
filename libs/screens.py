@@ -168,20 +168,20 @@ class SelectFormatScreen(BackgroundScreen):
 
         # Add preview
         available_formats = self.app.get_layout_previews()
-        preview_left = ImageButton(
+        self.preview_left = ImageButton(
             source=available_formats[0],
             size_hint=(0.3, 0.7),
             pos_hint={'x': 0.1, 'y': 0.05},
         )
-        overlay_layout.add_widget(preview_left)
-        preview_left.bind(on_release=self.on_click_left)
-        preview_right = ImageButton(
+        overlay_layout.add_widget(self.preview_left)
+        self.preview_left.bind(on_release=self.on_click_left)
+        self.preview_right = ImageButton(
             source=available_formats[1],
             size_hint=(0.3, 0.7),
             pos_hint={'x': 0.65, 'y': 0.05},
         )
-        overlay_layout.add_widget(preview_right)
-        preview_right.bind(on_release=self.on_click_right)
+        overlay_layout.add_widget(self.preview_right)
+        self.preview_right.bind(on_release=self.on_click_right)
 
         # Add arrows
         arrow_left = Image(
@@ -203,6 +203,8 @@ class SelectFormatScreen(BackgroundScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_entry().')
+        self.preview_left.reload()
+        self.preview_right.reload()
         self.app.ringled.start_rainbow()
 
     def on_leave(self, kwargs={}):
@@ -952,4 +954,3 @@ class CopyingScreen(BackgroundScreen):
         self._count += 1
         self._count = self._count % 3
         self.label.text = self.locales['copying']['content'] + ('.' * self._count)
-        
