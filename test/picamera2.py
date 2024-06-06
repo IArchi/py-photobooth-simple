@@ -31,3 +31,6 @@ while True:
 #     cv2.destroyAllWindows()
 # else:
 #     print('Cannot find any picamera2 camera')
+
+#https://github.com/sightmachine/SimpleCV2/blob/21f5199d29c6b377073aa8834b6b0ebefca8ec75/SimpleCV/ImageClass.py#L998
+#https://github.com/sightmachine/SimpleCV2/blob/master/SimpleCV/Camera.py#L1425

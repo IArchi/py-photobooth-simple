@@ -116,7 +116,9 @@ class DeviceUtils:
                     Logger.info(f"control not available on all cameras - can ignore {exc}")
 
                 return cam
-        except OSError:
+        except OSError as e:
+            print('PiCamera2 is not available')
+            print(e)
             pass
         return None
 

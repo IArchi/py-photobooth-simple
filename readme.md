@@ -50,3 +50,6 @@ Application will not be usable during the copy process but will display a messag
 
 ## TODO
  - Test with gphoto2 and piCamera2
+ - Using `libcamera-vid -t 0 --inline --listen -o tcp://0.0.0.0:8888` check access to the stream with VLC `tcp/h264://raspberrypi.local:8888`
+ - RPI SERVER: rpicam-vid -t 0 --libav-format mpegts --listen -o "tcp://0.0.0.0:8080?listen=1" 
+   CLIENT: vlc tcp://192.168.1.36:8080 
