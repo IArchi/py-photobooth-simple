@@ -48,8 +48,11 @@ You can also edit `photoboothapp.py` to change some parameters such as:
 A dedicated thread will handle USB dongles and automatically dump the whole content of the `ROOT_DIRECTORY` to the device.
 Application will not be usable during the copy process but will display a message.
 
+# Test PiCamera2
+Run the following command and it should display a live view:
+```libcamera-vid -t 0 --autofocus-mode auto --vflip 1```
+
 ## TODO
- - Test with gphoto2 and piCamera2
- - Using `libcamera-vid -t 0 --inline --listen -o tcp://0.0.0.0:8888` check access to the stream with VLC `tcp/h264://raspberrypi.local:8888`
- - RPI SERVER: rpicam-vid -t 0 --libav-format mpegts --listen -o "tcp://0.0.0.0:8080?listen=1" 
-   CLIENT: vlc tcp://192.168.1.36:8080 
+ - Test with gphoto2
+ - Fix piCamera2
+ - Fix RingLed
