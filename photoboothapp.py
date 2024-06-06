@@ -7,7 +7,7 @@ from kivy.app import App
 from kivy.logger import Logger
 from kivy.uix.screenmanager import NoTransition
 
-from locales import Locales
+from libs.locales import Locales
 from libs.device_utils import DeviceUtils
 from libs.screens import ScreenMgr
 from libs.ringled import RingLed
