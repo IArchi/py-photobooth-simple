@@ -49,4 +49,4 @@ A dedicated thread will handle USB dongles and automatically dump the whole cont
 Application will not be usable during the copy process but will display a message.
 
 ## TODO
- - Test with DSLR and piCamera2
+ - Test with gphoto2 and piCamera2
