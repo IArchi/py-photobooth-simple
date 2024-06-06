@@ -181,9 +181,9 @@ class DeviceUtils:
     def get_preview(self, square=False):
         if self._rpi_cam_proxy:
             im = self._rpi_cam_proxy.capture_array()
-            nparr = np.fromstring(im, np.uint8)
-            img_np = cv2.imdecode(nparr, cv2.CV_LOAD_IMAGE_COLOR)
-            img_np = cv2.cvtColor(img_np, cv2.cv.CV_BGR2RGB)
+            nparr = np.frombuffer(im, np.uint8)
+            img_np = cv2.imdecode(nparr, cv2.IMREAD_ANYCOLOR)
+            img_np = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
             if square: img_np = self._crop_to_square(img_np)
             return (img_np.shape[1], img_np.shape[0]), img_np.tostring()
             #return (1280, 960), im.tostring()
@@ -196,9 +196,9 @@ class DeviceUtils:
             return (im.shape[1], im.shape[0]), im.tostring()
         elif self._gp_cam_proxy:
             im = self._gp_cam_proxy.get_preview()
-            nparr = np.fromstring(im, np.uint8)
-            img_np = cv2.imdecode(nparr, cv2.CV_LOAD_IMAGE_COLOR)
-            img_np = cv2.cvtColor(img_np, cv2.cv.CV_BGR2RGB)
+            nparr = np.frombuffer(im, np.uint8)
+            img_np = cv2.imdecode(nparr, cv2.IMREAD_ANYCOLOR)
+            img_np = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
             if square: img_np = self._crop_to_square(img_np)
             return (img_np.shape[1], img_np.shape[0]), img_np.tostring()
         return None, None
