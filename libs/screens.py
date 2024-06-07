@@ -305,7 +305,7 @@ class ReadyScreen(BackgroundScreen):
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.label.text = random.choice(self.locales['ready']['content'])
         self._clock = Clock.schedule_once(self.timer_event, 2)
-        self.app.ringled.blink((255, 255, 255, 255))
+        self.app.ringled.blink([255, 255, 255])
 
     def on_leave(self, kwargs={}):
         Logger.info('ReadyScreen: on_leave().')
@@ -898,7 +898,7 @@ class SuccessScreen(BackgroundScreen):
         Logger.info('SuccessScreen: on_entry().')
         self.label.text = random.choice(self.locales['success']['content'])
         self._clock = Clock.schedule_once(self.timer_event, 2)
-        self.app.ringled.blink((255, 255, 255, 255))
+        self.app.ringled.blink([255, 255, 255])
 
     def on_leave(self, kwargs={}):
         Logger.info('SuccessScreen: on_leave().')

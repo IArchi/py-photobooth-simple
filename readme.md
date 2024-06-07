@@ -20,34 +20,38 @@ By default, it will try to use the best available quality:
 
 If one of these is not available, it will use the first available one.
 
-## Neopixel Ring Led
-Connect Neopixel Ring led on the following GPIO pins:
- - 5V  -> 5V (Pin 4)
- - GND -> Ground (Pin 14)
- - IN  -> GPIO 10 (Pin 19)
+## Wiring of WS2812 Ring Led
+Connect WS2812 Ring led on the following GPIO pins:
+ - GND   --   GND. At least one of pin 6, 9, 14, 20, 25
+ - DIN   --   MOSI, Pin 19, GPIO 10
+ - VCC   --   5V. At least one of pin 2 or 4
 
 ## Compatibility
 Tested on MacOs Sonoma and RaspberryPi 5 8GB with Arducam 64MB.
 
-## CUPS printer
+## Installation
+
+### Python dependencies
+To install dependencies:
+```
+# For some reasons, the gphoto2-cffi library is not avaiable on pip, we must build it from sources
+pip3 install -r requirements.txt
+```
+
+### Gphoto2 (Only if you plan to use a DSLR)
+Gphoto2 should be fixed before use:
+```
+pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-packages
+TODO
+```
+
+### CUPS printer (Only if you plan to print collages)
 ```
 sudo apt install cups -y
 TODO
 ```
 
-## Installation
-To install dependencies:
-```
-# For some reasons, the gphoto2-cffi library is not avaiable on pip, we must build it from sources
-pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-packages
-pip3 install -r requirements.txt
-```
-
-Gphoto2 should be fixed before use:
-```
-TODO
-```
-
+### Run
 To start the application:
 ```
 python3 photoboothapp.py
