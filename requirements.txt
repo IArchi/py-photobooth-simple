@@ -1,9 +1,5 @@
 numpy
 Pillow
-rpi_ws281x
-adafruit-blinka
-adafruit-circuitpython-neopixel
-adafruit-circuitpython-neopixel-spi
 kivy
 lxml
 opencv-contrib-python
