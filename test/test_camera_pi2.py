@@ -1,20 +1,50 @@
 import sys
-import cv2
-import numpy as np
 
 sys.path.append('..')
 from libs.device_utils import DeviceUtils
 
+import io
+import cv2
+import numpy as np
+from threading import Condition
 from picamera2 import Picamera2
+from picamera2.encoders import MJPEGEncoder
+from picamera2.outputs import FileOutput
 
+class StreamingOutput(io.BufferedIOBase):
+    def __init__(self):
+        self.frame = None
+        self.condition = Condition()
+
+    def write(self, buf):
+        with self.condition:
+            nparr = np.frombuffer(buf, np.uint8)
+            self.frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            self.condition.notify_all()
+
+# Start reccording MJPEG
 picam2 = Picamera2()
-picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (640, 480)}))
-picam2.start()
+video_config = picam2.create_video_configuration(main={"size": (1920, 1080)})
+picam2.configure(video_config)
+output = StreamingOutput()
+picam2.start_recording(MJPEGEncoder(), FileOutput(output))
 
+# Read frames and trigger a capture every 30 frames
+i = 0
 while True:
-    im = picam2.capture_array()
-    cv2.imshow("PiCamera2", im)
-    cv2.waitKey(0)
+    with output.condition:
+        output.condition.wait()
+        frame = output.frame
+        print('MJPEG', frame.shape)
+
+        if i % 30 == 0:
+            print('Capture')
+            request = picam2.capture_request()
+            buf = request.make_array('main')
+            request.release()
+            capture = cv2.cvtColor(buf, cv2.COLOR_RGBA2BGR)
+            print('Capture:', capture.shape)
+        i += 1
 
 
 # # Connect to camera

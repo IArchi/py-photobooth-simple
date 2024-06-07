@@ -26,14 +26,14 @@ Connect Neopixel Ring led on the following GPIO pins:
  - GND -> Ground (Pin 14)
  - IN  -> GPIO 10 (Pin 19)
 
+## Compatibility
+Tested on MacOs Sonoma and RaspberryPi 5 8GB with Arducam 64MB.
+
 ## CUPS printer
 ```
 sudo apt install cups -y
 TODO
 ```
-
-## Compatibility
-Tested on MacOs Sonoma and RaspberryPi 5 8GB with Arducam 64MB.
 
 ## Installation
 To install dependencies:
@@ -41,6 +41,11 @@ To install dependencies:
 # For some reasons, the gphoto2-cffi library is not avaiable on pip, we must build it from sources
 pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-packages
 pip3 install -r requirements.txt
+```
+
+Gphoto2 should be fixed before use:
+```
+TODO
 ```
 
 To start the application:

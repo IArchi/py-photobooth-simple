@@ -1,5 +1,4 @@
 numpy
-gphoto2cffi
 Pillow
 rpi_ws281x
 adafruit-blinka
