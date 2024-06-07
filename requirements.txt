@@ -1,9 +1,11 @@
 numpy
 gphoto2cffi
 Pillow
+rpi_ws281x
 adafruit-blinka
+adafruit-circuitpython-neopixel
 adafruit-circuitpython-neopixel-spi
 kivy
 lxml
-opencv-python
+opencv-contrib-python
 psutil

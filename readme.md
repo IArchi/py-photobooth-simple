@@ -20,12 +20,26 @@ By default, it will try to use the best available quality:
 
 If one of these is not available, it will use the first available one.
 
+## Neopixel Ring Led
+Connect Neopixel Ring led on the following GPIO pins:
+ - 5V  -> 5V (Pin 4)
+ - GND -> Ground (Pin 14)
+ - IN  -> GPIO 10 (Pin 19)
+
+## CUPS printer
+```
+sudo apt install cups -y
+TODO
+```
+
 ## Compatibility
 Tested on MacOs Sonoma and RaspberryPi 5 8GB with Arducam 64MB.
 
 ## Installation
 To install dependencies:
 ```
+# For some reasons, the gphoto2-cffi library is not avaiable on pip, we must build it from sources
+pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-packages
 pip3 install -r requirements.txt
 ```
 
@@ -38,7 +52,7 @@ python3 photoboothapp.py
 To customize collages, you can edit `logo.png`. As a PNG file, you can use transparency.
 
 You can also edit `photoboothapp.py` to change some parameters such as:
- - LOCALES = Locales.get_EN (To select language to use)
+ - LOCALES = Locales.get_EN (To select language to use among EN and FR)
  - FULLSCREEN = False (If set to True, the window fill take all available space)
  - COUNTDOWN = 3 (Countdown before the photo is taken)
  - ROOT_DIRECTORY = './DCIM' (Directory in which the photos and collages are stored)
@@ -55,4 +69,3 @@ Run the following command and it should display a live view:
 ## TODO
  - Test with gphoto2
  - Fix piCamera2
- - Fix RingLed

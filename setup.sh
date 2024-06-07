@@ -4,7 +4,7 @@ echo 'Camera should be plugged on slot #1'
 read -p "Press [Enter] key to install ..."
 
 # Enable PI overlays
-sudo sed -i 's/^# dtparam=spi=on/dtparam=spi=on/' /boot/firmware/config.txt"
+sudo sed -i 's/^#dtparam=spi=on/dtparam=spi=on/' /boot/firmware/config.txt
 sudo sh -c "echo 'dtoverlay=arducam-64mp' >> /boot/firmware/config.txt"
 sudo sh -c "echo 'dtoverlay=disable-bt' >> /boot/firmware/config.txt"
 
@@ -26,12 +26,8 @@ libcamera-hello
 libcamera-still -t 5000 --viewfinder-width 2312 --viewfinder-height 1736 -o pi_hawk_eye.jpg --autofocus
 
 # Install dependencies
-sudo apt -y install ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev fonts-noto-color-emoji rclone inotify-tools
-pip3 install opencv-contrib-python --break-system-packages
-pip3 install rpi_ws281x adafruit-circuitpython-neopixel --break-system-packages
-
-# Install LED ring
 sudo apt-get install -y gcc make build-essential git scons swig
+sudo apt -y install ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev fonts-noto-color-emoji rclone inotify-tools
 
 # Add GitHub ssh key
 ssh-keygen -t ed25519 -C "#@#.com"
