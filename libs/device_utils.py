@@ -2,8 +2,8 @@ import io
 import os
 import tempfile
 import numpy as np
-from PIL import Image
 from kivy.logger import Logger
+from threading import Condition
 
 try:
     import cups
@@ -12,7 +12,8 @@ except ImportError:
 
 try:
     from picamera2 import Picamera2
-    from libcamera import Transform, controls
+    from picamera2.encoders import MJPEGEncoder
+    from picamera2.outputs import FileOutput
 except ImportError:
     Picamera2 = None
 
@@ -26,6 +27,17 @@ try:
     import gphoto2cffi as gp
 except ImportError:
     gp = None
+
+class StreamingOutput(io.BufferedIOBase):
+    def __init__(self):
+        self.frame = None
+        self.condition = Condition()
+
+    def write(self, buf):
+        with self.condition:
+            nparr = np.frombuffer(buf, np.uint8)
+            self.frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            self.condition.notify_all()
 
 class DeviceUtils:
 
@@ -90,32 +102,12 @@ class DeviceUtils:
         :type port: str
         """
         if not Picamera2: return None  # picamera is not installed
-        try:
-            if port is not None: cam = Picamera2(camera_num=port)
-            else: cam = Picamera2()
 
-            # Enable auto exposure
-            try:
-                cam.set_controls({'AeExposureMode': 1}) # Usually 0=normal exposure, 1=short, 2=long
-            except RuntimeError as exc:
-                Logger.error(f"set_ae_exposure failed! {exc}")
-
-            # Enable auto focus
-            try:
-                cam.set_controls({'AfMode': controls.AfModeEnum.Continuous})
-            except RuntimeError as exc:
-                Logger.critical(f"control not available on camera - autofocus not working properly {exc}")
-            try:
-                cam.set_controls({'AfSpeed': controls.AfSpeedEnum.Fast})
-            except RuntimeError as exc:
-                Logger.info(f"control not available on all cameras - can ignore {exc}")
-
-            return cam
-        except Exception as e:
-            Logger.warning('PiCamera2 is not available')
-            Logger.warning(e)
-            pass
-        return None
+        picam2 = Picamera2(camera_num=port)
+        video_config = picam2.create_video_configuration(main={"size": (1920, 1080)})
+        picam2.configure(video_config)
+        
+        return picam2
 
     def get_cv2_proxy(self, port=None):
         """
@@ -166,38 +158,38 @@ class DeviceUtils:
 
     def start_preview(self, fps=30):
         if self._rpi_cam_proxy:
-            self._rpi_cam_proxy.configure(self._rpi_cam_proxy.create_preview_configuration(main={'size': (1280, 960)}, controls={'FrameRate': fps}))
-            self._rpi_cam_proxy.start()
+            output = StreamingOutput()
+            self._rpi_cam_proxy.start_recording(MJPEGEncoder(), FileOutput(output))
+            self._rpi_cam_proxy.streaming_output = output
 
     def stop_preview(self):
         if self._rpi_cam_proxy:
-            self._rpi_cam_proxy.stop()
+            self._rpi_cam_proxy.stop_recording()
+            self._rpi_cam_proxy.streaming_output = None
         elif self._gp_cam_proxy:
             self._gp_cam_proxy.exit()
 
     def get_preview(self, square=False):
         if self._rpi_cam_proxy:
-            im = self._rpi_cam_proxy.capture_array()
-            nparr = np.frombuffer(im, np.uint8)
-            img_np = cv2.imdecode(nparr, cv2.IMREAD_ANYCOLOR)
-            img_np = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-            if square: img_np = self._crop_to_square(img_np)
-            return (img_np.shape[1], img_np.shape[0]), img_np.tostring()
-            #return (1280, 960), im.tostring()
+            with self._rpi_cam_proxy.streaming_output.condition:
+                self._rpi_cam_proxy.streaming_output.condition.wait()
+                im = self._rpi_cam_proxy.streaming_output.frame
+                if square: im = self._crop_to_square(im)
+                return im.shape, im.tostring()
         elif self._cv_cam_proxy:
-            ret, im = self._cv_cam_proxy.read()
+            ret, buf = self._cv_cam_proxy.read()
             if not ret: return None, None
-            im = cv2.flip(im, 0)
+            im = cv2.flip(buf, 0)
             im = cv2.flip(im, 1)
             if square: im = self._crop_to_square(im)
-            return (im.shape[1], im.shape[0]), im.tostring()
+            return im.shape, im.tostring()
         elif self._gp_cam_proxy:
-            im = self._gp_cam_proxy.get_preview()
-            nparr = np.frombuffer(im, np.uint8)
-            img_np = cv2.imdecode(nparr, cv2.IMREAD_ANYCOLOR)
-            img_np = cv2.cvtColor(img_np, cv2.COLOR_BGR2RGB)
-            if square: img_np = self._crop_to_square(img_np)
-            return (img_np.shape[1], img_np.shape[0]), img_np.tostring()
+            buf = self._gp_cam_proxy.get_preview()
+            buf = np.frombuffer(buf, np.uint8)
+            im = cv2.imdecode(buf, cv2.IMREAD_ANYCOLOR)
+            im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+            if square: im = self._crop_to_square(im)
+            return im.shape, im.tostring()
         return None, None
 
     def capture(self, output_name, square=False):
@@ -234,14 +226,12 @@ class DeviceUtils:
 
         # Fallback using the PiCamera
         elif self._rpi_cam_proxy:
-            self._rpi_cam_proxy.start()
-            self._rpi_cam_proxy.switch_mode_and_capture_file(self._rpi_cam_proxy.create_still_configuration(main={'size': (1280, 720)},lores={'size': (1280, 720)},encode='lores',buffer_count=3,display='lores',transform=Transform(hflip=True, vflip=False)), tmp_filename if square else output_name)
-            self._rpi_cam_proxy.stop()
-
-            if square:
-                im_cv = cv2.imread(tmp_filename)
-                im_cv = self._crop_to_square(im_cv)
-                cv2.imwrite(output_name, im_cv)
+            request = self._rpi_cam_proxy.capture_request()
+            buf = request.make_array('main')
+            request.release()
+            im_cv = cv2.cvtColor(buf, cv2.COLOR_RGBA2BGR)
+            if square: im_cv = self._crop_to_square(im_cv)
+            cv2.imwrite(output_name, im_cv)
 
         # Fallback using the Cv2 webcam
         elif self._cv_cam_proxy:
