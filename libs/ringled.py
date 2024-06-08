@@ -22,10 +22,6 @@ class RingLed:
         self._stop = threading.Event()
         self._leds = WS2812(spi, self._num_pixels)
 
-        # Identify top pixel
-        self._leds.fill([0,0,0])
-        self._leds.set(self._top_pixel, [255, 0, 0])
-
     def start_countdown(self, time_seconds):
         Logger.info('RingLed: start_countdown().')
         if spidev is None: return

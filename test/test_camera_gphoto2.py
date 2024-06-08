@@ -11,8 +11,11 @@ gphoto2_camera = devices.get_gphoto2_proxy()
 
 if gphoto2_camera:
     while True:
-        size, buf = devices.get_preview()
-        if buf is None: continue
+        buf = gphoto2_camera.get_preview()
+        buf = np.frombuffer(buf, np.uint8)
+        im = cv2.imdecode(buf, cv2.IMREAD_ANYCOLOR)
+        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        size, buf = im.shape, im.tostring()
         image_array = np.frombuffer(buf, dtype=np.uint8)
         im = image_array.reshape((size[1], size[0], 3))
         im = cv2.flip(im, 0)
