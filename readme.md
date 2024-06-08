@@ -78,9 +78,9 @@ Gphoto2 should be fixed before use:
 pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-packages
 sudo apt install -y snapd
 sudo snap install core
+sudo snap install gphoto2
 sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor
 sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2
-sudo snap install gphoto2
 
 # Test
 gphoto2 --capture-image

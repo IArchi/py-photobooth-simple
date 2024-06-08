@@ -18,6 +18,7 @@ class RingLed:
         if spidev is None: return
         spi = spidev.SpiDev()
         spi.open(0,0)
+        self._stop = threading.Condition()
         self._leds = WS2812(spi, self._num_pixels)
 
         # Identify top pixel
@@ -74,7 +75,7 @@ class RingLed:
         time_between_pixels = time_seconds / self._num_pixels
         p1 = reversed(range(0, self._top_pixel+1))
         p2 = reversed(range(self._top_pixel, self._num_pixels))
-        
+
         self._leds.fill([255,255,255])
         for i in [*p1, *p2]:
             self._leds.set(i, [0,0,0])
