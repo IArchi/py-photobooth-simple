@@ -36,6 +36,7 @@ while True:
         output.condition.wait()
         frame = output.frame
         print('MJPEG', frame.shape)
+        #cv2.imshow('PiCamera2', frame)
 
         if i % 30 == 0:
             print('Capture')
@@ -44,6 +45,7 @@ while True:
             request.release()
             capture = cv2.cvtColor(buf, cv2.COLOR_RGBA2BGR)
             print('Capture:', capture.shape)
+            cv2.imshow('PiCamera2', capture)
         i += 1
 
 

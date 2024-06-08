@@ -3,22 +3,17 @@ import cv2
 import numpy as np
 
 sys.path.append('..')
-from libs.device_utils import DeviceUtils
+from libs.device_utils import Cv2Camera
 
 # Connect to camera
-devices = DeviceUtils()
-cv2_camera = devices.get_cv2_proxy()
+cv2_camera = Cv2Camera()
 
-if cv2_camera:
-    while True:
-        size, buf = devices.get_preview()
-        if buf is None: continue
-        image_array = np.frombuffer(buf, dtype=np.uint8)
-        im = image_array.reshape((size[1], size[0], 3))
-        im = cv2.flip(im, 0)
-        #im = cv2.flip(im, 1)
-        cv2.imshow('CV2 camera', im)
-        if cv2.waitKey(1) > 0: break
-    cv2.destroyAllWindows()
-else:
-    print('No CV2 camera found')
+# Display preview
+while True:
+    im = cv2_camera.get_preview()
+    if im is None: continue
+    print('size', im.shape)
+
+    cv2_camera.cv2_imshow(im)
+    if cv2.waitKey(1) > 0: break
+cv2.destroyAllWindows()
