@@ -97,4 +97,5 @@ class RingLed:
                     # Scale the RGB values to 0-255
                     rgb_scaled = [int(255 * x) for x in rgb]
                     self._leds.set(i, rgb_scaled)
+                    if self._stop.isSet(): return
                 time.sleep(0.1)
