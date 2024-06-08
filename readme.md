@@ -31,7 +31,7 @@ Tested on MacOs Sonoma and RaspberryPi 5 8GB with Arducam 64MB.
 
 ## Installation
 
-## Global packages
+### Global packages
 ```
 # Install updates
 sudo apt update
@@ -68,7 +68,7 @@ sudo reboot
 
 # Test
 libcamera-hello
-libcamera-still -t 5000 --viewfinder-width 2312 --viewfinder-height 1736 -o pi_hawk_eye.jpg --autofocus
+libcamera-vid -t 0 --autofocus-mode auto --vflip 1
 ```
 
 ### Gphoto2 (Only if you plan to use a DSLR)
@@ -132,10 +132,6 @@ You can also edit `photoboothapp.py` to change some parameters such as:
 ## USB dump
 A dedicated thread will handle USB dongles and automatically dump the whole content of the `ROOT_DIRECTORY` to the device.
 Application will not be usable during the copy process but will display a message.
-
-# Test PiCamera2
-Run the following command and it should display a live view:
-```libcamera-vid -t 0 --autofocus-mode auto --vflip 1```
 
 ## TODO
  - Test with gphoto2
