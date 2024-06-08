@@ -18,7 +18,8 @@ class RingLed:
         if spidev is None: return
         spi = spidev.SpiDev()
         spi.open(0,0)
-        self._stop = threading.Condition()
+        self._proc = None
+        self._stop = threading.Event()
         self._leds = WS2812(spi, self._num_pixels)
 
         # Identify top pixel
