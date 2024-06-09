@@ -52,6 +52,7 @@ pip3 install -r requirements.txt
 ### Install ArduCAM (Only if you plan to use one)
 ```
 # Declare camera
+sudo sed -i 's/^dtoverlay=vc4-kms-v3d/ddtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
 sudo sh -c "echo 'dtoverlay=arducam-64mp' >> /boot/firmware/config.txt"
 
 # Install drivers
@@ -59,9 +60,10 @@ wget -O install_pivariety_pkgs.sh https://github.com/ArduCAM/Arducam-Pivariety-V
 chmod +x install_pivariety_pkgs.sh
 ./install_pivariety_pkgs.sh -p libcamera_dev
 ./install_pivariety_pkgs.sh -p libcamera_apps
+./install_pivariety_pkgs.sh -p 64mp_pi_hawk_eye_kernel_driver
 sudo dpkg -i libcamera*.deb
 sudo dpkg -i rpicam-apps*deb
-rm libcamera* install_pivariety_pkgs.sh packages.txt rpicam-apps_1.4.4-2_arm64.deb
+rm libcamera* install_pivariety_pkgs.sh packages.txt rpicam-apps_1.4.4-2_arm64.deb 64mp_pi_hawk_eye_kernel_driver_links.txt
 
 # Reboot
 sudo reboot
