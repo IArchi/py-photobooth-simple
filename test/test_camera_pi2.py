@@ -3,50 +3,24 @@ import sys
 sys.path.append('..')
 from libs.device_utils import DeviceUtils
 
-import io
 import cv2
-import numpy as np
-from threading import Condition
-from picamera2 import Picamera2
-from picamera2.encoders import MJPEGEncoder
-from picamera2.outputs import FileOutput
+from picamera2 import Picamera2, Preview
 
-class StreamingOutput(io.BufferedIOBase):
-    def __init__(self):
-        self.frame = None
-        self.condition = Condition()
+picam2 = Picamera2(verbose_console=0)
+picam2.configure(picam2.create_preview_configuration(main={'format': 'RGB888', 'size': (1920, 1080)}))
+picam2.start_preview(Preview.NULL)
+picam2.start()
+picam2.set_controls({"AfMode": 1 ,"AfTrigger": 0}) # Continuous autofocus
 
-    def write(self, buf):
-        with self.condition:
-            nparr = np.frombuffer(buf, np.uint8)
-            self.frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            self.condition.notify_all()
-
-# Start reccording MJPEG
-picam2 = Picamera2()
-video_config = picam2.create_video_configuration(main={"size": (1920, 1080)})
-picam2.configure(video_config)
-output = StreamingOutput()
-picam2.start_recording(MJPEGEncoder(), FileOutput(output))
-
-# Read frames and trigger a capture every 30 frames
-i = 0
+cv2.startWindowThread()
+cv2.namedWindow('Camera', flags=cv2.WINDOW_GUI_NORMAL)
 while True:
-    with output.condition:
-        output.condition.wait()
-        frame = output.frame
-        print('MJPEG', frame.shape)
-        #cv2.imshow('PiCamera2', frame)
+    im = picam2.capture_array()
+    im = cv2.rotate(im, cv2.ROTATE_180)
+    cv2.imshow("Camera", im)
+    cv2.waitKey(1)
 
-        if i % 30 == 0:
-            print('Capture')
-            request = picam2.capture_request()
-            buf = request.make_array('main')
-            request.release()
-            capture = cv2.cvtColor(buf, cv2.COLOR_RGBA2BGR)
-            print('Capture:', capture.shape)
-            cv2.imshow('PiCamera2', capture)
-        i += 1
+cv2.destroyAllWindows()
 
 
 # # Connect to camera
