@@ -44,13 +44,14 @@ class KivyCamera(Image):
 
     def _update(self, args):
         try:
-            size, buffer = self._app.devices.get_preview(self._square)
-            if not size or not buffer: return
-            image_texture = Texture.create(size=size, colorfmt='bgr')
-            image_texture.blit_buffer(buffer, colorfmt='bgr', bufferfmt='ubyte')
+            im = self._app.devices.get_preview(self._square)
+            if im is None: return
+            image_texture = Texture.create(size=(im.shape[0], im.shape[1]), colorfmt='bgr')
+            image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
             self.texture = image_texture
         except Exception as e:
-            Logger.error('Cannot read camera stream.', e)
+            Logger.error('Cannot read camera stream.')
+            Logger.error(e)
 
         if not self._stop:
             self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)

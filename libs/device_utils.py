@@ -99,7 +99,7 @@ class Cv2Camera(CaptureDevice):
 
     def get_preview(self, square=False):
         ret, buf = self._instance.read()
-        if not ret: return None, None
+        if not ret: return None
         im = cv2.flip(buf, 0)
         im = cv2.flip(im, 1)
         if square: im = self._crop_to_square(im)
@@ -139,7 +139,7 @@ class Gphoto2Camera(CaptureDevice):
         im = cv2.imdecode(buf, cv2.IMREAD_ANYCOLOR)
         im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         if square: im = self._crop_to_square(im)
-        return im.shape, im.tostring()
+        return im
 
     def capture(self, output_name, square=False):
         # Use gphoto2
@@ -194,7 +194,7 @@ class Picamera2Camera(CaptureDevice):
             self._instance.streaming_output.condition.wait()
             im = self._instance.streaming_output.frame
             if square: im = self._crop_to_square(im)
-            return im.shape, im.tostring()
+            return im
 
     def capture(self, output_name, square=False):
         request = self._instance.capture_request()
@@ -207,7 +207,7 @@ class Picamera2Camera(CaptureDevice):
 class CupsPrinter(PrintDevice):
     _name = None
 
-    def __init__(name=None):
+    def __init__(self, name=None):
         if cups:
             # Try to detect connected printer
             printer_found = False
