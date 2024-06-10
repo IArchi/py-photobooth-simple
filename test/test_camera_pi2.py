@@ -1,7 +1,7 @@
 import sys
 
 sys.path.append('..')
-from libs.device_utils import DeviceUtils
+from libs.device_utils import Picamera2Camera
 
 import cv2
 from picamera2 import Picamera2, Preview
@@ -24,20 +24,16 @@ cv2.destroyAllWindows()
 
 
 # # Connect to camera
-# devices = DeviceUtils()
-# pi2_camera = devices.get_picamera2_proxy()
+camera = Picamera2Camera()
+while True:
+    camera.get_preview()
+    im = camera.get_preview()
+    if im is None: continue
+    print('size', im.shape)
 
-# if pi2_camera:
-#     while True:
-#         size, buf = devices.get_preview()
-#         if buf is None: continue
-#         image_array = np.fromstring(buf, dtype=np.uint8)
-#         im = image_array.reshape((size[1], size[0], 3))
-#         cv2.imshow('PiCamera2', im)
-#         if cv2.waitKey(1) > 0: break
-#     cv2.destroyAllWindows()
-# else:
-#     print('Cannot find any picamera2 camera')
+    camera.cv2_imshow(im)
+    if cv2.waitKey(1) > 0: break
+cv2.destroyAllWindows()
 
 #https://github.com/sightmachine/SimpleCV2/blob/21f5199d29c6b377073aa8834b6b0ebefca8ec75/SimpleCV/ImageClass.py#L998
 #https://github.com/sightmachine/SimpleCV2/blob/master/SimpleCV/Camera.py#L1425
