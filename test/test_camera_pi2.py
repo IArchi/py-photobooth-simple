@@ -4,23 +4,76 @@ sys.path.append('..')
 from libs.device_utils import Picamera2Camera
 
 import cv2
-from picamera2 import Picamera2, Preview
+import time
+from picamera2 import Picamera2
+from libcamera import controls
 
-picam2 = Picamera2(verbose_console=0)
-picam2.configure(picam2.create_preview_configuration(main={'format': 'RGB888', 'size': (1920, 1080)}))
-picam2.start_preview(Preview.NULL)
+picam2 = Picamera2()
+
+preview_config = picam2.create_preview_configuration(main={'format': 'RGB888', 'size': (2304, 1296)})
+still_config = picam2.create_still_configuration(main={"size": (2304, 1296), "format": "RGB888"})
+picam2.configure(preview_config)
 picam2.start()
-picam2.set_controls({"AfMode": 1 ,"AfTrigger": 0}) # Continuous autofocus
+print('Started')
+picam2.set_controls({"AfMode": controls.AfModeEnum.Auto,"AfSpeed": controls.AfSpeedEnum.Fast})
+job = picam2.autofocus_cycle(wait=False)
 
-cv2.startWindowThread()
-cv2.namedWindow('Camera', flags=cv2.WINDOW_GUI_NORMAL)
+#cv2.startWindowThread()
+#cv2.namedWindow('Camera', flags=cv2.WINDOW_GUI_NORMAL)
+frame_count = 0
+start_time = time.time()
 while True:
     im = picam2.capture_array()
     im = cv2.rotate(im, cv2.ROTATE_180)
-    cv2.imshow("Camera", im)
-    cv2.waitKey(1)
+    #cv2.imshow("Camera", im)
+    if frame_count % 100 == 0 and job.get_result():
+        print('Capture !')
+        picam2.switch_mode_and_capture_file(still_config, 'test_{}.jpg'.format(frame_count))
+    frame_count += 1
+    elapsed_time = time.time() - start_time
 
-cv2.destroyAllWindows()
+    if elapsed_time >= 1:
+        # Calculate FPS
+        fps = frame_count / elapsed_time
+
+        # Print FPS
+        print("FPS:", fps)
+
+        # Reset frame count and start time
+        frame_count = 0
+        start_time = time.time()
+
+picam2.stop()
+
+
+# The following code works with Camera module v3
+import time
+from picamera2 import Picamera2
+from libcamera import controls
+
+picam2 = Picamera2()
+
+preview_config = picam2.create_preview_configuration(main={'format': 'RGB888', 'size': (1920, 1080)}, controls={'FrameRate': 30})
+still_config = picam2.create_still_configuration(main={"size": (1920, 1080), "format": "RGB888"}, buffer_count=1, controls={'FrameRate': 30})
+picam2.configure(preview_config)
+
+def print_af_state(request):
+    md = request.get_metadata()
+    print(("Idle", "Scanning", "Success", "Fail")[md['AfState']], md.get('LensPosition'))
+
+picam2.pre_callback = print_af_state
+picam2.start()
+print('Started')
+picam2.set_controls({"AfMode": controls.AfModeEnum.Auto,"AfSpeed": controls.AfSpeedEnum.Fast})
+start_time = time.time()
+job = picam2.autofocus_cycle(wait=False)
+
+for i in range(0, 100):
+    if job.get_result(): break
+    time.sleep(0.1)
+print(f'Autofocused: {time.time() - start_time}s')
+picam2.switch_mode_and_capture_file(still_config, 'test.jpg')
+picam2.stop()
 
 
 # # Connect to camera

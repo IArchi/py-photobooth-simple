@@ -22,13 +22,11 @@ class KivyCamera(Image):
     def start(self, square=False):
         self._stop = False
         self._square = square
-        self._app.devices.start_preview(self._fps)
         self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)
 
     def stop(self):
         self._stop = True
         Clock.unschedule(self._clock)
-        self._app.devices.stop_preview()
 
     def create_empty_texture(self):
         width, height = self.size
