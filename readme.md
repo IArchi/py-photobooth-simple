@@ -69,8 +69,8 @@ rm libcamera* install_pivariety_pkgs.sh packages.txt rpicam-apps_1.4.4-2_arm64.d
 sudo reboot
 
 # Test
-libcamera-hello
-libcamera-vid -t 0 --autofocus-mode auto --vflip 1
+libcamera-still --list-camera
+libcamera-still --autofocus-mode=auto -f -o test.jpg
 ```
 
 ### Gphoto2 (Only if you plan to use a DSLR)
@@ -90,14 +90,25 @@ gphoto2 --capture-image
 
 ### CUPS printer (Only if you plan to print collages)
 ```
-sudo apt install cups -y
-TODO
+# Install CUPS
+sudo apt-get install -y cups cups-bsd python3-cups
+sudo usermod -a -G lpadmin $USER
+sudo cupsctl --remote-admin --remote-any
+
+# Install Driverless printers
+sudo apt install -y ipp-usb
+sudo systemctl start ipp-usb.service
+
+# Restart CUPS
+sudo /etc/init.d/cups restart
 ```
+
+Then go to `http://<raspberry-ip>:631/admin/` and declare a new printer.
 
 ### Led ring (Only if you plan to install one)
 ```
 # Enable SPI on RaspberryPi
-sudo sed -i 's/^#dtparam=spi=on/dtparam=spi=on/' /boot/firmware/config.txt
+sudo sed -i 's/^Listen localhost:631/Listen 0.0.0.0:631/' /boot/firmware/config.txt
 ```
 
 ### Install kiosk mode (Pi Only)
