@@ -50,10 +50,13 @@ pip3 install -r requirements.txt
 ```
 
 ### Install ArduCAM (Only if you plan to use one)
+
+Camera is expected to be connected to port CAM1.
+
 ```
 # Declare camera
 sudo sed -i 's/^dtoverlay=vc4-kms-v3d/ddtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
-sudo sh -c "echo 'dtoverlay=arducam-64mp' >> /boot/firmware/config.txt"
+sudo sh -c "echo 'dtoverlay=arducam-64mp,cam1' >> /boot/firmware/config.txt"
 
 # Install drivers
 wget -O install_pivariety_pkgs.sh https://github.com/ArduCAM/Arducam-Pivariety-V4L2-Driver/releases/download/install_script/install_pivariety_pkgs.sh
@@ -64,6 +67,23 @@ chmod +x install_pivariety_pkgs.sh
 sudo dpkg -i libcamera*.deb
 sudo dpkg -i rpicam-apps*deb
 rm libcamera* install_pivariety_pkgs.sh packages.txt rpicam-apps_1.4.4-2_arm64.deb 64mp_pi_hawk_eye_kernel_driver_links.txt
+
+# Reboot
+sudo reboot
+
+# Test
+libcamera-still --list-camera
+libcamera-still --autofocus-mode=auto -f -o test.jpg
+```
+
+### Install Raspberry Camera Module V3 (Only if you plan to use one)
+
+Camera is expected to be connected to port CAM0.
+
+```
+# Declare camera
+sudo sed -i 's/^dtoverlay=vc4-kms-v3d/ddtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
+sudo sh -c "echo 'dtoverlay=imx708,cam0' >> /boot/firmware/config.txt"
 
 # Reboot
 sudo reboot

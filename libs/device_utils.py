@@ -1,4 +1,3 @@
-import io
 import os
 import tempfile
 import numpy as np
@@ -12,8 +11,7 @@ except ImportError:
 
 try:
     from picamera2 import Picamera2
-    from picamera2.encoders import MJPEGEncoder
-    from picamera2.outputs import FileOutput
+    from libcamera import controls
 except ImportError:
     Picamera2 = None
 
@@ -28,31 +26,17 @@ try:
 except ImportError:
     gp = None
 
-class StreamingOutput(io.BufferedIOBase):
-    def __init__(self):
-        self.frame = None
-        self.condition = Condition()
-
-    def write(self, buf):
-        with self.condition:
-            nparr = np.frombuffer(buf, np.uint8)
-            self.frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            self.condition.notify_all()
-
 class CaptureDevice:
     _instance = None
-
-    def start_preview(self, fps=30):
-        pass
-
-    def stop_preview(self):
-        pass
 
     def get_preview(self, square=False):
         pass
 
     def capture(self, output_name, square=False):
         pass
+
+    def is_ready_to_capture(self):
+        return True
 
     def _crop_to_square(self, image):
         height, width, _ = image.shape
@@ -126,12 +110,8 @@ class Gphoto2Camera(CaptureDevice):
                 self._instance = camera
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
-    def start_preview(self, fps=30):
-        pass
-
-    def stop_preview(self):
-        #self._gp_cam_proxy.exit()
-        pass
+    def is_ready_to_capture(self):
+        return True
 
     def get_preview(self, square=False):
         buf = self._instance.get_preview()
@@ -176,33 +156,32 @@ class Picamera2Camera(CaptureDevice):
     def __init__(self, port=None):
         if Picamera2:
             self._instance = Picamera2(camera_num=port)
-            video_config = self._instance.create_video_configuration(main={"size": (1920, 1080)})
-            self._instance.configure(video_config)
+
+            self._preview_config = self._instance.create_preview_configuration(main={'format': 'RGB888', 'size': (1920, 1080)}, controls={'FrameRate': 30})
+            self._still_config = self._instance.create_still_configuration(main={"size": (1920, 1080), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
+
+            self._instance.configure(self._preview_config)
+            self._instance.set_controls({'AfMode': controls.AfModeEnum.Auto, 'AfSpeed': controls.AfSpeedEnum.Fast})
+            self._instance.start()
+            self._job = self._instance.autofocus_cycle(wait=False)
         if not self._instance: raise Exception('Cannot find any Picamera2 or picamera2 is not installed.')
 
-    def start_preview(self, fps=30):
-        output = StreamingOutput()
-        self._instance.start_recording(MJPEGEncoder(), FileOutput(output))
-        self._instance.streaming_output = output
-
-    def stop_preview(self):
-        self._instance.stop_recording()
-        self._instance.streaming_output = None
+    def is_ready_to_capture(self):
+        return self._job.get_result() == True
 
     def get_preview(self, square=False):
-        with self._instance.streaming_output.condition:
-            self._instance.streaming_output.condition.wait()
-            im = self._instance.streaming_output.frame
-            if square: im = self._crop_to_square(im)
-            return im
+        im = self._instance.capture_array()
+        im = cv2.rotate(im, cv2.ROTATE_180)
+        if square: im = self._crop_to_square(im)
+        return im
 
     def capture(self, output_name, square=False):
-        request = self._instance.capture_request()
-        buf = request.make_array('main')
-        request.release()
-        im_cv = cv2.cvtColor(buf, cv2.COLOR_RGBA2BGR)
-        if square: im_cv = self._crop_to_square(im_cv)
-        cv2.imwrite(output_name, im_cv)
+        self._instance.switch_mode(self._still_config)
+        im = self._instance.capture_array()
+        im = cv2.rotate(im, cv2.ROTATE_180)
+        if square: im = self._crop_to_square(im)
+        cv2.imwrite(output_name, im)
+        self._instance.switch_mode(self._preview_config)
 
 class CupsPrinter(PrintDevice):
     _name = None
@@ -287,12 +266,6 @@ class DeviceUtils:
         else:
             Logger.info('Cannot find any camera nor DSLR')
             raise Exception('This app requires at lease a piCamera, a DSLR or a webcam to work.')
-
-    def start_preview(self, fps=30):
-        return self._preview.start_preview(fps)
-
-    def stop_preview(self):
-        return self._preview.stop_preview()
 
     def get_preview(self, square=False):
         return self._preview.get_preview(square)
