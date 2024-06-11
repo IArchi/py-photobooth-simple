@@ -32,11 +32,11 @@ class CaptureDevice:
     def get_preview(self, square=False):
         pass
 
-    def capture(self, output_name, square=False):
+    def capture(self, output_name, square=False, flash_fn=None):
         pass
 
-    def is_ready_to_capture(self):
-        return True
+    def focus(self):
+        pass
 
     def _crop_to_square(self, image):
         height, width, _ = image.shape
@@ -89,7 +89,8 @@ class Cv2Camera(CaptureDevice):
         if square: im = self._crop_to_square(im)
         return im
 
-    def capture(self, output_name, square=False):
+    def capture(self, output_name, square=False, flash_fn=None):
+        if flash_fn: flash_fn()
         ret, im_cv = self._instance.read()
         if not ret: return None
         #im_cv = cv2.flip(im_cv, 0)
@@ -110,9 +111,6 @@ class Gphoto2Camera(CaptureDevice):
                 self._instance = camera
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
-    def is_ready_to_capture(self):
-        return True
-
     def get_preview(self, square=False):
         buf = self._instance.get_preview()
         buf = np.frombuffer(buf, np.uint8)
@@ -121,7 +119,7 @@ class Gphoto2Camera(CaptureDevice):
         if square: im = self._crop_to_square(im)
         return im
 
-    def capture(self, output_name, square=False):
+    def capture(self, output_name, square=False, flash_fn=None):
         # Use gphoto2
         #cmd = 'gphoto2 --capture-image-and-download --filename {filename} --set-config manualfocusdrive=6 --keep --force-overwrite'.format(filename=output_name)
         #Logger.info('Command is %s', cmd)
@@ -138,6 +136,7 @@ class Gphoto2Camera(CaptureDevice):
             Logger.warning('Failed to disable liveview.')
 
         # Capture and copy file from SD card to local directory
+        if flash_fn: flash_fn()
         file_path = self._gp_cam_proxy.capture(to_camera_storage=True)
         Logger.info('Camera file path: {0}/{1}'.format(file_path.folder, file_path.name))
         camera_file = self._gp_cam_proxy.file_get(file_path.folder, file_path.name, gp.GP_FILE_TYPE_NORMAL)
@@ -161,13 +160,13 @@ class Picamera2Camera(CaptureDevice):
             self._still_config = self._instance.create_still_configuration(main={"size": (1920, 1080), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
 
             self._instance.configure(self._preview_config)
-            self._instance.set_controls({'AfMode': controls.AfModeEnum.Auto, 'AfSpeed': controls.AfSpeedEnum.Fast})
+            self._instance.set_controls({'AfMode': controls.AfModeEnum.Continuous, 'AfSpeed': controls.AfSpeedEnum.Fast})
             self._instance.start()
-            self._job = self._instance.autofocus_cycle(wait=False)
+            self._instance.autofocus_cycle(wait=False)
         if not self._instance: raise Exception('Cannot find any Picamera2 or picamera2 is not installed.')
 
-    def is_ready_to_capture(self):
-        return self._job.get_result() == True
+    def focus(self):
+        self._instance.autofocus_cycle(wait=False)
 
     def get_preview(self, square=False):
         im = self._instance.capture_array()
@@ -175,8 +174,10 @@ class Picamera2Camera(CaptureDevice):
         if square: im = self._crop_to_square(im)
         return im
 
-    def capture(self, output_name, square=False):
+    def capture(self, output_name, square=False, flash_fn=None):
         self._instance.switch_mode(self._still_config)
+        self._instance.autofocus_cycle(wait=True)
+        if flash_fn: flash_fn()
         im = self._instance.capture_array()
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
@@ -267,11 +268,14 @@ class DeviceUtils:
             Logger.info('Cannot find any camera nor DSLR')
             raise Exception('This app requires at lease a piCamera, a DSLR or a webcam to work.')
 
+    def focus(self):
+        return self._preview.focus()
+
     def get_preview(self, square=False):
         return self._preview.get_preview(square)
 
-    def capture(self, output_name, square=False):
-        return self._capture.capture(output_name, square)
+    def capture(self, output_name, square=False, flash_fn=None):
+        return self._capture.capture(output_name, square, flash_fn)
 
     def has_printer(self):
         return self._printer is not None

@@ -432,7 +432,6 @@ class CheeseScreen(Screen):
 
         # Trigger shot
         try:
-            self.app.ringled.flash()
             self.app.trigger_shot(self._current_shot, self._current_format)
         except:
             return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['cheese']['error'])

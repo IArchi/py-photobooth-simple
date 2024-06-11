@@ -72,7 +72,7 @@ class PhotoboothApp(App):
 
     def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
-        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), self.print_formats[format_idx].is_squared()))
+        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), self.print_formats[format_idx].is_squared(), self.app.ringled.flash))
         self.processes = [t]
         t.start()
 
@@ -128,12 +128,14 @@ class PhotoboothApp(App):
             os.remove(src_path)
 
 if __name__ == '__main__':
-    # Auto restart app on crash
-    while True:
-        try:
-            PhotoboothApp().run()
-            break # stop the loop if the app completes sucessfully
-        except Exception as e:
-            print("Application errored out!", e)
-            print("Retrying ... ")
+    PhotoboothApp().run()
+
+    # # Auto restart app on crash
+    # while True:
+    #     try:
+    #         PhotoboothApp().run()
+    #         break # stop the loop if the app completes sucessfully
+    #     except Exception as e:
+    #         print("Application errored out!", e)
+    #         print("Retrying ... ")
     
