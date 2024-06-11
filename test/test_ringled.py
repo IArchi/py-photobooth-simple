@@ -17,7 +17,9 @@ leds.stop()
 
 print('Start flash')
 leds.flash()
-time.sleep(5)
+time.sleep(0.5)
+leds.flash(stop=True)
+time.sleep(1)
 
 print('Start blink')
 leds.blink([255, 255, 255])

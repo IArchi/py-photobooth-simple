@@ -97,7 +97,8 @@ class Cv2Camera(CaptureDevice):
     def capture(self, output_name, square=False, flash_fn=None):
         if flash_fn: flash_fn()
         ret, im_cv = self._instance.read()
-        if not ret: return None
+        if flash_fn: flash_fn(stop=True)
+        if not ret: return
         #im_cv = cv2.flip(im_cv, 0)
         if square: im_cv = self._crop_to_square(im_cv)
         cv2.imwrite(output_name, im_cv)
@@ -143,6 +144,7 @@ class Gphoto2Camera(CaptureDevice):
         # Capture and copy file from SD card to local directory
         if flash_fn: flash_fn()
         file_path = self._gp_cam_proxy.capture(to_camera_storage=True)
+        if flash_fn: flash_fn(stop=True)
         Logger.info('Camera file path: {0}/{1}'.format(file_path.folder, file_path.name))
         camera_file = self._gp_cam_proxy.file_get(file_path.folder, file_path.name, gp.GP_FILE_TYPE_NORMAL)
 
@@ -185,6 +187,7 @@ class Picamera2Camera(CaptureDevice):
         self._instance.autofocus_cycle(wait=True)
         if flash_fn: flash_fn()
         im = self._instance.capture_array()
+        if flash_fn: flash_fn(stop=True)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         cv2.imwrite(output_name, im)
