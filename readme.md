@@ -67,6 +67,7 @@ chmod +x install_pivariety_pkgs.sh
 sudo dpkg -i libcamera*.deb
 sudo dpkg -i rpicam-apps*deb
 rm libcamera* install_pivariety_pkgs.sh packages.txt rpicam-apps_1.4.4-2_arm64.deb 64mp_pi_hawk_eye_kernel_driver_links.txt
+sudo apt -y update && sudo apt -y upgrade
 
 # Reboot
 sudo reboot

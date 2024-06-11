@@ -54,10 +54,15 @@ class CaptureDevice:
         return image[top:bottom, left:right]
 
     def cv2_imshow(self, im, size=None):
-        if size:
-            im = im.reshape((size[1], size[0], 3))
+        if size: im = im.reshape((size[1], size[0], 3))
         im = cv2.flip(im, 0)
         cv2.imshow('Camera', im)
+
+    def zoom(self, im, zoom=1.0):
+        h, w, _ = [ zoom * i for i in im.shape ]
+        cx, cy = w/2, h/2
+        im = cv2.resize(im, (0, 0), fx=zoom, fy=zoom)
+        return im[ int(round(cy - h/zoom * .5)) : int(round(cy + h/zoom * .5)), int(round(cx - w/zoom * .5)) : int(round(cx + w/zoom * .5)), : ]
 
 class PrintDevice:
     _instance = None
@@ -170,6 +175,7 @@ class Picamera2Camera(CaptureDevice):
 
     def get_preview(self, square=False):
         im = self._instance.capture_array()
+        #im = cv2.imdecode(im, cv2.IMREAD_COLOR)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         return im
