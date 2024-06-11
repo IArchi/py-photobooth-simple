@@ -59,6 +59,7 @@ sudo sed -i 's/^dtoverlay=vc4-kms-v3d/ddtoverlay=vc4-kms-v3d,cma-512/' /boot/fir
 sudo sh -c "echo 'dtoverlay=arducam-64mp,cam1' >> /boot/firmware/config.txt"
 
 # Install drivers
+sudo apt install -y raspberrypi-kernel raspberrypi-kernel-headers
 wget -O install_pivariety_pkgs.sh https://github.com/ArduCAM/Arducam-Pivariety-V4L2-Driver/releases/download/install_script/install_pivariety_pkgs.sh
 chmod +x install_pivariety_pkgs.sh
 ./install_pivariety_pkgs.sh -p libcamera_dev
