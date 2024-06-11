@@ -34,11 +34,16 @@ class RingLed:
         self._proc = threading.Thread(target=self._rainbow)
         self._proc.start()
 
-    def flash(self):
+    def flash(self, stop=False):
         Logger.info('RingLed: flash().')
         if spidev is None: return
-        self._proc = threading.Thread(target=self._flash)
-        self._proc.start()
+        if not stop:
+            self._leds.fill([255,255,255])
+            time.sleep(0.1)
+        else:
+            self._leds.fill([0,0,0])
+        #self._proc = threading.Thread(target=self._flash)
+        #self._proc.start()
 
     def blink(self, color):
         Logger.info('RingLed: blink().')
@@ -51,11 +56,6 @@ class RingLed:
         if spidev is None: return
         if self._proc is None: return
         self._stop.set()
-        self._leds.fill([0,0,0])
-
-    def _flash(self):
-        self._leds.fill([255,255,255])
-        time.sleep(0.5)
         self._leds.fill([0,0,0])
 
     def _blink(self, color):
