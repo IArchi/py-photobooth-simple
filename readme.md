@@ -60,6 +60,12 @@ sudo sh -c "echo 'dtoverlay=arducam-64mp,cam1' >> /boot/firmware/config.txt"
 
 # Install drivers
 sudo apt install -y raspberrypi-kernel raspberrypi-kernel-headers
+```
+
+Run `uname -r` to find out which kernel version is installed on Pi 5.
+
+If version is 6.6.28 or before, run:
+```
 wget -O install_pivariety_pkgs.sh https://github.com/ArduCAM/Arducam-Pivariety-V4L2-Driver/releases/download/install_script/install_pivariety_pkgs.sh
 chmod +x install_pivariety_pkgs.sh
 ./install_pivariety_pkgs.sh -p libcamera_dev
@@ -72,8 +78,29 @@ sudo apt -y update && sudo apt -y upgrade
 
 # Reboot
 sudo reboot
+```
 
-# Test
+Otherwise, run:
+```
+uname -r # 6.6.31-v8-16k+
+
+# Rollback to 6.6.28 (https://github.com/raspberrypi/rpi-firmware/commits/master/)
+sudo rpi-update 1a47eacfe05acf3a7c1d8602c28c0ad2b4ffd315
+sudo reboot
+
+uname -r # 6.6.28-v8-16k+
+
+# Download firmware
+wget https://github.com/ArduCAM/Arducam-Pivariety-V4L2-Driver/releases/download/Arducam_pivariety_v4l2_v1.0/arducam_64mp_kernel_driver_6.6.28.tar.gz
+tar -zxvf arducam_64mp_kernel_driver_6.6.28.tar.gz Release/ && cd Release/
+
+# Install PDAF firmware
+sudo install -p -m 644 ./bin/6.6.28-v8-16k/arducam_64mp.ko.xz /lib/modules/6.6.28-v8-16k+/kernel/drivers/media/i2c/
+sudo reboot
+```
+
+To test camera:
+```
 libcamera-still --list-camera
 libcamera-still --autofocus-mode=auto -f -o test.jpg
 ```
