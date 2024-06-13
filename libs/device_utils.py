@@ -144,20 +144,19 @@ class Gphoto2Camera(CaptureDevice):
 
         # Capture and copy file from SD card to local directory
         if flash_fn: flash_fn()
-        file_path = self._instance.capture(to_camera_storage=True)
+        capture_img = self._instance.capture(to_camera_storage=True)
         if flash_fn: flash_fn(stop=True)
-        Logger.info('Camera file path: {0}/{1}'.format(file_path.folder, file_path.name))
-        camera_file = self._instance.file_get(file_path.folder, file_path.name, gp.GP_FILE_TYPE_NORMAL)
+        Logger.info('Camera file path: {}'.format(capture_img))
 
         if square:
             tmp_file, tmp_filename = tempfile.mkstemp()
-            camera_file.save(tmp_filename)
+            capture_img.save(tmp_filename)
             im_cv = cv2.imread(tmp_filename)
             os.remove(tmp_filename)
             im_cv = self._crop_to_square(im_cv)
             cv2.imwrite(output_name, im_cv)
         else:
-            camera_file.save(output_name)
+            capture_img.save(output_name)
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=None):
