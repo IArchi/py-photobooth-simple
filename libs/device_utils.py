@@ -121,7 +121,8 @@ class Gphoto2Camera(CaptureDevice):
         buf = self._instance.get_preview()
         buf = np.frombuffer(buf, np.uint8)
         im = cv2.imdecode(buf, cv2.IMREAD_ANYCOLOR)
-        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        #im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         return im
 
