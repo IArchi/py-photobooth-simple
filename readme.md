@@ -34,8 +34,7 @@ Tested on MacOs Sonoma and RaspberryPi 5 8GB with Arducam 64MB.
 ### Global packages
 ```
 # Install updates
-sudo apt update
-sudo apt upgrade -y
+sudo apt update && sudo apt upgrade -y
 
 # Install dependencies
 sudo apt-get install -y gcc make build-essential git scons swig
@@ -49,17 +48,37 @@ To install dependencies:
 pip3 install -r requirements.txt
 ```
 
+### Customize Pi
+```
+# Change bootscreen
+wget https://github.com/IArchi/py-photobooth-simple/blob/main/doc/splash.png?raw=true
+sudo cp splash.png /usr/share/plymouth/themes/pix/splash.png
+#sudo plymouth-set-default-theme --rebuild-initrd pix
+
+# Hide mouse 
+echo "autohide = true" >> .config/wf-panel-pi.ini
+echo "autohide_duration = 500" >> .config/wf-panel-pi.ini
+echo "layer = top" >> .config/wf-panel-pi.ini
+
+# Hide taskbar
+sudo sed -i 's/^@lxpanel --profile LXDE-pi/#@lxpanel --profile LXDE-pi/' /etc/xdg/lxsession/LXDE-pi/autostart
+sudo sed -i '/^[^#].*wfrespawn wf-panel-pi/ s/^/# /' /etc/wayfire/defaults.ini
+
+sudo reboot
+```
+
 ### Install ArduCAM (Only if you plan to use one)
 
 Camera is expected to be connected to port CAM1.
 
 ```
 # Declare camera
-sudo sed -i 's/^dtoverlay=vc4-kms-v3d/ddtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
+sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
 sudo sh -c "echo 'dtoverlay=arducam-64mp,cam1' >> /boot/firmware/config.txt"
 
 # Install drivers
 sudo apt install -y raspberrypi-kernel raspberrypi-kernel-headers
+sudo reboot
 ```
 
 Run `uname -r` to find out which kernel version is installed on Pi 5.
@@ -96,6 +115,7 @@ tar -zxvf arducam_64mp_kernel_driver_6.6.28.tar.gz Release/ && cd Release/
 
 # Install PDAF firmware
 sudo install -p -m 644 ./bin/6.6.28-v8-16k/arducam_64mp.ko.xz /lib/modules/6.6.28-v8-16k+/kernel/drivers/media/i2c/
+sudo /sbin/depmod -a $(uname -r)
 sudo reboot
 ```
 
@@ -157,7 +177,7 @@ Then go to `http://<raspberry-ip>:631/admin/` and declare a new printer.
 ### Led ring (Only if you plan to install one)
 ```
 # Enable SPI on RaspberryPi
-sudo sed -i 's/^Listen localhost:631/Listen 0.0.0.0:631/' /boot/firmware/config.txt
+sudo sed -i 's/^#dtparam=spi=on/dtparam=spi=on/' /boot/firmware/config.txt
 ```
 
 ### Install kiosk mode (Pi Only)

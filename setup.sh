@@ -1,29 +1,32 @@
 #!/bin/bash
 
-echo 'Camera should be plugged on slot #1'
+echo 'Arducam should be plugged on slot #1'
 read -p "Press [Enter] key to install ..."
 
-# Enable PI overlays
+# Enable Pi overlays
 sudo sed -i 's/^#dtparam=spi=on/dtparam=spi=on/' /boot/firmware/config.txt
-sudo sh -c "echo 'dtoverlay=arducam-64mp' >> /boot/firmware/config.txt"
+sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
+sudo sh -c "echo 'dtoverlay=arducam-64mp,cam1' >> /boot/firmware/config.txt"
 sudo sh -c "echo 'dtoverlay=disable-bt' >> /boot/firmware/config.txt"
 
 # Update system packages
-sudo apt update
-sudo apt upgrade -y
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y raspberrypi-kernel raspberrypi-kernel-headers
+sudo reboot
 
-# Install camera driver
-wget -O install_pivariety_pkgs.sh https://github.com/ArduCAM/Arducam-Pivariety-V4L2-Driver/releases/download/install_script/install_pivariety_pkgs.sh
-chmod +x install_pivariety_pkgs.sh
-./install_pivariety_pkgs.sh -p libcamera_dev
-./install_pivariety_pkgs.sh -p libcamera_apps
-sudo dpkg -i libcamera*.deb
-sudo dpkg -i rpicam-apps*deb
-rm libcamera* install_pivariety_pkgs.sh packages.txt rpicam-apps_1.4.4-2_arm64.deb
+# Rollback kernel to 6.6.28 (https://github.com/raspberrypi/rpi-firmware/commits/master/)
+sudo rpi-update 1a47eacfe05acf3a7c1d8602c28c0ad2b4ffd315
+
+# Download and install firmware
+wget https://github.com/ArduCAM/Arducam-Pivariety-V4L2-Driver/releases/download/Arducam_pivariety_v4l2_v1.0/arducam_64mp_kernel_driver_6.6.28.tar.gz
+tar -zxvf arducam_64mp_kernel_driver_6.6.28.tar.gz Release/ && cd Release/
+sudo install -p -m 644 ./bin/6.6.28-v8-16k/arducam_64mp.ko.xz /lib/modules/6.6.28-v8-16k+/kernel/drivers/media/i2c/
+sudo /sbin/depmod -a $(uname -r)
+cd .. && rm -rf Release/
+sudo reboot
 
 # Test camera
-libcamera-hello
-libcamera-still -t 5000 --viewfinder-width 2312 --viewfinder-height 1736 -o pi_hawk_eye.jpg --autofocus
+libcamera-still --list-camera
 
 # Install dependencies
 sudo apt-get install -y gcc make build-essential git scons swig
