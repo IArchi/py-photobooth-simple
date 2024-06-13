@@ -134,20 +134,20 @@ class Gphoto2Camera(CaptureDevice):
 
         # Set settings
         try:
-            self._gp_cam_proxy.config['capturesettings']['imagequality'].set('JPEG Fine')
+            self._instance.config['capturesettings']['imagequality'].set('JPEG Fine')
         except:
             Logger.warning('Failed to change image quality.')
         try:
-            self._gp_cam_proxy.config['actions']['viewfinder'].set(False)
+            self._instance.config['actions']['viewfinder'].set(False)
         except:
             Logger.warning('Failed to disable liveview.')
 
         # Capture and copy file from SD card to local directory
         if flash_fn: flash_fn()
-        file_path = self._gp_cam_proxy.capture(to_camera_storage=True)
+        file_path = self._instance.capture(to_camera_storage=True)
         if flash_fn: flash_fn(stop=True)
         Logger.info('Camera file path: {0}/{1}'.format(file_path.folder, file_path.name))
-        camera_file = self._gp_cam_proxy.file_get(file_path.folder, file_path.name, gp.GP_FILE_TYPE_NORMAL)
+        camera_file = self._instance.file_get(file_path.folder, file_path.name, gp.GP_FILE_TYPE_NORMAL)
 
         if square:
             tmp_file, tmp_filename = tempfile.mkstemp()
