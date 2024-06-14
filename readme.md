@@ -77,7 +77,7 @@ libcamera-still --list-camera
 libcamera-still --autofocus-mode=auto -f -o test.jpg
 ```
 
-### Install Arducam 64 B0039 (Only if you plan to use one)
+### Install Arducam 64 B0399 (Only if you plan to use one)
 
 ```
 # Install driver
