@@ -13,9 +13,9 @@ It relies on a state machine to display screens.
 ![Print screen](doc/print.png)
 
 ## Cameras
-The application is compatible with piCamera module 3 (or Arducam OV64A40), DSLR and CV2 devices.
+The application is compatible with [piCamera module 3](https://www.raspberrypi.com/products/camera-module-3/) (or [Arducam 64Mp B0399](https://www.arducam.com/product/64mp-af-for-raspberry-pi/)), DSLR and CV2 devices.
 By default, it will try to use the best available quality:
- - If piCamera is connected, it will be used for preview ;
+ - If piCamera/Arducam is connected, it will be used for preview ;
  - If DSLR is connected, it will be used for capture ;
 
 If one of these is not available, it will use the first available one.
@@ -66,7 +66,7 @@ sudo reboot
 ### Install Raspberry Camera Module V3 (Only if you plan to use one)
 
 ```
-# Declare camera
+# Allocate more memory
 sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
 
 # Reboot
@@ -132,9 +132,11 @@ sudo sed -i 's/^#dtparam=spi=on/dtparam=spi=on/' /boot/firmware/config.txt
 ```
 
 Connect WS2812 Ring led on the following GPIO pins:
- - GND   --   GND. At least one of pin 6, 9, 14, 20, 25
- - DIN   --   MOSI, Pin 19, GPIO 10
- - VCC   --   5V. At least one of pin 2 or 4
+| WS2812 pins | Raspberry Pi pins              |
+|-------------|--------------------------------|
+| GND         | 6, 9, 14, 20, 25 (GND)         |
+| DIN         | MOSI, Pin 19, GPIO 10          |
+| VCC         | 5V. At least one of pin 2 or 4 |
 
 ### Autostart photobooth on boot
 ```
@@ -170,4 +172,3 @@ Application will not be usable during the copy process but will display a messag
  - Test with gphoto2
  - Fix piCamera2
  - Add sounds
- - Test with remote webcam
