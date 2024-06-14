@@ -111,7 +111,7 @@ gphoto2 --capture-image
 ### CUPS printer (Only if you plan to print collages)
 ```
 # Install CUPS
-sudo apt-get install -y cups cups-bsd python3-cups
+sudo apt-get install -y cups libcups2-dev python3-cups
 sudo usermod -a -G lpadmin $USER
 sudo cupsctl --remote-admin --remote-any
 
