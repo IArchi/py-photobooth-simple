@@ -13,7 +13,7 @@ It relies on a state machine to display screens.
 ![Print screen](doc/print.png)
 
 ## Cameras
-The application is compatible with piCamera, DSLR and CV2 devices.
+The application is compatible with piCamera module 3 (or Arducam OV64A40), DSLR and CV2 devices.
 By default, it will try to use the best available quality:
  - If piCamera is connected, it will be used for preview ;
  - If DSLR is connected, it will be used for capture ;
@@ -28,23 +28,25 @@ Tested on MacOs Sonoma and RaspberryPi 5 8GB with Pi Camera module 3.
 ### Global packages
 ```
 # Install updates
-sudo apt update && sudo apt upgrade -y
+sudo apt update
 
 # Install dependencies
 sudo apt-get install -y gcc make build-essential git scons swig
 sudo apt install -y ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev
 
 #Install Python dependencies
-pip3 install -r requirements.txt
+pip3 install -r requirements.txt --break-system-packages
 ```
 
 ### Customize Pi and enable Kiosk mode
 ```
 # Change bootscreen
 wget https://github.com/IArchi/py-photobooth-simple/blob/main/doc/splash.png?raw=true
+sudo mv /usr/share/plymouth/themes/pix/splash.png /usr/share/plymouth/themes/pix/splash.png.bk
 sudo cp splash.png /usr/share/plymouth/themes/pix/splash.png
 #sudo plymouth-set-default-theme --rebuild-initrd pix
 sudo sed -i 's/console=tty1/console=tty3/' /boot/firmware/cmdline.txt
+sudo update-initramfs -c -k $(uname -r)
 
 # Hide mouse 
 echo "autohide = true" >> .config/wf-panel-pi.ini
@@ -55,6 +57,9 @@ echo "layer = top" >> .config/wf-panel-pi.ini
 #sudo sed -i 's/^@lxpanel --profile LXDE-pi/#@lxpanel --profile LXDE-pi/' /etc/xdg/lxsession/LXDE-pi/autostart
 sudo sed -i '/^[^#].*wfrespawn wf-panel-pi/ s/^/# /' /etc/wayfire/defaults.ini
 
+# Disable power warning
+echo "avoid_warnings=1" | sudo tee -a /boot/config.txt && sudo apt remove lxplug-ptbatt -y
+
 sudo reboot
 ```
 
@@ -63,7 +68,20 @@ sudo reboot
 ```
 # Declare camera
 sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
-sudo sh -c "echo 'dtoverlay=imx708' >> /boot/firmware/config.txt"
+
+# Reboot
+sudo reboot
+
+# Test
+libcamera-still --list-camera
+libcamera-still --autofocus-mode=auto -f -o test.jpg
+```
+
+### Install Arducam 64 B0039 (Only if you plan to use one)
+
+```
+# Install driver
+./arducam_driver.sh
 
 # Reboot
 sudo reboot
@@ -77,11 +95,14 @@ libcamera-still --autofocus-mode=auto -f -o test.jpg
 Gphoto2 should be fixed before use:
 ```
 # Install required packages
+wget https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/gphoto2-updater.sh
+wget https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/.env
+chmod +x gphoto2-updater.sh
+sudo ./gphoto2-updater.sh -s
+rm gphoto2-updater.sh .env
+
+# Install Python lib
 pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-packages
-#sudo apt install -y snapd
-#sudo snap install core gphoto2
-#sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor
-#sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2
 
 # Test
 gphoto2 --capture-image
@@ -117,13 +138,10 @@ Connect WS2812 Ring led on the following GPIO pins:
 
 ### Autostart photobooth on boot
 ```
-# Install Kiosk & autostart
 echo '[autostart]' >> .config/wayfire.ini
 echo 'photobooth = /home/pi/photobooth.sh' >> .config/wayfire.ini
-
-# Create runner
 echo '#!/bin/bash' > /home/pi/photobooth.sh
-echo 'cd /home/pi/photobooth' >> /home/pi/photobooth.sh
+echo 'cd /home/pi/photobooth/' >> /home/pi/photobooth.sh
 echo 'python3 photoboothapp.py' >> /home/pi/photobooth.sh
 chmod +x photobooth.sh
 ```
