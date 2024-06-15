@@ -149,7 +149,9 @@ sudo /sbin/depmod -a $(uname -r)
 
 # Declare camera in configuration
 sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
+sudo sh -c "echo '# Arducam 64mp' >> /boot/firmware/config.txt"
 sudo sh -c "echo 'dtoverlay=arducam-64mp,cam0' >> /boot/firmware/config.txt"
+sudo sh -c "echo '' >> /boot/firmware/config.txt"
 
 echo -e "${GREEN}Success${NC}"
 

@@ -10,7 +10,7 @@ from picamera2 import Picamera2
 from libcamera import controls
 
 
-picam2 = Picamera2(camera_num=1, tuning=Picamera2.load_tuning_file('/usr/share/libcamera/ipa/rpi/pisp/imx708.json'))
+picam2 = Picamera2()
 
 preview_config = picam2.create_preview_configuration(main={'format': 'RGB888', 'size': (1920, 1080)}, controls={'FrameRate': 30})
 still_config = picam2.create_still_configuration(main={"size": (1920, 1080), "format": "RGB888"}, buffer_count=1, controls={'FrameRate': 30})
