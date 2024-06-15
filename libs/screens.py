@@ -498,6 +498,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
             background_color=(.4, .733, .416, 1),
             text=self.locales['capture']['save'],
             text_color=[1, 1, 1, 1],
+            font_size=TINY_FONT,
         )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
@@ -508,6 +509,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
             background_color=(.937, .325, .314, 1),
             text=self.locales['capture']['trash'],
             text_color=[1, 1, 1, 1],
+            font_size=TINY_FONT,
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
@@ -641,6 +643,7 @@ class ConfirmSaveScreen(BackgroundScreen):
             background_color=(.4, .733, .416, 1),
             text=self.locales['save']['save'],
             text_color=[1, 1, 1, 1],
+            font_size=TINY_FONT,
         )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
@@ -651,6 +654,7 @@ class ConfirmSaveScreen(BackgroundScreen):
             background_color=(.937, .325, .314, 1),
             text=self.locales['save']['trash'],
             text_color=[1, 1, 1, 1],
+            font_size=TINY_FONT,
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
@@ -729,6 +733,7 @@ class ConfirmPrintScreen(BackgroundScreen):
             background_color=(.4, .733, .416, 1),
             text=self.locales['print']['one_copy'],
             text_color=[1, 1, 1, 1],
+            font_size=TINY_FONT,
         )
         self.btn_once.bind(on_release=self.print_once)
         overlay_layout.add_widget(self.btn_once)
@@ -739,6 +744,7 @@ class ConfirmPrintScreen(BackgroundScreen):
             background_color=(.4, .733, .416, 1),
             text=self.locales['print']['two_copies'],
             text_color=[1, 1, 1, 1],
+            font_size=TINY_FONT,
         )
         self.btn_twice.bind(on_release=self.print_twice)
         overlay_layout.add_widget(self.btn_twice)
@@ -749,6 +755,7 @@ class ConfirmPrintScreen(BackgroundScreen):
             background_color=(.4, .733, .416, 1),
             text=self.locales['print']['three_copies'],
             text_color=[1, 1, 1, 1],
+            font_size=TINY_FONT,
         )
         self.btn_3times.bind(on_release=self.print_3times)
         overlay_layout.add_widget(self.btn_3times)
@@ -759,6 +766,7 @@ class ConfirmPrintScreen(BackgroundScreen):
             background_color=(.937, .325, .314, 1),
             text=self.locales['print']['no'],
             text_color=[1, 1, 1, 1],
+            font_size=TINY_FONT,
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)

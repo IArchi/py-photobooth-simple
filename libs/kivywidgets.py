@@ -106,15 +106,17 @@ Builder.load_string("""
         text: root.text
         size_hint: None, None
         size: root.width - root.height * 0.8, root.height
+        font_size: root.font_size
         color: root.text_color
         halign: 'center'
         valign: 'middle'
-        text_size: self.size * 2
+        text_size: self.size
 """)
 class ImageLabelButton(ButtonBehavior, BoxLayout):
     source = StringProperty('')  # Path to the image
     text = StringProperty('')  # Text to display on the button
     text_color = ListProperty([1, 1, 1, 1])  # Color of the text
+    font_size = NumericProperty(sp(16))
     background_color = ListProperty([0, 0, 0, 0])  # Background color
     border_radius = NumericProperty(15)  # Border radius
 
