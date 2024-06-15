@@ -8,7 +8,6 @@ from libs.device_utils import Cv2Camera
 camera = Cv2Camera()
 camera.focus()
 while True:
-    camera.get_preview()
     im = camera.get_preview()
     if im is None: continue
     print('size', im.shape)

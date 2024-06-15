@@ -7,8 +7,8 @@ from libs.device_utils import Gphoto2Camera
 
 # Connect to camera
 camera = Gphoto2Camera()
+camera.capture('truc.jpg')
 while True:
-    camera.get_preview()
     im = camera.get_preview()
     if im is None: continue
     print('size', im.shape)
