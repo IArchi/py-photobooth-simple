@@ -90,6 +90,7 @@ class RingLed:
         p2 = reversed(range(self._top_pixel, self._num_pixels))
 
         self._leds.fill([255,255,255])
+        time.sleep(0.1)
         for i in [*p1, *p2]:
             self._leds.set(i, [0,0,0])
             time.sleep(time_between_pixels)

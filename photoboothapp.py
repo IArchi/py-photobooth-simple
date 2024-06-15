@@ -48,6 +48,9 @@ class PhotoboothApp(App):
         self.sm.current_screen.on_entry()
         return self.sm
 
+    def on_stop(self):
+        self.ringled.clear()
+
     def transition_to(self, new_state, **kwargs):
         self.sm.current_screen.on_exit()
         self.sm.current = new_state

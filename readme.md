@@ -193,5 +193,4 @@ Application will not be usable during the copy process but will display a messag
  - Test with gphoto2
  - Add sounds
  - Test printer
- - Fix touch propagation
  - Fix preview on strip
