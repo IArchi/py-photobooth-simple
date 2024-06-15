@@ -86,6 +86,7 @@ class UsbTransfer:
         Logger.info("UsbTransfer: copy_folders_to_usb()")
         destination_path = Path(usb_path, 'photobooth')
 
+        Logger.error(destination_path)
         try:
             os.makedirs(destination_path, exist_ok=True)
         except Exception as exc:
