@@ -76,7 +76,7 @@ class StripCollage(Collage):
         im = self._resize(im)
 
         # Save to file
-        cv2.imwrite(output_path, im)
+        cv2.imwrite(tmp_output, im)
 
         return tmp_output
 
@@ -156,7 +156,7 @@ class PolaroidCollage(Collage):
         im = self._resize(im)
 
         # Save to file
-        cv2.imwrite(output_path, im)
+        cv2.imwrite(tmp_output, im)
 
         return tmp_output
 
