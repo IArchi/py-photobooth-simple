@@ -67,7 +67,7 @@ class RingLed:
         self._proc = threading.Thread(target=self._blink, args=[color,])
         self._proc.start()
 
-    def breath(self):
+    def breath(self, color):
         Logger.info('RingLed: breath().')
         if spidev is None: return
         if self._proc and self._proc.is_alive():
