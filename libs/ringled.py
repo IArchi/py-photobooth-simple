@@ -99,7 +99,7 @@ class RingLed:
         while True:
             # Calculate the current brightness using a sine wave
             elapsed = time.time() - start_time
-            brightness = (max_brightness - min_brightness) / 2 * (1 + math.sin(speed * elapsed)) + min_brightness
+            brightness = 1.0 / 2 * (1 + math.sin(speed * elapsed))
             self._leds.fill(color, brightness)
             time.sleep(0.01)
             if self._stop.isSet(): return
