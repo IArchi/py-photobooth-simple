@@ -70,16 +70,14 @@ class UsbTransfer:
         Logger.info("UsbTransfer: copy_folders_to_usb()")
         destination_path = Path(usb_path, 'photobooth')
 
-        Logger.error(destination_path)
         try:
             os.makedirs(destination_path, exist_ok=True)
         except Exception as exc:
             Logger.warning("UsbTransfer: Cannot create destination folder on USB drive")
 
-        for folder in self._folder:
-            Logger.error("Copying {}".format(folder))
-            try:
-                shutil.copytree(folder, Path(destination_path, folder), dirs_exist_ok=True)
-            except Exception as exc:
-                Logger.warning("UsbTransfer: Cannot copy files to USB drive")
-                return
+        Logger.error("Copying {}".format(self._folder))
+        try:
+            shutil.copytree(folder, Path(destination_path, folder), dirs_exist_ok=True)
+        except Exception as exc:
+            Logger.warning("UsbTransfer: Cannot copy files to USB drive")
+            return
