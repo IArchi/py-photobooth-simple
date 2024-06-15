@@ -191,6 +191,7 @@ Application will not be usable during the copy process but will display a messag
 
 ## TODO
  - Test with gphoto2
- - Fix piCamera2
  - Add sounds
  - Test printer
+ - Fix huge images loading
+ - Fix LEDs on some screens
