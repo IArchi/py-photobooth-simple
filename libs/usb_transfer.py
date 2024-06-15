@@ -51,7 +51,8 @@ class UsbTransfer:
             # TODO : Does not work from outside app thread
             self._app.request_transition_to(ScreenMgr.COPYING)
             try:
-                self.copy_folders_to_usb(device.mountpoint)
+                self.copy_without_overwrite(self._folder, device.mountpoint)
+                #self.copy_folders_to_usb(device.mountpoint)
             except:
                 Logger.error('UsbTransfer: Failed to perform folder copy.')
             finally:
@@ -81,3 +82,18 @@ class UsbTransfer:
         except Exception as exc:
             Logger.warning("UsbTransfer: Cannot copy files to USB drive")
             return
+
+    def copy_without_overwrite(self, src, dest):
+        src_path = Path(src)
+        dest_path = Path(dest)
+
+        if not src_path.exists(): raise ValueError("Source directory does not exist")
+        dest_path.mkdir(parents=True, exist_ok=True)
+
+        for item in src_path.iterdir():
+            s = src_path / item.name
+            d = dest_path / item.name
+            if s.is_dir():
+                self.copy_without_overwrite(s, d)
+            else:
+                if not d.exists(): shutil.copy2(s, d)
