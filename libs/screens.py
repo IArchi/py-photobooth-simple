@@ -944,15 +944,7 @@ class CopyingScreen(BackgroundScreen):
     def on_entry(self, kwargs={}):
         Logger.info('CopyingScreen: on_entry().')
         self.app.ringled.start_rainbow()
-        self._clock = Clock.schedule_once(self.timer_event, 1)
 
     def on_exit(self, kwargs={}):
         Logger.info('CopyingScreen: on_exit().')
-        Clock.unschedule(self._clock)
         self.app.ringled.clear()
-
-    def timer_event(self, obj):
-        Logger.info('CopyingScreen: timer_event().')
-        self._count += 1
-        self._count = self._count % 3
-        self.label.text = self.locales['copying']['content'] + ('.' * self._count)

@@ -25,5 +25,9 @@ print('Start blink')
 leds.blink([255, 255, 255])
 time.sleep(5)
 
+print('Start breath')
+leds.breath([255, 255, 255])
+time.sleep(5)
+
 print('Stop')
 leds.clear()
