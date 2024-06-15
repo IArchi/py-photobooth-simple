@@ -3,6 +3,7 @@ from kivy.uix.image import Image, AsyncImage
 from kivy.uix.label import Label
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics.texture import Texture
 from kivy.graphics import Rectangle, Color
