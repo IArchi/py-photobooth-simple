@@ -7,6 +7,7 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics.texture import Texture
 from kivy.graphics import Rectangle, Color
 from kivy.properties import ColorProperty, StringProperty, ListProperty, NumericProperty
+from kivy.metrics import sp
 from kivy.logger import Logger
 import numpy as np
 
