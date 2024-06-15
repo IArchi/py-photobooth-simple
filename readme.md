@@ -197,6 +197,6 @@ Application will not be usable during the copy process but will display a messag
 
 ## TODO
  - Test with gphoto2
- - Add sounds
  - Test printer
  - Test USB storage
+ - Fix breath LED
