@@ -22,7 +22,7 @@ except ImportError:
     cv2 = None
 
 try:
-    import gphoto2cffi as gp
+    import libs.piggyphoto as gp
 except ImportError:
     gp = None
 
@@ -105,39 +105,33 @@ class Gphoto2Camera(CaptureDevice):
     def __init__(self):
         if gp:
             # List connected DSLR cameras
-            if len(gp.list_cameras()):
-                camera = gp.Camera()
-                camera.get_preview()
-                try:
-                    camera.config['capturesettings']['liveviewaffocus'].set('Full-time-servo AF')
-                except:
-                    Logger.warning('Gphoto2Camera: Could not change liveview AF settings, please enable AF on lens')
-                self._instance = camera
+            if len(gp.cameraList(autodetect=True)):
+                self._instance = gp.camera()
+                tmp_file, self._preview = tempfile.mkstemp(suffix='.jpg')
+                self._instance.leave_locked()
+                self._instance.capture_preview(self._preview)
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
     def get_preview(self, square=False):
-        buf = self._instance.get_preview()
-        buf = np.frombuffer(buf, np.uint8)
-        im = cv2.imdecode(buf, cv2.IMREAD_ANYCOLOR)
-        #im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        self._instance.capture_preview(self._preview)
+        im = cv2.imread(self._preview)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         return im
 
     def capture(self, output_name, square=False, flash_fn=None):
-        try:
-            if flash_fn: flash_fn()
-            cmd = 'gphoto2 --force-overwrite --quiet --capture-image-and-download --filename {}'.format(output_name)
-            subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-            if flash_fn: flash_fn(stop=True)
-        except Exception as e:
-            logging.error('Gphoto2Camera: Failed to trigger capture: {}.'.format(e))
+        # Capture photo
+        if flash_fn: flash_fn()
+        self._instance.capture_image(self._preview)
+        if flash_fn: flash_fn(stop=True)
 
-        # Resize to square
-        if square:
-            im_cv = cv2.imread(output_name)
-            im_cv = self._crop_to_square(im_cv)
-            cv2.imwrite(output_name, im_cv)
+        # Rotate and crop if necessary
+        im = cv2.imread(self._preview)
+        im = cv2.rotate(im, cv2.ROTATE_180)
+        if square: im = self._crop_to_square(im)
+
+        # Dump to file
+        cv2.imwrite(output_name, im)
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):

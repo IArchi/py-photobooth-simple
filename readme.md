@@ -122,9 +122,6 @@ chmod +x gphoto2-updater.sh
 sudo ./gphoto2-updater.sh -s
 rm gphoto2-updater.sh .env
 
-# Install Python lib
-pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-packages
-
 # Fix for USB not available
 sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor
 sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2
