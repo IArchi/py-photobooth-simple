@@ -105,7 +105,7 @@ class Gphoto2Camera(CaptureDevice):
     def __init__(self):
         if gp:
             # List connected DSLR cameras
-            if len(gp.cameraList(autodetect=True)):
+            if gp.cameraList(autodetect=True).count():
                 self._instance = gp.camera()
                 tmp_file, self._preview = tempfile.mkstemp(suffix='.jpg')
                 self._instance.leave_locked()
