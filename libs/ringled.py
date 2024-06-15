@@ -96,7 +96,7 @@ class RingLed:
             if self._stop.isSet(): return
 
     def _breath(self, color):
-        wave_intensity = 0.8
+        wave_intensity = 0.5
         wave_length = self._num_pixels
         while True:
             for step in range(self._num_pixels):
