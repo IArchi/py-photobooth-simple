@@ -165,12 +165,12 @@ Connect WS2812 Ring led on the following GPIO pins:
 
 ### Autostart photobooth on boot
 ```
-echo '[autostart]' >> .config/wayfire.ini
-echo 'photobooth = /home/pi/photobooth.sh' >> .config/wayfire.ini
+echo '[autostart]' >> ~/.config/wayfire.ini
+echo 'photobooth = /home/pi/photobooth.sh' >> ~/.config/wayfire.ini
 echo '#!/bin/bash' > /home/pi/photobooth.sh
 echo 'cd /home/pi/photobooth/' >> /home/pi/photobooth.sh
 echo 'python3 photoboothapp.py' >> /home/pi/photobooth.sh
-chmod +x photobooth.sh
+chmod +x /home/pi/photobooth.sh
 ```
 
 ### Run
@@ -198,5 +198,3 @@ Application will not be usable during the copy process but will display a messag
 ## TODO
  - Test with gphoto2
  - Test printer
- - Fix breath LED
- - Install auto startup

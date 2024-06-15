@@ -48,7 +48,6 @@ class UsbTransfer:
         Logger.info("UsbTransfer: handle_mount({})".format(device.device))
 
         if device.mountpoint:
-            # TODO : Does not work from outside app thread
             self._app.request_transition_to(ScreenMgr.COPYING)
             try:
                 self.copy_without_overwrite(self._folder, device.mountpoint)
