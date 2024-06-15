@@ -46,14 +46,6 @@ pip3 install -r requirements.txt --break-system-packages
 
 ### Customize Pi and enable Kiosk mode
 ```
-# Change bootscreen
-wget https://github.com/IArchi/py-photobooth-simple/blob/main/doc/splash.png?raw=true
-sudo mv /usr/share/plymouth/themes/pix/splash.png /usr/share/plymouth/themes/pix/splash.png.bk
-sudo cp splash.png /usr/share/plymouth/themes/pix/splash.png
-#sudo plymouth-set-default-theme --rebuild-initrd pix
-sudo sed -i 's/console=tty1/console=tty3/' /boot/firmware/cmdline.txt
-sudo update-initramfs -c -k $(uname -r)
-
 # Hide mouse
 echo "autohide = true" >> .config/wf-panel-pi.ini
 echo "autohide_duration = 500" >> .config/wf-panel-pi.ini
