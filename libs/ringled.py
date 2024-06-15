@@ -51,10 +51,9 @@ class RingLed:
         self._proc = threading.Thread(target=self._blink, args=[color,])
         self._proc.start()
 
-    def stop(self):
-        Logger.info('RingLed: stop().')
+    def clear(self):
+        Logger.info('RingLed: clear().')
         if spidev is None: return
-        if self._proc is None: return
         self._stop.set()
         self._leds.fill([0,0,0])
 
