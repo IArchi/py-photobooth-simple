@@ -4,7 +4,7 @@ import time
 sys.path.append('..')
 from libs.ringled import RingLed
 
-leds = RingLed()
+leds = RingLed(num_pixels=12)
 
 print('Start countdown')
 leds.start_countdown(5)
