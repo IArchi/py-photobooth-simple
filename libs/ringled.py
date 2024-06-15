@@ -63,39 +63,33 @@ class RingLed:
         self._leds.fill([0, 0, 0])
 
     def _blink(self, color):
-        self._stop.clear()
-        while True:
+        while not self._stop.is_set():
             self._leds.fill(color)
             time.sleep(0.1)
-            self._leds.fill([0,0,0])
+            self._leds.fill([0, 0, 0])
             time.sleep(0.1)
-            if self._stop.isSet(): return
 
     def _countdown(self, time_seconds):
-        self._stop.clear()
         time_between_pixels = time_seconds / self._num_pixels
-        p1 = reversed(range(0, self._top_pixel+1))
+        p1 = reversed(range(0, self._top_pixel + 1))
         p2 = reversed(range(self._top_pixel, self._num_pixels))
 
-        self._leds.fill([255,255,255])
+        self._leds.fill([255, 255, 255])
         for i in [*p1, *p2]:
-            self._leds.set(i, [0,0,0])
+            if self._stop.is_set(): return
+            self._leds.set(i, [0, 0, 0])
             time.sleep(time_between_pixels)
-            if self._stop.isSet(): return
 
     def _rainbow(self):
-        self._stop.clear()
         hue_step = 1.0 / self._num_pixels
 
-        while True:
+        while not self._stop.is_set():
             for step in range(self._num_pixels):
+                if self._stop.is_set(): return
                 for i in range(self._num_pixels):
-                    # Calculate hue for the current LED, with an offset for rotation
                     hue = (hue_step * ((i + step) % self._num_pixels)) % 1.0
-                    # Convert HSV to RGB
                     rgb = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
-                    # Scale the RGB values to 0-255
                     rgb_scaled = [int(255 * x) for x in rgb]
                     self._leds.set(i, rgb_scaled)
-                    if self._stop.isSet(): return
                 time.sleep(0.1)
+                
