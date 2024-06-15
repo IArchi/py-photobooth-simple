@@ -232,14 +232,18 @@ class DeviceUtils:
         # Try to load cameras
         try:
             pi2_camera = Picamera2Camera(picamera2_port)
-        except:
+            print('[CAMERA] Found a PiCamera2 device')
+        except Exception as e:
             pi2_camera = None
+            print(e)
         try:
             g2_camera = Gphoto2Camera(gphoto2_port)
+            print('[CAMERA] Found a gPhoto2 device')
         except:
             g2_camera = None
         try:
             cv2_camera = Cv2Camera(cv2_port)
+            print('[CAMERA] Found a CV2 device')
         except:
             cv2_camera = None
 
