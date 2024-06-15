@@ -81,7 +81,7 @@ Builder.load_string("""
             pos: (self.pos[0]-self.size[0]*0.1, self.pos[1]-self.size[1]*0.1)
             radius: [15, 0, 0, 15]
 """)
-class ImageButton(ButtonBehavior, Image):
+class ImageButton(ButtonBehavior, AsyncImage):
     pass
 
 Builder.load_string("""
