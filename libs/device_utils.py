@@ -113,7 +113,9 @@ class Gphoto2Camera(CaptureDevice):
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
     def get_preview(self, square=False):
-        self._instance.capture_preview(self._preview)
+        s = self._instance.capture_preview()
+        s.save(self._preview)
+        s.clean()
         im = cv2.imread(self._preview)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
