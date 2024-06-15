@@ -113,24 +113,6 @@ class Gphoto2Camera(CaptureDevice):
                 except:
                     Logger.warning('Gphoto2Camera: Could not change liveview AF settings, please enable AF on lens')
                 self._instance = camera
-
-                # Set image quality
-                try:
-                    self._instance._get_config()['capturesettings']['imagequality'].set('Large Fine JPEG')
-                    self._instance._get_config()['imgsettings']['imageformatsd'].set('Large Fine JPEG')
-                except BaseException as e:
-                    Logger.warning('Gphoto2Camera: Failed to change image quality: {}.'.format(e))
-
-                # Enable viewfinder
-                try:
-                    self._instance._get_config()['actions']['viewfinder'].set(True)
-                    self._instance._get_config()['settings']['output'].set('PC')
-                except BaseException as e:
-                    logging.warn('Gphoto2Camera: Cannot set camera output to active: {}.'.format(e))
-
-                # Display configuration
-                Logger.info('Camera configuration:')
-                Logger.info(self._instance._get_config())
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
     def get_preview(self, square=False):
@@ -143,37 +125,19 @@ class Gphoto2Camera(CaptureDevice):
         return im
 
     def capture(self, output_name, square=False, flash_fn=None):
-        # Use gphoto2
-        #cmd = 'gphoto2 --capture-image-and-download --filename {filename} --set-config manualfocusdrive=6 --keep --force-overwrite'.format(filename=output_name)
-        #Logger.info('Command is %s', cmd)
-        #return [subprocess.Popen(['gphoto2', '--auto-detect']), subprocess.Popen(shlex.split(cmd))]
-
-        # Disable viewfinder
         try:
-            self._instance._get_config()['actions']['viewfinder'].set(False)
-            self._instance._get_config()['settings']['output'].set('Off')
-        except BaseException as e:
-            Logger.warning('Gphoto2Camera: Failed to disable liveview.')
+            if flash_fn: flash_fn()
+            cmd = 'gphoto2 --force-overwrite --quiet --capture-image-and-download --filename {}'.format(output_name)
+            subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+            if flash_fn: flash_fn(stop=True)
+        except Exception as e:
+            logging.error('Gphoto2Camera: Failed to trigger capture: {}.'.format(e))
 
-        # Capture buffer
-        if flash_fn: flash_fn()
-        buf = self._instance.capture()
-        if flash_fn: flash_fn(stop=True)
-
-        # Save to file
-        buf = np.frombuffer(buf, np.uint8)
-        im = cv2.imdecode(buf, cv2.IMREAD_ANYCOLOR)
-        #im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-        im = cv2.rotate(im, cv2.ROTATE_180)
-        if square: im = self._crop_to_square(im)
-        cv2.imwrite(output_name, im)
-
-        # Enable viewfinder
-        try:
-            self._instance._get_config()['actions']['viewfinder'].set(True)
-            self._instance._get_config()['settings']['output'].set('PC')
-        except BaseException as e:
-            logging.warn('Gphoto2Camera: Cannot set camera output to active: {}.'.format(e))
+        # Resize to square
+        if square:
+            im_cv = cv2.imread(output_name)
+            im_cv = self._crop_to_square(im_cv)
+            cv2.imwrite(output_name, im_cv)
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
