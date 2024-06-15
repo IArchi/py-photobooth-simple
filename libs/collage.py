@@ -70,7 +70,7 @@ class StripCollage(Collage):
         photos = [p[1] for p in photos]
         for p in photos: self._create_dummy_photo(p)
         tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
-        im = self.assemble(None, photos, logo_path)
+        im = self.assemble(output_path=None, image_paths=[tmp_input], logo_path=logo_path)
 
         # Resize if required
         im = self._resize(im)
@@ -150,7 +150,7 @@ class PolaroidCollage(Collage):
         tmp_file, tmp_input = tempfile.mkstemp(suffix='.jpg')
         self._create_dummy_photo(tmp_input, squared=True)
         tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
-        im = self.assemble(None, [tmp_input], logo_path)
+        im = self.assemble(output_path=None, image_paths=[tmp_input], logo_path=logo_path)
 
         # Resize if required
         im = self._resize(im)
