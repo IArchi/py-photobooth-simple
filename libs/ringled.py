@@ -25,18 +25,30 @@ class RingLed:
     def start_countdown(self, time_seconds):
         Logger.info('RingLed: start_countdown().')
         if spidev is None: return
+        if self._proc and self._proc.is_alive():
+            self._stop.set()
+            self._proc.join()
+        self._stop.clear()
         self._proc = threading.Thread(target=self._countdown, args=[time_seconds])
         self._proc.start()
 
     def start_rainbow(self):
         Logger.info('RingLed: start_rainbow().')
         if spidev is None: return
+        if self._proc and self._proc.is_alive():
+            self._stop.set()
+            self._proc.join()
+        self._stop.clear()
         self._proc = threading.Thread(target=self._rainbow)
         self._proc.start()
 
     def flash(self, stop=False):
         Logger.info('RingLed: flash().')
         if spidev is None: return
+        if self._proc and self._proc.is_alive():
+            self._stop.set()
+            self._proc.join()
+        self._stop.clear()
         if not stop:
             self._leds.fill([255,255,255])
             time.sleep(0.1)
@@ -48,17 +60,23 @@ class RingLed:
     def blink(self, color):
         Logger.info('RingLed: blink().')
         if spidev is None: return
+        if self._proc and self._proc.is_alive():
+            self._stop.set()
+            self._proc.join()
+        self._stop.clear()
         self._proc = threading.Thread(target=self._blink, args=[color,])
         self._proc.start()
 
     def clear(self):
         Logger.info('RingLed: clear().')
         if spidev is None: return
-        self._stop.set()
+        if self._proc and self._proc.is_alive():
+            self._stop.set()
+            self._proc.join()
+        self._stop.clear()
         self._leds.fill([0,0,0])
 
     def _blink(self, color):
-        self._stop.clear()
         while True:
             self._leds.fill(color)
             time.sleep(0.1)
@@ -67,7 +85,6 @@ class RingLed:
             if self._stop.isSet(): return
 
     def _countdown(self, time_seconds):
-        self._stop.clear()
         time_between_pixels = time_seconds / self._num_pixels
         p1 = reversed(range(0, self._top_pixel+1))
         p2 = reversed(range(self._top_pixel, self._num_pixels))
@@ -79,7 +96,6 @@ class RingLed:
             if self._stop.isSet(): return
 
     def _rainbow(self):
-        self._stop.clear()
         hue_step = 1.0 / self._num_pixels
 
         while True:
