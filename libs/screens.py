@@ -88,7 +88,7 @@ class WaitingScreen(BackgroundScreen):
         self.app = app
         self.locales = locales
 
-        overlay_layout = FloatLayout()
+        overlay_layout = LayoutButton()
 
         start = BorderedLabel(
             text=self.locales['waiting']['action'],
@@ -119,7 +119,7 @@ class WaitingScreen(BackgroundScreen):
         )
         overlay_layout.add_widget(version)
 
-        overlay_layout.bind(on_touch_down=self.on_click)
+        overlay_layout.bind(on_release=self.on_click)
 
         self.add_widget(overlay_layout)
 
@@ -236,10 +236,7 @@ class ErrorScreen(BackgroundScreen):
         self.app = app
         self.locales = locales
 
-        self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
-
-        overlay_layout = FloatLayout()
-        self.layout.add_widget(overlay_layout)
+        overlay_layout = LayoutButton()
 
         # Display icon
         icon = Image(
@@ -261,8 +258,8 @@ class ErrorScreen(BackgroundScreen):
         )
         overlay_layout.add_widget(self.label)
 
-        self.layout.bind(on_touch_down=self.on_click)
-        self.add_widget(self.layout)
+        overlay_layout.bind(on_release=self.on_click)
+        self.add_widget(overlay_layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
