@@ -71,16 +71,17 @@ class PrintDevice:
         pass
 
 class Cv2Camera(CaptureDevice):
-    def __init__(self, port=None):
+    def __init__(self, port=-1):
         if cv2:
-            if port is not None:
-                if not isinstance(port, int): raise TypeError("Invalid OpenCV camera port '{}'".format(type(port)))
+            if port > -1:
                 camera = cv2.VideoCapture(port)
                 if camera.isOpened(): self._instance = camera
             else:
                 for i in range(3):  # Test 3 first ports
                     camera = cv2.VideoCapture(i)
-                    if camera.isOpened(): self._instance = camera
+                    if camera.isOpened():
+                        self._instance = camera
+                        break
         if not self._instance: raise Exception('Cannot find any CV2 camera or CV2 is not installed.')
 
     def get_preview(self, square=False):
@@ -101,7 +102,7 @@ class Cv2Camera(CaptureDevice):
         cv2.imwrite(output_name, im_cv)
 
 class Gphoto2Camera(CaptureDevice):
-    def __init__(self, port=None):
+    def __init__(self):
         if gp:
             # List connected DSLR cameras
             if len(gp.list_cameras()):
@@ -156,7 +157,7 @@ class Gphoto2Camera(CaptureDevice):
             capture_img.save(output_name)
 
 class Picamera2Camera(CaptureDevice):
-    def __init__(self, port=None):
+    def __init__(self, port=0):
         if Picamera2:
             self._instance = Picamera2(camera_num=port)
 
@@ -223,7 +224,7 @@ class DeviceUtils:
     _capture = None
     _printer = None
 
-    def __init__(self, printer_name=None, picamera2_port=None, gphoto2_port=None, cv2_port=None):
+    def __init__(self, printer_name=None, picamera2_port=0, cv2_port=-1):
         try:
             self._printer = CupsPrinter(printer_name)
         except:
@@ -233,11 +234,10 @@ class DeviceUtils:
         try:
             pi2_camera = Picamera2Camera(picamera2_port)
             print('[CAMERA] Found a PiCamera2 device')
-        except Exception as e:
+        except:
             pi2_camera = None
-            raise e
         try:
-            g2_camera = Gphoto2Camera(gphoto2_port)
+            g2_camera = Gphoto2Camera()
             print('[CAMERA] Found a gPhoto2 device')
         except:
             g2_camera = None
