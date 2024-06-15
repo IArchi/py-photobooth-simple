@@ -68,14 +68,14 @@ class RingLed:
         self._proc = threading.Thread(target=self._blink, args=[color,])
         self._proc.start()
 
-    def breath(self, color, cycle_duration=2.0):
+    def breath(self, color):
         Logger.info('RingLed: breath().')
         if spidev is None: return
         if self._proc and self._proc.is_alive():
             self._stop.set()
             self._proc.join()
         self._stop.clear()
-        self._proc = threading.Thread(target=self._breath, args=[color,cycle_duration,])
+        self._proc = threading.Thread(target=self._breath, args=[color,])
         self._proc.start()
 
     def clear(self):
@@ -95,15 +95,18 @@ class RingLed:
             time.sleep(0.1)
             if self._stop.isSet(): return
 
-    def _breath(self, color, cycle_duration=2.0):
-        start_time = time.time()
+    def _breath(self, color):
+        wave_intensity = 0.8
+        wave_length = self._num_pixels
         while True:
-            # Calculate the current brightness using a sine wave
-            elapsed = time.time() - start_time
-            brightness = 1.0 / 2 * (1 + math.sin((2 * math.pi / cycle_duration) * elapsed))
-            self._leds.fill(color, brightness)
-            time.sleep(0.01)
-            if self._stop.isSet(): return
+            for step in range(self._num_pixels):
+                for i in range(self._num_pixels):
+                    # Calculate intensity based on a sine wave
+                    intensity = (math.sin(2 * math.pi * ((i + step) % wave_length) / wave_length) + 1) / 2
+                    intensity = wave_intensity * intensity  # Scale intensity to desired range
+                    self._leds.set(i, color, brightness=intensity)
+                    if self._stop.isSet(): return
+                time.sleep(0.1)
 
     def _countdown(self, time_seconds):
         time_between_pixels = time_seconds / self._num_pixels
