@@ -199,3 +199,4 @@ Application will not be usable during the copy process but will display a messag
  - Test with gphoto2
  - Test printer
  - Fix breath LED
+ - Install auto startup
