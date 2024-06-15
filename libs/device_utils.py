@@ -170,7 +170,6 @@ class Picamera2Camera(CaptureDevice):
 
     def get_preview(self, square=False):
         im = self._instance.capture_array()
-        im = cv2.imdecode(im, cv2.IMREAD_COLOR)
         #im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         return im

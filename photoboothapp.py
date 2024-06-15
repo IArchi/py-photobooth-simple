@@ -45,6 +45,7 @@ class PhotoboothApp(App):
     def build(self):
         Logger.info('PhotoboothApp: build().')
         self.sm = ScreenMgr(self, transition=NoTransition(), locales=self.LOCALES())
+        self.sm.current_screen.on_entry()
         return self.sm
 
     def transition_to(self, new_state, **kwargs):

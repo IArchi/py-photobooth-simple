@@ -129,7 +129,7 @@ class WaitingScreen(BackgroundScreen):
 
     def on_leave(self, kwargs={}):
         Logger.info('WaitingScreen: on_leave().')
-        self.app.ringled.stop()
+        self.app.ringled.clear()
 
     def on_click(self, obj, pos):
         Logger.info('WaitingScreen: on_click().')
@@ -209,7 +209,7 @@ class SelectFormatScreen(BackgroundScreen):
 
     def on_leave(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_leave().')
-        self.app.ringled.stop()
+        self.app.ringled.clear()
 
     def on_click_left(self, x, y=0):
         Logger.info('SelectFormatScreen: on_click_left().')
@@ -364,7 +364,7 @@ class CountdownScreen(Screen):
     def on_leave(self, kwargs={}):
         Logger.info('CountdownScreen: on_leave().')
         Clock.unschedule(self._clock)
-        self.app.ringled.stop()
+        self.app.ringled.clear()
         self.camera.stop()
 
     def timer_event(self, obj):
@@ -581,7 +581,7 @@ class ProcessingScreen(BackgroundScreen):
     def on_leave(self, kwargs={}):
         Logger.info('ProcessingScreen: on_leave().')
         Clock.unschedule(self._clock)
-        self.app.ringled.stop()
+        self.app.ringled.clear()
 
     def timer_event(self, obj):
         Logger.info('ProcessingScreen: timer_event().')
@@ -666,7 +666,7 @@ class ConfirmSaveScreen(BackgroundScreen):
 
     def on_leave(self, kwargs={}):
         Logger.info('ConfirmSaveScreen: on_leave().')
-        self.app.ringled.stop()
+        self.app.ringled.clear()
 
     def yes_event(self, obj):
         Clock.unschedule(self.auto_confirm)
@@ -776,7 +776,7 @@ class ConfirmPrintScreen(BackgroundScreen):
 
     def on_leave(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_leave().')
-        self.app.ringled.stop()
+        self.app.ringled.clear()
 
     def print_once(self, obj):
         Clock.unschedule(self.auto_decline)
@@ -847,7 +847,7 @@ class PrintingScreen(BackgroundScreen):
         Logger.info('PrintingScreen: on_leave().')
         if self._clock: Clock.unschedule(self._clock)
         if self._auto_cancel: Clock.unschedule(self._auto_cancel)
-        self.app.ringled.stop()
+        self.app.ringled.clear()
 
     def timer_event(self, obj):
         Logger.info('PrintingScreen: timer_event().')
@@ -901,7 +901,7 @@ class SuccessScreen(BackgroundScreen):
     def on_leave(self, kwargs={}):
         Logger.info('SuccessScreen: on_leave().')
         Clock.unschedule(self._clock)
-        self.app.ringled.stop()
+        self.app.ringled.clear()
 
     def on_click_start(self, obj):
         Logger.info('SuccessScreen: on_click_start(%s).', obj)
@@ -945,7 +945,7 @@ class CopyingScreen(BackgroundScreen):
     def on_leave(self, kwargs={}):
         Logger.info('CopyingScreen: on_leave().')
         Clock.unschedule(self._clock)
-        self.app.ringled.stop()
+        self.app.ringled.clear()
 
     def timer_event(self, obj):
         Logger.info('CopyingScreen: timer_event().')
