@@ -25,7 +25,7 @@ class RingLed:
     def start_countdown(self, time_seconds):
         Logger.info('RingLed: start_countdown().')
         if spidev is None: return
-        if self._proc.is_alive():
+        if self._proc and self._proc.is_alive():
             self._stop.clear()
             time.sleep(0.1)
         self._proc = threading.Thread(target=self._countdown, args=[time_seconds])
@@ -34,7 +34,7 @@ class RingLed:
     def start_rainbow(self):
         Logger.info('RingLed: start_rainbow().')
         if spidev is None: return
-        if self._proc.is_alive():
+        if self._proc and self._proc.is_alive():
             self._stop.clear()
             time.sleep(0.1)
         self._proc = threading.Thread(target=self._rainbow)
@@ -43,7 +43,7 @@ class RingLed:
     def flash(self, stop=False):
         Logger.info('RingLed: flash().')
         if spidev is None: return
-        if self._proc.is_alive():
+        if self._proc and self._proc.is_alive():
             self._stop.clear()
             time.sleep(0.1)
         if not stop:
@@ -57,7 +57,7 @@ class RingLed:
     def blink(self, color):
         Logger.info('RingLed: blink().')
         if spidev is None: return
-        if self._proc.is_alive():
+        if self._proc and self._proc.is_alive():
             self._stop.clear()
             time.sleep(0.1)
         self._proc = threading.Thread(target=self._blink, args=[color,])
