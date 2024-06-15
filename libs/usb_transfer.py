@@ -80,4 +80,5 @@ class UsbTransfer:
             shutil.copytree(folder, Path(destination_path, folder), dirs_exist_ok=True)
         except Exception as exc:
             Logger.warning("UsbTransfer: Cannot copy files to USB drive")
+            raise(exc)
             return
