@@ -75,7 +75,11 @@ class UsbTransfer:
 
     @staticmethod
     def get_dir_size(path: Path):
-        return sum(f.stat().st_size for f in path.glob("**/*") if f.is_file())
+        try:
+            return sum(f.stat().st_size for f in path.glob("**/*") if f.is_file())
+        except OSError as e:
+            Logger.error(f'UsbTransfer: OSError while getting directory size: {e}')
+            return 0
 
     def copy_folders_to_usb(self, usb_path):
         Logger.info("UsbTransfer: copy_folders_to_usb()")
