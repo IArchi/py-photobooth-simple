@@ -48,17 +48,14 @@ class UsbTransfer:
         Logger.info("UsbTransfer: handle_mount({})".format(device.device))
 
         if device.mountpoint:
-            if self.has_enough_space(device.mountpoint):
-                # TODO : Does not work from outside app thread
-                self._app.request_transition_to(ScreenMgr.COPYING)
-                try:
-                    self.copy_folders_to_usb(device.mountpoint)
-                except:
-                    Logger.error('UsbTransfer: Failed to perform folder copy.')
-                finally:
-                    self._app.request_transition_to(ScreenMgr.WAITING)
-            else:
-                Logger.warning("UsbTransfer: Not enough space on USB device {}".format(device.mountpoint))
+            # TODO : Does not work from outside app thread
+            self._app.request_transition_to(ScreenMgr.COPYING)
+            try:
+                self.copy_folders_to_usb(device.mountpoint)
+            except:
+                Logger.error('UsbTransfer: Failed to perform folder copy.')
+            finally:
+                self._app.request_transition_to(ScreenMgr.WAITING)
         else:
             Logger.error("USB device {} not correctly mounted".format(device.device))
 
@@ -68,19 +65,6 @@ class UsbTransfer:
     @staticmethod
     def get_current_removable_media():
         return {device for device in psutil.disk_partitions(all=False)}
-
-    def has_enough_space(self, device_path):
-        _, _, free = shutil.disk_usage(device_path)
-        total_size = sum(self.get_dir_size(Path(path)) for path in self._folder)
-        return free >= total_size
-
-    @staticmethod
-    def get_dir_size(path: Path):
-        try:
-            return sum(f.stat().st_size for f in path.glob("**/*") if f.is_file())
-        except OSError as e:
-            Logger.error(f'UsbTransfer: OSError while getting directory size: {e}')
-            return 0
 
     def copy_folders_to_usb(self, usb_path):
         Logger.info("UsbTransfer: copy_folders_to_usb()")
