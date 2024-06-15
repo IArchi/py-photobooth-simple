@@ -315,6 +315,7 @@ class camera(object):
 
         if destpath:
             cfile.save(destpath.encode('ascii'))
+            cfile.clean()
         else:
             return cfile
 
