@@ -22,7 +22,6 @@ class KivyCamera(Image):
     def start(self, square=False):
         self._stop = False
         self._square = square
-        self._app.devices.focus()
         self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)
 
     def stop(self):

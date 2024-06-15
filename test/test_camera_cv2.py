@@ -6,7 +6,6 @@ from libs.device_utils import Cv2Camera
 
 # Connect to camera
 camera = Cv2Camera()
-camera.focus()
 while True:
     im = camera.get_preview()
     if im is None: continue
