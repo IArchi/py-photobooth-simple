@@ -626,7 +626,7 @@ class ConfirmSaveScreen(BackgroundScreen):
         overlay_layout.add_widget(title)
 
         # Display collage
-        self.preview = AsyncImage(
+        self.preview = Image(
             fit_mode='contain',
             size_hint=(0.5, 0.75),
             pos_hint={'x': 0.1, 'y': 0.05},
