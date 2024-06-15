@@ -11,9 +11,9 @@ from kivy.logger import Logger
 from libs.ws2812 import WS2812
 
 class RingLed:
-    def __init__(self):
+    def __init__(self, num_pixels=12):
         Logger.info('RingLed: __init__().')
-        self._num_pixels = 12
+        self._num_pixels = num_pixels
         self._top_pixel = 6
         if spidev is None: return
         spi = spidev.SpiDev()
