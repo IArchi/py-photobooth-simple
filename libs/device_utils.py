@@ -235,7 +235,7 @@ class DeviceUtils:
             print('[CAMERA] Found a PiCamera2 device')
         except Exception as e:
             pi2_camera = None
-            print(e)
+            raise e
         try:
             g2_camera = Gphoto2Camera(gphoto2_port)
             print('[CAMERA] Found a gPhoto2 device')
