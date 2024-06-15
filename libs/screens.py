@@ -643,7 +643,7 @@ class ConfirmSaveScreen(BackgroundScreen):
             background_color=(.4, .733, .416, 1),
             text=self.locales['save']['save'],
             text_color=[1, 1, 1, 1],
-            font_size=TINY_FONT,
+            font_size=NORMAL_FONT,
         )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
