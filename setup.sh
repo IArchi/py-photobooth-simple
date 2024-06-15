@@ -21,7 +21,7 @@ libcamera-still --list-camera
 sudo apt-get install -y gcc make build-essential git scons swig
 sudo apt install -y ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev
 
-# Hide mouse 
+# Hide mouse
 echo "autohide = true" >> .config/wf-panel-pi.ini
 echo "autohide_duration = 500" >> .config/wf-panel-pi.ini
 echo "layer = top" >> .config/wf-panel-pi.ini

@@ -23,6 +23,12 @@ If one of these is not available, it will use the first available one.
 ## Compatibility
 Tested on MacOs Sonoma and RaspberryPi 5 8GB with Pi Camera module 3.
 
+## Materials
+| Name | Link | Price |
+|-------------|-------|
+| TODO | TODO | 0.00  |
+TODO
+
 ## Installation
 
 ### Global packages
@@ -48,7 +54,7 @@ sudo cp splash.png /usr/share/plymouth/themes/pix/splash.png
 sudo sed -i 's/console=tty1/console=tty3/' /boot/firmware/cmdline.txt
 sudo update-initramfs -c -k $(uname -r)
 
-# Hide mouse 
+# Hide mouse
 echo "autohide = true" >> .config/wf-panel-pi.ini
 echo "autohide_duration = 500" >> .config/wf-panel-pi.ini
 echo "layer = top" >> .config/wf-panel-pi.ini
@@ -61,6 +67,17 @@ sudo sed -i '/^[^#].*wfrespawn wf-panel-pi/ s/^/# /' /etc/wayfire/defaults.ini
 echo "avoid_warnings=1" | sudo tee -a /boot/config.txt && sudo apt remove lxplug-ptbatt -y
 
 sudo reboot
+```
+
+### Install Ingcool 7" touchscreen (If it's the one you use)
+```
+sudo sh -c "echo '# Ingcool 7in touch screen' >> /boot/firmware/config.txt"
+sudo sh -c "echo 'max_usb_current=1' >> /boot/firmware/config.txt"
+sudo sh -c "echo 'hdmi_group=2' >> /boot/firmware/config.txt"
+sudo sh -c "echo 'hdmi_mode=87' >> /boot/firmware/config.txt"
+sudo sh -c "echo 'hdmi_cvt 1024 600 60 6 0 0 0' >> /boot/firmware/config.txt"
+sudo sh -c "echo 'hdmi_drive=1' >> /boot/firmware/config.txt"
+sudo sh -c "echo '' >> /boot/firmware/config.txt"
 ```
 
 ### Install Raspberry Camera Module V3 (Only if you plan to use one)
@@ -103,6 +120,10 @@ rm gphoto2-updater.sh .env
 
 # Install Python lib
 pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-packages
+
+# Fix for USB not available
+sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor
+sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2
 
 # Test
 gphoto2 --capture-image
@@ -172,3 +193,4 @@ Application will not be usable during the copy process but will display a messag
  - Test with gphoto2
  - Fix piCamera2
  - Add sounds
+ - Test printer
