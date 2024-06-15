@@ -132,12 +132,9 @@ class WaitingScreen(BackgroundScreen):
         Logger.info('WaitingScreen: on_exit().')
         self.app.ringled.clear()
 
-    def on_click(self,  instance, touch):
+    def on_click(self, obj):
         Logger.info('WaitingScreen: on_click().')
-        if instance.collide_point(*touch.pos):
-            self.app.transition_to(ScreenMgr.SELECT_FORMAT)
-            return True
-        return False
+        self.app.transition_to(ScreenMgr.SELECT_FORMAT)
 
 class SelectFormatScreen(BackgroundScreen):
     """
@@ -268,10 +265,9 @@ class ErrorScreen(BackgroundScreen):
     def on_exit(self, kwargs={}):
         Logger.info('ErrorScreen: on_exit().')
 
-    def on_click(self, obj, pos):
+    def on_click(self, obj):
         Logger.info('ErrorScreen: on_click().')
         self.app.transition_to(ScreenMgr.WAITING)
-        return True
 
 class ReadyScreen(BackgroundScreen):
     """
