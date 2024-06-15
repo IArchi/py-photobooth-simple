@@ -193,6 +193,8 @@ You can also edit `photoboothapp.py` to change some parameters such as:
 A dedicated thread will handle USB dongles and automatically dump the whole content of the `DCIM_DIRECTORY` to the device.
 Application will not be usable during the copy process but will display a message.
 
+**USB dongle must be formated to FAT-32.**
+
 ## TODO
  - Test with gphoto2
  - Add sounds
