@@ -305,12 +305,10 @@ class ReadyScreen(BackgroundScreen):
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.label.text = random.choice(self.locales['ready']['content'])
         self._clock = Clock.schedule_once(self.timer_event, 2)
-        self.app.ringled.blink([255, 255, 255])
 
     def on_leave(self, kwargs={}):
         Logger.info('ReadyScreen: on_leave().')
         Clock.unschedule(self._clock)
-        self.app.ringled.stop()
 
     def timer_event(self, obj):
         Logger.info('ReadyScreen: timer_event().')
