@@ -28,7 +28,7 @@ class PhotoboothApp(App):
 
         self.sm = None
         self.processes = []
-        self.ringled = RingLed(num_pixels=13)
+        self.ringled = RingLed(num_pixels=12)
         self.devices = DeviceUtils(printer_name=self.PRINTER)
         self.print_formats = [CollageManager.POLAROID, CollageManager.STRIP]
 
