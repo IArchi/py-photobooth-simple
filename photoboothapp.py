@@ -67,7 +67,7 @@ class PhotoboothApp(App):
     def request_transition_to(self, new_state):
         self._requested_screen = new_state
 
-    def check_transition_request(self):
+    def check_transition_request(self, obj):
         if self._requested_screen:
             next = self._requested_screen
             self._requested_screen = None
