@@ -75,7 +75,7 @@ class UsbTransfer:
         except Exception as exc:
             Logger.warning("UsbTransfer: Cannot create destination folder on USB drive")
 
-        Logger.info("UsbTransfer: Copying {} to ".format(self._folder, destination_path))
+        Logger.info("UsbTransfer: Copying {} to {}".format(self._folder, destination_path))
         try:
             shutil.copytree(self._folder, destination_path, dirs_exist_ok=True)
         except Exception as exc:
