@@ -49,7 +49,7 @@ class PhotoboothApp(App):
         return self.sm
 
     def transition_to(self, new_state, **kwargs):
-        self.sm.current_screen.on_leave()
+        self.sm.current_screen.on_exit()
         self.sm.current = new_state
         self.sm.current_screen.on_entry(kwargs)
 

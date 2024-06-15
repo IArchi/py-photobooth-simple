@@ -127,8 +127,8 @@ class WaitingScreen(BackgroundScreen):
         self.app.ringled.start_rainbow()
         self.app.purge_tmp()
 
-    def on_leave(self, kwargs={}):
-        Logger.info('WaitingScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('WaitingScreen: on_exit().')
         self.app.ringled.clear()
 
     def on_click(self, obj, pos):
@@ -207,8 +207,8 @@ class SelectFormatScreen(BackgroundScreen):
         self.preview_right.reload()
         self.app.ringled.start_rainbow()
 
-    def on_leave(self, kwargs={}):
-        Logger.info('SelectFormatScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('SelectFormatScreen: on_exit().')
         self.app.ringled.clear()
 
     def on_click_left(self, x, y=0):
@@ -265,8 +265,8 @@ class ErrorScreen(BackgroundScreen):
         Logger.info('ErrorScreen: on_entry().')
         if 'error' in kwargs: self.label.text = "{}\nClick to continue".format(str(kwargs.get('error')))
 
-    def on_leave(self, kwargs={}):
-        Logger.info('ErrorScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('ErrorScreen: on_exit().')
 
     def on_click(self, obj, pos):
         Logger.info('ErrorScreen: on_click().')
@@ -306,8 +306,8 @@ class ReadyScreen(BackgroundScreen):
         self.label.text = random.choice(self.locales['ready']['content'])
         self._clock = Clock.schedule_once(self.timer_event, 2)
 
-    def on_leave(self, kwargs={}):
-        Logger.info('ReadyScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('ReadyScreen: on_exit().')
         Clock.unschedule(self._clock)
 
     def timer_event(self, obj):
@@ -361,8 +361,8 @@ class CountdownScreen(Screen):
         self._clock = Clock.schedule_once(self.timer_event, 1)
         self.app.ringled.start_countdown(self.time_remaining)
 
-    def on_leave(self, kwargs={}):
-        Logger.info('CountdownScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('CountdownScreen: on_exit().')
         Clock.unschedule(self._clock)
         self.app.ringled.clear()
         self.camera.stop()
@@ -418,8 +418,8 @@ class CheeseScreen(Screen):
         self._clock = Clock.schedule_once(self.timer_event, 1.5)
         self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
 
-    def on_leave(self, kwargs={}):
-        Logger.info('CheeseScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('CheeseScreen: on_exit().')
         Clock.unschedule(self._clock)
         Clock.unschedule(self._clock_trigger)
 
@@ -524,8 +524,8 @@ class ConfirmCaptureScreen(BackgroundScreen):
         self.preview.reload()
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
 
-    def on_leave(self, kwargs={}):
-        Logger.info('ConfirmCaptureScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('ConfirmCaptureScreen: on_exit().')
 
     def yes_event(self, obj):
         Clock.unschedule(self.auto_leave)
@@ -578,8 +578,8 @@ class ProcessingScreen(BackgroundScreen):
         # Perform collage
         self.app.trigger_collage(self._current_format)
 
-    def on_leave(self, kwargs={}):
-        Logger.info('ProcessingScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('ProcessingScreen: on_exit().')
         Clock.unschedule(self._clock)
         self.app.ringled.clear()
 
@@ -664,8 +664,8 @@ class ConfirmSaveScreen(BackgroundScreen):
         self.preview.source = self.app.get_collage()[0]
         self.preview.reload()
 
-    def on_leave(self, kwargs={}):
-        Logger.info('ConfirmSaveScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('ConfirmSaveScreen: on_exit().')
         self.app.ringled.clear()
 
     def yes_event(self, obj):
@@ -774,8 +774,8 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.preview.reload()
         self.app.save_collage()
 
-    def on_leave(self, kwargs={}):
-        Logger.info('ConfirmPrintScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('ConfirmPrintScreen: on_exit().')
         self.app.ringled.clear()
 
     def print_once(self, obj):
@@ -843,8 +843,8 @@ class PrintingScreen(BackgroundScreen):
         except:
             return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error'])
 
-    def on_leave(self, kwargs={}):
-        Logger.info('PrintingScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('PrintingScreen: on_exit().')
         if self._clock: Clock.unschedule(self._clock)
         if self._auto_cancel: Clock.unschedule(self._auto_cancel)
         self.app.ringled.clear()
@@ -898,8 +898,8 @@ class SuccessScreen(BackgroundScreen):
         self._clock = Clock.schedule_once(self.timer_event, 2)
         self.app.ringled.blink([255, 255, 255])
 
-    def on_leave(self, kwargs={}):
-        Logger.info('SuccessScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('SuccessScreen: on_exit().')
         Clock.unschedule(self._clock)
         self.app.ringled.clear()
 
@@ -942,8 +942,8 @@ class CopyingScreen(BackgroundScreen):
         self.app.ringled.start_rainbow()
         self._clock = Clock.schedule_once(self.timer_event, 1)
 
-    def on_leave(self, kwargs={}):
-        Logger.info('CopyingScreen: on_leave().')
+    def on_exit(self, kwargs={}):
+        Logger.info('CopyingScreen: on_exit().')
         Clock.unschedule(self._clock)
         self.app.ringled.clear()
 
