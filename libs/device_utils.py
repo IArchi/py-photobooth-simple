@@ -111,8 +111,26 @@ class Gphoto2Camera(CaptureDevice):
                 try:
                     camera.config['capturesettings']['liveviewaffocus'].set('Full-time-servo AF')
                 except:
-                    Logger.warning('Could not change liveview AF settings, please enable AF on lens')
+                    Logger.warning('Gphoto2Camera: Could not change liveview AF settings, please enable AF on lens')
                 self._instance = camera
+
+                # Set image quality
+                try:
+                    self._instance._get_config()['capturesettings']['imagequality'].set('Large Fine JPEG')
+                    self._instance._get_config()['imgsettings']['imageformatsd'].set('Large Fine JPEG')
+                except BaseException as e:
+                    Logger.warning('Gphoto2Camera: Failed to change image quality: {}.'.format(e))
+
+                # Enable viewfinder
+                try:
+                    self._instance._get_config()['actions']['viewfinder'].set(True)
+                    self._instance._get_config()['settings']['output'].set('PC')
+                except BaseException as e:
+                    logging.warn('Gphoto2Camera: Cannot set camera output to active: {}.'.format(e))
+
+                # Display configuration
+                Logger.info('Camera configuration:')
+                Logger.info(self._instance._get_config())
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
     def get_preview(self, square=False):
@@ -130,31 +148,32 @@ class Gphoto2Camera(CaptureDevice):
         #Logger.info('Command is %s', cmd)
         #return [subprocess.Popen(['gphoto2', '--auto-detect']), subprocess.Popen(shlex.split(cmd))]
 
-        # Set settings
+        # Disable viewfinder
         try:
-            self._instance.config['capturesettings']['imagequality'].set('JPEG Fine')
-        except:
-            Logger.warning('Failed to change image quality.')
-        try:
-            self._instance.config['actions']['viewfinder'].set(False)
-        except:
-            Logger.warning('Failed to disable liveview.')
+            self._instance._get_config()['actions']['viewfinder'].set(False)
+            self._instance._get_config()['settings']['output'].set('Off')
+        except BaseException as e:
+            Logger.warning('Gphoto2Camera: Failed to disable liveview.')
 
-        # Capture and copy file from SD card to local directory
+        # Capture buffer
         if flash_fn: flash_fn()
-        capture_img = self._instance.capture(to_camera_storage=True)
+        buf = self._instance.capture()
         if flash_fn: flash_fn(stop=True)
-        Logger.info('Camera file path: {}'.format(capture_img))
 
-        if square:
-            tmp_file, tmp_filename = tempfile.mkstemp()
-            capture_img.save(tmp_filename)
-            im_cv = cv2.imread(tmp_filename)
-            os.remove(tmp_filename)
-            im_cv = self._crop_to_square(im_cv)
-            cv2.imwrite(output_name, im_cv)
-        else:
-            capture_img.save(output_name)
+        # Save to file
+        buf = np.frombuffer(buf, np.uint8)
+        im = cv2.imdecode(buf, cv2.IMREAD_ANYCOLOR)
+        #im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        im = cv2.rotate(im, cv2.ROTATE_180)
+        if square: im = self._crop_to_square(im)
+        cv2.imwrite(output_name, im)
+
+        # Enable viewfinder
+        try:
+            self._instance._get_config()['actions']['viewfinder'].set(True)
+            self._instance._get_config()['settings']['output'].set('PC')
+        except BaseException as e:
+            logging.warn('Gphoto2Camera: Cannot set camera output to active: {}.'.format(e))
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
@@ -202,11 +221,11 @@ class CupsPrinter(PrintDevice):
             if printer_found:
                 self._name = name
                 self._instance = cups_conn
-                Logger.info('Connected to printer \'%s\'', name)
+                Logger.info('CupsPrinter: Connected to printer \'%s\'', name)
             elif name.lower() == 'default':
-                Logger.warning('No printer configured in CUPS (see http://localhost:631)')
+                Logger.warning('CupsPrinter: No printer configured in CUPS (see http://localhost:631)')
             else:
-                Logger.warning('No printer named \'%s\' in CUPS (see http://localhost:631)', name)
+                Logger.warning('CupsPrinter: No printer named \'%s\' in CUPS (see http://localhost:631)', name)
         if not self._instance: raise Exception('Cannot find any CUPS printer or cups is not installed.')
 
     def print(self, file_path, copies=1, print_format=None):

@@ -3,4 +3,3 @@ kivy
 lxml
 opencv-contrib-python
 psutil
-spidev

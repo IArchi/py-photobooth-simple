@@ -154,6 +154,9 @@ Then go to `http://<raspberry-ip>:631/admin/` and declare a new printer.
 ```
 # Enable SPI on RaspberryPi
 sudo sed -i 's/^#dtparam=spi=on/dtparam=spi=on/' /boot/firmware/config.txt
+
+# Install Python dependency
+pip3 install spidev --break-system-packages
 ```
 
 Connect WS2812 Ring led on the following GPIO pins:
@@ -196,5 +199,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Test with gphoto2
+ - Fix gphoto2 capture which make the camera reboot
  - Test printer
