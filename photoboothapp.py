@@ -53,7 +53,7 @@ class PhotoboothApp(App):
 
         # Start USB transfer
         UsbTransfer(self, self.save_directory).start()
-        Clock.schedule_interval(check_transition_request, 0.5)
+        Clock.schedule_interval(self.check_transition_request, 0.5)
 
     def build(self):
         Logger.info('PhotoboothApp: build().')
