@@ -68,14 +68,14 @@ class RingLed:
         self._proc = threading.Thread(target=self._blink, args=[color,])
         self._proc.start()
 
-    def breath(self, color, speed=1.0):
+    def breath(self, color, cycle_duration=2.0):
         Logger.info('RingLed: breath().')
         if spidev is None: return
         if self._proc and self._proc.is_alive():
             self._stop.set()
             self._proc.join()
         self._stop.clear()
-        self._proc = threading.Thread(target=self._breath, args=[color,speed,])
+        self._proc = threading.Thread(target=self._breath, args=[color,cycle_duration,])
         self._proc.start()
 
     def clear(self):
@@ -95,12 +95,12 @@ class RingLed:
             time.sleep(0.1)
             if self._stop.isSet(): return
 
-    def _breath(self, color, speed=1.0):
+    def _breath(self, color, cycle_duration=2.0):
         start_time = time.time()
         while True:
             # Calculate the current brightness using a sine wave
             elapsed = time.time() - start_time
-            brightness = 1.0 / 2 * (1 + math.sin(speed * elapsed))
+            brightness = 1.0 / 2 * (1 + math.sin((2 * math.pi / cycle_duration) * elapsed))
             self._leds.fill(color, brightness)
             time.sleep(0.01)
             if self._stop.isSet(): return
