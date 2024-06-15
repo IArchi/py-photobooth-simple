@@ -6,6 +6,7 @@ import signal
 import threading
 from datetime import datetime
 from kivy.app import App
+from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.uix.screenmanager import NoTransition
 
