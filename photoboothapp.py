@@ -90,7 +90,7 @@ class PhotoboothApp(App):
 
     def is_collage_completed(self):
         if any((process.is_alive() is None for process in self.processes)): return False
-        return True
+        return os.path.isfile(self.get_collage()[1])
 
     def has_printer(self):
         return self.devices.has_printer()
