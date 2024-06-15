@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import os
+import signal
 import threading
 from datetime import datetime
 from kivy.app import App
@@ -13,6 +14,12 @@ from libs.screens import ScreenMgr
 from libs.ringled import RingLed
 from libs.collage import CollageManager
 from libs.usb_transfer import UsbTransfer
+
+def signal_handler(sig, frame):
+    print("\nCtrl+C detected. Exiting gracefully...")
+    # Add any cleanup code or specific actions you want to perform before exit
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
 
 class PhotoboothApp(App):
     # Configuration
