@@ -6,7 +6,6 @@ from libs.device_utils import Picamera2Camera
 
 # # Connect to camera
 camera = Picamera2Camera(port=0)
-camera.focus()
 while True:
     im = camera.get_preview()
     if im is None:
