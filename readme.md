@@ -193,7 +193,6 @@ Application will not be usable during the copy process but will display a messag
  - Test with gphoto2
  - Add sounds
  - Test printer
- - Fix LEDs on some screens
  - Fix touch propagation
  - Fix preview on strip
  - Increase image button text size
