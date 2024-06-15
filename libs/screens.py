@@ -943,7 +943,7 @@ class CopyingScreen(BackgroundScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('CopyingScreen: on_entry().')
-        self.app.ringled.start_rainbow()
+        self.app.ringled.wave([255, 255, 255])
 
     def on_exit(self, kwargs={}):
         Logger.info('CopyingScreen: on_exit().')

@@ -68,14 +68,14 @@ class RingLed:
         self._proc = threading.Thread(target=self._blink, args=[color,])
         self._proc.start()
 
-    def breath(self, color):
-        Logger.info('RingLed: breath().')
+    def wave(self, color):
+        Logger.info('RingLed: wave().')
         if spidev is None: return
         if self._proc and self._proc.is_alive():
             self._stop.set()
             self._proc.join()
         self._stop.clear()
-        self._proc = threading.Thread(target=self._breath, args=[color,])
+        self._proc = threading.Thread(target=self._wave, args=[color,])
         self._proc.start()
 
     def clear(self):
@@ -95,7 +95,7 @@ class RingLed:
             time.sleep(0.1)
             if self._stop.isSet(): return
 
-    def _breath(self, color):
+    def _wave(self, color):
         wave_intensity = 0.5
         wave_length = self._num_pixels
         while True:
