@@ -37,6 +37,7 @@ class PhotoboothApp(App):
         super(PhotoboothApp, self).__init__(**kwargs)
 
         self.sm = None
+        self._requested_screen = None
         self.processes = []
         self.ringled = RINGLED
         self.devices = DeviceUtils(printer_name=self.PRINTER)
@@ -51,6 +52,7 @@ class PhotoboothApp(App):
 
         # Start USB transfer
         UsbTransfer(self, self.save_directory).start()
+        Clock.schedule_interval(check_transition_request, 0.5)
 
     def build(self):
         Logger.info('PhotoboothApp: build().')
@@ -60,6 +62,15 @@ class PhotoboothApp(App):
 
     def on_stop(self):
         self.ringled.clear()
+
+    def request_transition_to(self, new_state):
+        self._requested_screen = new_state
+
+    def check_transition_request(self):
+        if self._requested_screen:
+            next = self._requested_screen
+            self._requested_screen = None
+            self.transition_to(next)
 
     def transition_to(self, new_state, **kwargs):
         self.sm.current_screen.on_exit()

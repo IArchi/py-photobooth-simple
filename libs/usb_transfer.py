@@ -49,13 +49,14 @@ class UsbTransfer:
 
         if device.mountpoint:
             if self.has_enough_space(device.mountpoint):
-                self._app.transition_to(ScreenMgr.COPYING)
+                # TODO : Does not work from outside app thread
+                self._app.request_transition_to(ScreenMgr.COPYING)
                 try:
                     self.copy_folders_to_usb(device.mountpoint)
                 except:
                     Logger.error('UsbTransfer: Failed to perform folder copy.')
                 finally:
-                    self._app.transition_to(ScreenMgr.WAITING)
+                    self._app.request_transition_to(ScreenMgr.WAITING)
             else:
                 Logger.warning("UsbTransfer: Not enough space on USB device {}".format(device.mountpoint))
         else:

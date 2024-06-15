@@ -50,6 +50,10 @@ pip3 install git+https://github.com/jbaiter/gphoto2-cffi.git --break-system-pack
 sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor
 sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2
 
+# Disable media dialog
+sudo sed -i -e 's/autorun=1/autorun=0/g' /etc/xdg/pcmanfm/LXDE-pi/pcmanfm.conf
+sudo sed -i -e 's/autorun=1/autorun=0/g' /etc/xdg/pcmanfm/default/pcmanfm.conf
+
 # Add GitHub ssh key
 ssh-keygen -t ed25519 -C "#@#.com"
 eval "$(ssh-agent -s)"

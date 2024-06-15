@@ -66,6 +66,10 @@ sudo sed -i '/^[^#].*wfrespawn wf-panel-pi/ s/^/# /' /etc/wayfire/defaults.ini
 # Disable power warning
 echo "avoid_warnings=1" | sudo tee -a /boot/config.txt && sudo apt remove lxplug-ptbatt -y
 
+# Disable media mount dialog
+sudo sed -i -e 's/autorun=1/autorun=0/g' /etc/xdg/pcmanfm/LXDE-pi/pcmanfm.conf
+sudo sed -i -e 's/autorun=1/autorun=0/g' /etc/xdg/pcmanfm/default/pcmanfm.conf
+
 sudo reboot
 ```
 
