@@ -39,6 +39,7 @@ class PhotoboothApp(App):
 
         self.sm = None
         self._requested_screen = None
+        self._requested_kwargs = None
         self.processes = []
         self.ringled = RINGLED
         self.devices = DeviceUtils(printer_name=self.PRINTER)
@@ -64,14 +65,17 @@ class PhotoboothApp(App):
     def on_stop(self):
         self.ringled.clear()
 
-    def request_transition_to(self, new_state):
+    def request_transition_to(self, new_state, **kwargs):
         self._requested_screen = new_state
+        self._requested_kwargs = kwargs
 
     def check_transition_request(self, obj):
         if self._requested_screen:
             next = self._requested_screen
+            kwargs = self._requested_kwargs
             self._requested_screen = None
-            self.transition_to(next)
+            self._requested_kwargs = None
+            self.transition_to(next, kwargs)
 
     def transition_to(self, new_state, **kwargs):
         self.sm.current_screen.on_exit()
