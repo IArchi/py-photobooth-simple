@@ -27,7 +27,7 @@ class Collage:
     def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
         return
 
-    def _resize(image, max_height=1080, max_width=1920):
+    def _resize(self, image, max_height=1080, max_width=1920):
         # Get original dimensions
         height, width = image.shape[:2]
 
@@ -70,7 +70,7 @@ class StripCollage(Collage):
         photos = [p[1] for p in photos]
         for p in photos: self._create_dummy_photo(p)
         tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
-        im = self.assemble(output_path=None, image_paths=[tmp_input], logo_path=logo_path)
+        im = self.assemble(None, photos, logo_path)
 
         # Resize if required
         im = self._resize(im)
@@ -150,7 +150,7 @@ class PolaroidCollage(Collage):
         tmp_file, tmp_input = tempfile.mkstemp(suffix='.jpg')
         self._create_dummy_photo(tmp_input, squared=True)
         tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
-        im = self.assemble(output_path=None, image_paths=[tmp_input], logo_path=logo_path)
+        im = self.assemble(None, [tmp_input], logo_path)
 
         # Resize if required
         im = self._resize(im)
