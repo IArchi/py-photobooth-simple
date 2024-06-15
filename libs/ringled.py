@@ -25,7 +25,8 @@ class RingLed:
             self._stop.set()
             self._proc.join()
         self._stop.clear()
-        self._proc = threading.Thread(target=target, args=args or [])
+        if args: self._proc = threading.Thread(target=target, args=args)
+        else: self._proc = threading.Thread(target=target)
         self._proc.start()
 
     def start_countdown(self, time_seconds):
@@ -41,13 +42,14 @@ class RingLed:
     def flash(self, stop=False):
         Logger.info('RingLed: flash().')
         if spidev is None: return
-        self._stop.set()  # Stop any ongoing process
-        if self._proc:
-            self._proc.join()  # Ensure previous thread has finished
+        if self._proc and self._proc.is_alive():
+            self._stop.set()
+            self._proc.join()
         if not stop:
             self._leds.fill([255, 255, 255])
             time.sleep(0.1)
-        self._leds.fill([0, 0, 0])
+        else:
+            self._leds.fill([0, 0, 0])
 
     def blink(self, color):
         Logger.info('RingLed: blink().')
@@ -92,4 +94,3 @@ class RingLed:
                     rgb_scaled = [int(255 * x) for x in rgb]
                     self._leds.set(i, rgb_scaled)
                 time.sleep(0.1)
-                
