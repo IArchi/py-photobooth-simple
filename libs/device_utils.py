@@ -115,7 +115,7 @@ class Gphoto2Camera(CaptureDevice):
     def get_preview(self, square=False):
         self._instance.capture_preview(self._preview)
         im = cv2.imread(self._preview)
-        im = cv2.rotate(im, cv2.ROTATE_180)
+        #im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         return im
 
@@ -127,7 +127,7 @@ class Gphoto2Camera(CaptureDevice):
 
         # Rotate and crop if necessary
         im = cv2.imread(self._preview)
-        #im = cv2.rotate(im, cv2.ROTATE_180)
+        im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
 
         # Dump to file
