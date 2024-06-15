@@ -661,7 +661,7 @@ class ConfirmSaveScreen(BackgroundScreen):
         Logger.info('ConfirmSaveScreen: on_entry().')
         self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
-        self.preview.source = self.app.get_collage()
+        self.preview.source = self.app.get_collage()[0]
         self.preview.reload()
 
     def on_leave(self, kwargs={}):
@@ -770,7 +770,7 @@ class ConfirmPrintScreen(BackgroundScreen):
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
-        self.preview.source = self.app.get_collage()
+        self.preview.source = self.app.get_collage()[0]
         self.preview.reload()
         self.app.save_collage()
 

@@ -56,7 +56,7 @@ class PhotoboothApp(App):
         return os.path.join(self.tmp_directory, "capture-{}.jpg".format(shot_idx))
 
     def get_collage(self):
-        return os.path.join(self.tmp_directory, 'collage.jpg')
+        return return os.path.join(self.tmp_directory, 'collage_small.jpg'), os.path.join(self.tmp_directory, 'collage.jpg')
 
     def get_logo(self):
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png')
