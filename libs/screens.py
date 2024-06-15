@@ -433,7 +433,8 @@ class CheeseScreen(Screen):
         # Trigger shot
         try:
             self.app.trigger_shot(self._current_shot, self._current_format)
-        except:
+        except Exception as e:
+            raise e
             return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['cheese']['error'])
 
     def timer_event(self, obj):
