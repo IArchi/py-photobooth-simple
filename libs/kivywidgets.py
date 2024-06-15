@@ -1,5 +1,5 @@
 from kivy.clock import Clock
-from kivy.uix.image import Image
+from kivy.uix.image import Image, AsyncImage
 from kivy.uix.label import Label
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
