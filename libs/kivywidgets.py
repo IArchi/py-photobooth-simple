@@ -85,6 +85,9 @@ Builder.load_string("""
 class ImageButton(ButtonBehavior, AsyncImage):
     pass
 
+class LayoutButton(ButtonBehavior, FloatLayout):
+    pass
+
 Builder.load_string("""
 <ImageLabelButton>:
     orientation: 'horizontal'
