@@ -16,58 +16,51 @@ class RingLed:
         self._num_pixels = num_pixels
         self._top_pixel = 6
         if spidev is None: return
-        spi = spidev.SpiDev()
-        spi.open(0,0)
-        self._proc = None
         self._stop = threading.Event()
-        self._leds = WS2812(spi, self._num_pixels)
+        self._proc = None
+        self._leds = WS2812(spidev.SpiDev(), self._num_pixels)
+
+    def _start_thread(self, target, args=None):
+        if self._proc and self._proc.is_alive():
+            self._stop.set()
+            self._proc.join()
+        self._stop.clear()
+        self._proc = threading.Thread(target=target, args=args or [])
+        self._proc.start()
 
     def start_countdown(self, time_seconds):
         Logger.info('RingLed: start_countdown().')
         if spidev is None: return
-        if self._proc and self._proc.is_alive():
-            self._stop.clear()
-            time.sleep(0.1)
-        self._proc = threading.Thread(target=self._countdown, args=[time_seconds])
-        self._proc.start()
+        self._start_thread(self._countdown, args=[time_seconds])
 
     def start_rainbow(self):
         Logger.info('RingLed: start_rainbow().')
         if spidev is None: return
-        if self._proc and self._proc.is_alive():
-            self._stop.clear()
-            time.sleep(0.1)
-        self._proc = threading.Thread(target=self._rainbow)
-        self._proc.start()
+        self._start_thread(self._rainbow)
 
     def flash(self, stop=False):
         Logger.info('RingLed: flash().')
         if spidev is None: return
-        if self._proc and self._proc.is_alive():
-            self._stop.clear()
-            time.sleep(0.1)
+        self._stop.set()  # Stop any ongoing process
+        if self._proc:
+            self._proc.join()  # Ensure previous thread has finished
         if not stop:
-            self._leds.fill([255,255,255])
+            self._leds.fill([255, 255, 255])
             time.sleep(0.1)
-        else:
-            self._leds.fill([0,0,0])
-        #self._proc = threading.Thread(target=self._flash)
-        #self._proc.start()
+        self._leds.fill([0, 0, 0])
 
     def blink(self, color):
         Logger.info('RingLed: blink().')
         if spidev is None: return
-        if self._proc and self._proc.is_alive():
-            self._stop.clear()
-            time.sleep(0.1)
-        self._proc = threading.Thread(target=self._blink, args=[color,])
-        self._proc.start()
+        self._start_thread(self._blink, args=[color])
 
     def clear(self):
         Logger.info('RingLed: clear().')
         if spidev is None: return
         self._stop.set()
-        self._leds.fill([0,0,0])
+        if self._proc:
+            self._proc.join()
+        self._leds.fill([0, 0, 0])
 
     def _blink(self, color):
         self._stop.clear()

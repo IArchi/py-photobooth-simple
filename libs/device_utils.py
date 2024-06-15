@@ -179,7 +179,7 @@ class Picamera2Camera(CaptureDevice):
         if flash_fn: flash_fn()
         im = self._instance.capture_array()
         if flash_fn: flash_fn(stop=True)
-        #im = cv2.rotate(im, cv2.ROTATE_180)
+        im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         cv2.imwrite(output_name, im)
         self._instance.switch_mode(self._preview_config)
