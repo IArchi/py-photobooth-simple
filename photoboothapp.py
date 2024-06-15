@@ -75,7 +75,7 @@ class PhotoboothApp(App):
             kwargs = self._requested_kwargs
             self._requested_screen = None
             self._requested_kwargs = None
-            self.transition_to(next, kwargs)
+            self.transition_to(next, **kwargs)
 
     def transition_to(self, new_state, **kwargs):
         self.sm.current_screen.on_exit()
