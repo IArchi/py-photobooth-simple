@@ -72,7 +72,7 @@ class PhotoboothApp(App):
 
     def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
-        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), self.print_formats[format_idx].is_squared(), self.app.ringled.flash))
+        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), self.print_formats[format_idx].is_squared(), self.ringled.flash))
         self.processes = [t]
         t.start()
 
