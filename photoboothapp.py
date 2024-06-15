@@ -17,9 +17,9 @@ from libs.usb_transfer import UsbTransfer
 class PhotoboothApp(App):
     # Configuration
     LOCALES = Locales.get_EN
-    FULLSCREEN = False
+    FULLSCREEN = True
     COUNTDOWN = 3
-    ROOT_DIRECTORY = './DCIM' #'/tmp/photobooth'
+    DCIM_DIRECTORY = './DCIM' #'/tmp/photobooth'
     PRINTER = 'truc'
 
     def __init__(self, **kwargs):
@@ -33,9 +33,9 @@ class PhotoboothApp(App):
         self.print_formats = [CollageManager.POLAROID, CollageManager.STRIP]
 
         # Create required directories
-        self.tmp_directory = os.path.join(self.ROOT_DIRECTORY, 'tmp')
-        self.save_directory = os.path.join(self.ROOT_DIRECTORY, 'save')
-        if not os.path.exists(self.ROOT_DIRECTORY): os.makedirs(self.ROOT_DIRECTORY)
+        self.tmp_directory = os.path.join(self.DCIM_DIRECTORY, 'tmp')
+        self.save_directory = os.path.join(self.DCIM_DIRECTORY, 'save')
+        if not os.path.exists(self.DCIM_DIRECTORY): os.makedirs(self.DCIM_DIRECTORY)
         if not os.path.exists(self.tmp_directory): os.makedirs(self.tmp_directory)
         if not os.path.exists(self.save_directory): os.makedirs(self.save_directory)
 
@@ -138,4 +138,3 @@ if __name__ == '__main__':
     #     except Exception as e:
     #         print("Application errored out!", e)
     #         print("Retrying ... ")
-    
