@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import os
+import sys
 import signal
 import threading
 from datetime import datetime
@@ -15,9 +16,11 @@ from libs.ringled import RingLed
 from libs.collage import CollageManager
 from libs.usb_transfer import UsbTransfer
 
+RINGLED = RingLed(num_pixels=12)
+
 def signal_handler(sig, frame):
     print("\nCtrl+C detected. Exiting gracefully...")
-    # Add any cleanup code or specific actions you want to perform before exit
+    if RINGLED: RINGLED.clear()
     sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -35,7 +38,7 @@ class PhotoboothApp(App):
 
         self.sm = None
         self.processes = []
-        self.ringled = RingLed(num_pixels=12)
+        self.ringled = RINGLED
         self.devices = DeviceUtils(printer_name=self.PRINTER)
         self.print_formats = [CollageManager.POLAROID, CollageManager.STRIP]
 
