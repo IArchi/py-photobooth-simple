@@ -165,12 +165,16 @@ class Picamera2Camera(CaptureDevice):
 
             self._preview_config = self._instance.create_preview_configuration(main={'format': 'RGB888', 'size': (1920, 1080)}, controls={'FrameRate': 30})
             self._still_config = self._instance.create_still_configuration(main={"size": (1920, 1080), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
-
+            self._instance.pre_callback = self._print_af_state
             self._instance.configure(self._preview_config)
             self._instance.set_controls({'AfMode': controls.AfModeEnum.Continuous, 'AfSpeed': controls.AfSpeedEnum.Fast})
             self._instance.start()
             self._instance.autofocus_cycle(wait=False)
         if not self._instance: raise Exception('Cannot find any Picamera2 or picamera2 is not installed.')
+
+    def _print_af_state(self, request):
+        md = request.get_metadata()
+        print(("Idle", "Scanning", "Success", "Fail")[md['AfState']], md.get('LensPosition'))
 
     def focus(self):
         self._instance.autofocus_cycle(wait=False)
