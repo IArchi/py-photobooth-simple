@@ -1,5 +1,4 @@
 numpy
-Pillow
 kivy
 lxml
 opencv-contrib-python

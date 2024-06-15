@@ -27,6 +27,30 @@ class Collage:
     def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
         return
 
+    def _resize(image, max_height=1080, max_width=1920):
+        # Get original dimensions
+        height, width = image.shape[:2]
+
+        # Calculate aspect ratio
+        aspect_ratio = width / height
+
+        # Determine new dimensions based on the aspect ratio
+        if width > max_width or height > max_height:
+            if (max_width / width) < (max_height / height):
+                new_width = max_width
+                new_height = int(new_width / aspect_ratio)
+            else:
+                new_height = max_height
+                new_width = int(new_height * aspect_ratio)
+        else:
+            # If image is within the maximum dimensions, return the original image
+            return image
+
+        # Resize the image
+        resized_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+        return resized_image
+
     def _create_dummy_photo(self, filename, squared=False):
         height, width = (1080, 1920) if not squared else (1080, 1080)
         b, g, r = 0x75, 0x75, 0x75
@@ -46,7 +70,14 @@ class StripCollage(Collage):
         photos = [p[1] for p in photos]
         for p in photos: self._create_dummy_photo(p)
         tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
-        self.assemble(tmp_output, photos, logo_path)
+        im = self.assemble(None, photos, logo_path)
+
+        # Resize if required
+        im = self._resize(im)
+
+        # Save to file
+        cv2.imwrite(output_path, im)
+
         return tmp_output
 
     def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
@@ -107,6 +138,7 @@ class StripCollage(Collage):
                     strip_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] * (1.0 - resized_alpha / 255.0)
 
         # Save the collage
+        if output_path is None: return strip_image
         cv2.imwrite(output_path, strip_image)
 
 class PolaroidCollage(Collage):
@@ -118,7 +150,14 @@ class PolaroidCollage(Collage):
         tmp_file, tmp_input = tempfile.mkstemp(suffix='.jpg')
         self._create_dummy_photo(tmp_input, squared=True)
         tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
-        self.assemble(tmp_output, [tmp_input], logo_path)
+        im = self.assemble(None, [tmp_input], logo_path)
+
+        # Resize if required
+        im = self._resize(im)
+
+        # Save to file
+        cv2.imwrite(output_path, im)
+
         return tmp_output
 
     def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
@@ -178,6 +217,7 @@ class PolaroidCollage(Collage):
                     polaroid_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] * (1.0 - resized_alpha / 255.0)
 
         # Write to file
+        if output_path is None: return polaroid_image
         cv2.imwrite(output_path, polaroid_image)
 
 class CollageManager:
