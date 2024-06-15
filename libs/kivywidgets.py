@@ -46,7 +46,7 @@ class KivyCamera(Image):
         try:
             im = self._app.devices.get_preview(self._square)
             if im is None: return
-            image_texture = Texture.create(size=(im.shape[0], im.shape[1]), colorfmt='bgr')
+            image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
             image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
             self.texture = image_texture
         except Exception as e:
