@@ -27,7 +27,7 @@ class Collage:
     def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
         return
 
-    def _resize(self, image, max_height=1080, max_width=1920):
+    def _resize(self, output_path, image, max_height=1080, max_width=1920):
         # Get original dimensions
         height, width = image.shape[:2]
 
@@ -42,14 +42,13 @@ class Collage:
             else:
                 new_height = max_height
                 new_width = int(new_height * aspect_ratio)
+
+            resized_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
         else:
             # If image is within the maximum dimensions, return the original image
-            return image
+            resized_image = image
 
-        # Resize the image
-        resized_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
-
-        return resized_image
+        cv2.imwrite(output_path, resized_image)
 
     def _create_dummy_photo(self, filename, squared=False):
         height, width = (1080, 1920) if not squared else (1080, 1080)
@@ -70,14 +69,7 @@ class StripCollage(Collage):
         photos = [p[1] for p in photos]
         for p in photos: self._create_dummy_photo(p)
         tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
-        im = self.assemble(None, photos, logo_path)
-
-        # Resize if required
-        im = self._resize(im)
-
-        # Save to file
-        cv2.imwrite(tmp_output, im)
-
+        self.assemble((tmp_output, None), photos, logo_path)
         return tmp_output
 
     def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
@@ -137,9 +129,17 @@ class StripCollage(Collage):
                     resized_logo[:, :, c] * (resized_alpha / 255.0) + \
                     strip_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] * (1.0 - resized_alpha / 255.0)
 
-        # Save the collage
-        if output_path is None: return strip_image
-        cv2.imwrite(output_path, strip_image)
+        if type(output_path) is str:
+            # Write to file
+            cv2.imwrite(output_path, strip_image)
+        elif type(output_path) is tuple and len(output_path) == 2:
+            # First element is small one
+            self._resize(output_path[0], strip_image)
+
+            # Write to file
+            if output_path[1]: cv2.imwrite(output_path[1], strip_image)
+        else:
+            raise Exception('Unhandled output_path. Must be a string or a tuple(2) for small and large files.')
 
 class PolaroidCollage(Collage):
     def __init__(self, count=1):
@@ -150,14 +150,7 @@ class PolaroidCollage(Collage):
         tmp_file, tmp_input = tempfile.mkstemp(suffix='.jpg')
         self._create_dummy_photo(tmp_input, squared=True)
         tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
-        im = self.assemble(None, [tmp_input], logo_path)
-
-        # Resize if required
-        im = self._resize(im)
-
-        # Save to file
-        cv2.imwrite(tmp_output, im)
-
+        self.assemble((tmp_output, None), [tmp_input], logo_path)
         return tmp_output
 
     def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
@@ -216,9 +209,17 @@ class PolaroidCollage(Collage):
                     resized_logo[:, :, c] * (resized_alpha / 255.0) + \
                     polaroid_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] * (1.0 - resized_alpha / 255.0)
 
-        # Write to file
-        if output_path is None: return polaroid_image
-        cv2.imwrite(output_path, polaroid_image)
+        if type(output_path) is str:
+            # Write to file
+            cv2.imwrite(output_path, polaroid_image)
+        elif type(output_path) is tuple and len(output_path) == 2:
+            # First element is small one
+            self._resize(output_path[0], polaroid_image)
+
+            # Write to file
+            if output_path[1]: cv2.imwrite(output_path[1], polaroid_image)
+        else:
+            raise Exception('Unhandled output_path. Must be a string or a tuple(2) for small and large files.')
 
 class CollageManager:
     STRIP = StripCollage(count=3)
