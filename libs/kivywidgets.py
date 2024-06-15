@@ -109,7 +109,7 @@ Builder.load_string("""
         color: root.text_color
         halign: 'center'
         valign: 'middle'
-        text_size: '20sp'
+        text_size: self.size * 2
 """)
 class ImageLabelButton(ButtonBehavior, BoxLayout):
     source = StringProperty('')  # Path to the image
