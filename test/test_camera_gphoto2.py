@@ -1,6 +1,5 @@
 import sys
 import cv2
-import numpy as np
 
 sys.path.append('..')
 from libs.device_utils import Gphoto2Camera

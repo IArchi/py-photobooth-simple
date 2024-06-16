@@ -18,7 +18,7 @@ LARGE_FONT = '70sp'
 NORMAL_FONT = '50sp'
 SMALL_FONT = '30sp'
 TINY_FONT = '15sp'
-IMAGE_BUTTON_FONT = '30sp'
+IMAGE_BUTTON_FONT = '25sp'
 
 class ScreenMgr(ScreenManager):
     """Screen Manager for the photobooth screens."""

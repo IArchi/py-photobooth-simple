@@ -190,3 +190,4 @@ Application will not be usable during the copy process but will display a messag
 ## TODO
  - Fix gphoto2 capture which make the camera reboot
  - Test printer
+ - Test french language
