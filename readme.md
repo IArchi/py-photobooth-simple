@@ -130,14 +130,13 @@ sudo usermod -a -G lpadmin $USER
 sudo cupsctl --remote-admin --remote-any
 
 # Install Driverless printers
-sudo apt install -y ipp-usb
-sudo systemctl start ipp-usb.service
+sudo apt install -y printer-driver-gutenprint
 
 # Restart CUPS
 sudo /etc/init.d/cups restart
 ```
 
-Then go to `http://<raspberry-ip>:631/admin/` and declare a new printer.
+Then go to `http://<raspberry-ip>:631/admin/`, declare a new printer and import `doc/DS620.ppd`.
 
 ### Led ring (Only if you plan to install one)
 ```
