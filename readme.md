@@ -188,6 +188,6 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Fix gphoto2 capture which make the camera reboot
+ - Rewrite piggyphoto lib to fix all issues...
  - Test printer
  - Test french language
