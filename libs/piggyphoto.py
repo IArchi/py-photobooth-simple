@@ -758,12 +758,16 @@ class cameraWidget(object):
         #print(widget)
         for c in widget.children:
             simplechild = cameraWidgetSimple()
+            if isinstance(c.name, bytes):
+                name = c.name.decode('utf-8')
+            else:
+                name = c.name
             if c.count_children():
-                setattr(simplewidget, c.name, simplechild)
+                setattr(simplewidget, name, simplechild)
                 simplechild.__doc__ = c.createdoc()
                 c._pop(simplechild)
             else:
-                setattr(simplewidget, c.name, c)
+                setattr(simplewidget, name, c)
 
             #print(c.name, simplewidget.__doc__)
         #print(dir(simplewidget))
