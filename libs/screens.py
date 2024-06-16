@@ -260,7 +260,7 @@ class ErrorScreen(BackgroundScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
-        if 'error' in kwargs: self.label.text = "{}\nClick to continue".format(str(kwargs.get('error')))
+        if 'error' in kwargs: self.label.text = str(kwargs.get('error'))
 
     def on_exit(self, kwargs={}):
         Logger.info('ErrorScreen: on_exit().')
@@ -844,7 +844,8 @@ class PrintingScreen(BackgroundScreen):
             self._print_task_id = self.app.trigger_print(self._current_copies, self._current_format)
             self._clock = Clock.schedule_once(self.timer_event, 1)
             self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
-        except:
+        except Exception as e:
+            print(e)
             return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error'])
 
     def on_exit(self, kwargs={}):
