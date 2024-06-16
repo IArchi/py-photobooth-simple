@@ -741,7 +741,7 @@ class cameraWidget(object):
         return choice.value
 
     def createdoc(self):
-        label = "Label: " + self.label
+        label = "Label: " + self.label.decode('utf-8')
         info = "Info: " + (self.info if self.info != "" else "n/a")
         type = "Type: " + self.typestr
         #value = "Current value: " + str(self.value)
@@ -777,7 +777,7 @@ class cameraWidget(object):
             raise TypeError(f"Expected attribute name to be 'str' or 'bytes', got {type(self.name).__name__}")
         else:
             name = self.name
-        print(f"Type of self.name before setting attribute: {type(name).__name__}")
+        print(f"Type of name before setting attribute: {type(name).__name__}")
         setattr(self, name, simplewidget)
         simplewidget.__doc__ = self.createdoc()
         self._pop(simplewidget)
