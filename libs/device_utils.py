@@ -111,10 +111,13 @@ class Gphoto2Camera(CaptureDevice):
                 self._instance.leave_locked()
                 self._instance.capture_preview(self._preview)
 
-                print(dir(self._instance.config.main.capturesettings))
+                # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
+                self._instance.config.main.actions.autofocusdrive.value = 1 # Autofocus (If it does not work, use main.actions.eosremoterelease)
+                self._instance.config.main.capturesettings.focusmode.value = 0 # One Shot
+                self._instance.config.main.capturesettings.aperture.value = 7 # F/8
+                self._instance.config.main.capturesettings.shutterspeed.value=0.00625 # 1/160s
+                self._instance.config.main.imgsettings.iso.value = 3 # 400 ISO
 
-                # Enable autofocus
-                # TODO
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
     def get_preview(self, square=False):
