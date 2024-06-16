@@ -137,6 +137,7 @@ sudo /etc/init.d/cups restart
 ```
 
 Then go to `http://<raspberry-ip>:631/admin/`, declare a new printer and import `doc/DS620.ppd`.
+Change default paper size to 6x8 in printing setup.
 
 ### Led ring (Only if you plan to install one)
 ```
@@ -188,5 +189,6 @@ Application will not be usable during the copy process but will display a messag
 
 ## TODO
  - Rewrite piggyphoto lib to fix all issues...
- - Test printer
+ - Add zoom for picamera2 to match gphoto2 zoom at 55mm
+ - Fix printer (Images must be 156.13x104.99mm). Disable 2inches cut on full size.
  - Test french language
