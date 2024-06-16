@@ -143,7 +143,7 @@ class StripCollage(Collage):
 
 class PolaroidCollage(Collage):
     def __init__(self, count=1):
-        super(PolaroidCollage, self).__init__(count=count, print_format='Custom.6x8in', squared=True)
+        super(PolaroidCollage, self).__init__(count=count, print_format='w432h576', squared=True)
 
     def get_preview(self, logo_path=None):
         Logger.info('PolaroidCollage: get_preview()')
