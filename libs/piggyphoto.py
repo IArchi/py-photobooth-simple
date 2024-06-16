@@ -668,6 +668,7 @@ class cameraWidget(object):
             value = PTR(ctypes.c_int(value))
         else:
             return None # this line not tested
+        print(">>> Set {} to {}".format(self._w, value))
         check(gp.gp_widget_set_value(self._w, value))
     value = property(_get_value, _set_value)
 
