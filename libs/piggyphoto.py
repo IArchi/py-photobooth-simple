@@ -743,7 +743,7 @@ class cameraWidget(object):
     def createdoc(self):
         label = "Label: " + self.label.decode('utf-8')
         info = "Info: " + (self.info.decode('utf-8') if self.info.decode('utf-8') != "" else "n/a")
-        type = "Type: " + self.typestr.decode('utf-8')
+        type = "Type: " + self.typestr
         #value = "Current value: " + str(self.value)
         childs = []
         for c in self.children:
