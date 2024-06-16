@@ -747,7 +747,7 @@ class cameraWidget(object):
         #value = "Current value: " + str(self.value)
         childs = []
         for c in self.children:
-            childs.append("  - " + c.name + ": " + c.label)
+            childs.append("  - " + c.name.decode('utf-8') + ": " + c.label.decode('utf-8'))
         if len(childs):
             childstr = "Children:\n" + string.join(childs, "\n")
             return label + "\n" + info + "\n" + type + "\n" + childstr
