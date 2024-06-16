@@ -749,7 +749,7 @@ class cameraWidget(object):
         for c in self.children:
             childs.append("  - " + c.name.decode('utf-8') + ": " + c.label.decode('utf-8'))
         if len(childs):
-            childstr = "Children:\n" + childs.join("\n")
+            childstr = "Children:\n" + "\n".join(childs)
             return label + "\n" + info + "\n" + type + "\n" + childstr
         else:
             return label + "\n" + info + "\n" + type
