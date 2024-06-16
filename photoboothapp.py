@@ -31,7 +31,7 @@ class PhotoboothApp(App):
     FULLSCREEN = True
     COUNTDOWN = 3
     DCIM_DIRECTORY = './DCIM' #'/tmp/photobooth'
-    PRINTER = 'truc'
+    PRINTER = 'DS620'
 
     def __init__(self, **kwargs):
         Logger.info('PhotoboothApp: __init__().')
