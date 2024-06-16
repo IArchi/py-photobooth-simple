@@ -770,6 +770,8 @@ class cameraWidget(object):
 
     def populate_children(self):
         simplewidget = cameraWidgetSimple()
+        if isinstance(self.name, bytes):
+            self.name = self.name.decode('utf-8')
         setattr(self, self.name, simplewidget)
         simplewidget.__doc__ = self.createdoc()
         self._pop(simplewidget)
