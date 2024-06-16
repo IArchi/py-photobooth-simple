@@ -111,7 +111,7 @@ class Gphoto2Camera(CaptureDevice):
                 self._instance.leave_locked()
                 self._instance.capture_preview(self._preview)
 
-                print(dir(self._instance.config.main))
+                print(dir(self._instance.config.main.capturesettings))
 
                 # Enable autofocus
                 # TODO
