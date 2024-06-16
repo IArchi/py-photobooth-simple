@@ -27,7 +27,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 class PhotoboothApp(App):
     # Configuration
-    LOCALES = Locales.get_EN
+    LOCALES = Locales.get_FR
     FULLSCREEN = True
     COUNTDOWN = 3
     DCIM_DIRECTORY = './DCIM' #'/tmp/photobooth'
