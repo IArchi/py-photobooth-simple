@@ -343,12 +343,12 @@ class camera(object):
     def _list_config(self, widget, cfglist, path):
         children = widget.children
         if isinstance(path, bytes): path = path.decode('utf-8')
-        if isinstance(c.name, bytes):
-            name = c.name.decode('utf-8')
-        else:
-            name = c.name
         if children:
             for c in children:
+                if isinstance(c.name, bytes):
+                    name = c.name.decode('utf-8')
+                else:
+                    name = c.name
                 self._list_config(c, cfglist, path + "." + name)
         else:
             cfglist.append(path)
