@@ -53,7 +53,7 @@ class Locales:
                 'content': 'Copying to USB dongle\nDo not remove or turn off !',
             },
         }
-    
+
     @staticmethod
     def get_FR(self):
         return {
@@ -62,7 +62,7 @@ class Locales:
                 'version': 'Version 1.0',
             },
             'select_format': {
-                'title': 'Selectionnez le format de sortie',
+                'title': 'Selectionnez le modèle',
             },
             'error': {
                 'default': 'Une erreur s\'est produite.\nApouyez pour continuer.',

@@ -14,7 +14,7 @@ from kivy.core.window import Window
 from libs.kivywidgets import *
 
 XLARGE_FONT = '200sp'
-LARGE_FONT = '70sp'
+LARGE_FONT = '60sp'
 NORMAL_FONT = '50sp'
 SMALL_FONT = '30sp'
 TINY_FONT = '15sp'
