@@ -112,6 +112,7 @@ class Gphoto2Camera(CaptureDevice):
                 self._instance.capture_preview(self._preview)
 
                 # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
+                print(self._instance.config.main.actions.autofocusdrive)
                 self._instance.config.main.actions.autofocusdrive.value = 1 # Autofocus (If it does not work, use main.actions.eosremoterelease)
                 self._instance.config.main.capturesettings.focusmode.value = 0 # One Shot
                 self._instance.config.main.capturesettings.aperture.value = 7 # F/8
