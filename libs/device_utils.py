@@ -111,11 +111,8 @@ class Gphoto2Camera(CaptureDevice):
                 self._instance.leave_locked()
                 self._instance.capture_preview(self._preview)
 
-                print('>>>>>>>')
-                print(self._instance.abilities)
-                self._instance.list_config()
-                print('<<<<<<<')
-                
+                print dir(self._instance.config.main)
+
                 # Enable autofocus
                 # TODO
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
