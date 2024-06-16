@@ -342,14 +342,9 @@ class camera(object):
 
     def _list_config(self, widget, cfglist, path):
         children = widget.children
-        if isinstance(path, bytes): path = path.decode('utf-8')
         if children:
             for c in children:
-                if isinstance(c.name, bytes):
-                    name = c.name.decode('utf-8')
-                else:
-                    name = c.name
-                self._list_config(c, cfglist, path + "." + name)
+                self._list_config(c, cfglist, path + "." + c.name)
         else:
             cfglist.append(path)
 
@@ -668,7 +663,6 @@ class cameraWidget(object):
             value = PTR(ctypes.c_int(value))
         else:
             return None # this line not tested
-        print(">>> Set {} to {}".format(self._w, value))
         check(gp.gp_widget_set_value(self._w, value))
     value = property(_get_value, _set_value)
 
@@ -747,15 +741,15 @@ class cameraWidget(object):
         return choice.value
 
     def createdoc(self):
-        label = "Label: " + self.label.decode('utf-8')
-        info = "Info: " + (self.info.decode('utf-8') if self.info.decode('utf-8') != "" else "n/a")
+        label = "Label: " + self.label
+        info = "Info: " + (self.info if self.info != "" else "n/a")
         type = "Type: " + self.typestr
         #value = "Current value: " + str(self.value)
         childs = []
         for c in self.children:
-            childs.append("  - " + c.name.decode('utf-8') + ": " + c.label.decode('utf-8'))
+            childs.append("  - " + c.name + ": " + c.label)
         if len(childs):
-            childstr = "Children:\n" + "\n".join(childs)
+            childstr = "Children:\n" + string.join(childs, "\n")
             return label + "\n" + info + "\n" + type + "\n" + childstr
         else:
             return label + "\n" + info + "\n" + type
@@ -764,31 +758,19 @@ class cameraWidget(object):
         #print(widget)
         for c in widget.children:
             simplechild = cameraWidgetSimple()
-            if isinstance(c.name, bytes):
-                name = c.name.decode('utf-8')
-            else:
-                name = c.name
             if c.count_children():
-                setattr(simplewidget, name, simplechild)
+                setattr(simplewidget, c.name, simplechild)
                 simplechild.__doc__ = c.createdoc()
                 c._pop(simplechild)
             else:
-                setattr(simplewidget, name, c)
+                setattr(simplewidget, c.name, c)
 
             #print(c.name, simplewidget.__doc__)
         #print(dir(simplewidget))
 
     def populate_children(self):
         simplewidget = cameraWidgetSimple()
-        print(f"Type of self.name before setting attribute: {type(self.name).__name__}")
-        if isinstance(self.name, bytes):
-            name = self.name.decode('utf-8')
-        elif not isinstance(self.name, str):
-            raise TypeError(f"Expected attribute name to be 'str' or 'bytes', got {type(self.name).__name__}")
-        else:
-            name = self.name
-        print(f"Type of name before setting attribute: {type(name).__name__}")
-        setattr(self, name, simplewidget)
+        setattr(self, self.name, simplewidget)
         simplewidget.__doc__ = self.createdoc()
         self._pop(simplewidget)
 
