@@ -772,11 +772,13 @@ class cameraWidget(object):
         simplewidget = cameraWidgetSimple()
         print(f"Type of self.name before setting attribute: {type(self.name).__name__}")
         if isinstance(self.name, bytes):
-            self.name = self.name.decode('utf-8')
+            name = self.name.decode('utf-8')
         elif not isinstance(self.name, str):
             raise TypeError(f"Expected attribute name to be 'str' or 'bytes', got {type(self.name).__name__}")
-        print(f"Type of self.name before setting attribute: {type(self.name).__name__}")
-        setattr(self, self.name, simplewidget)
+        else:
+            name = self.name
+        print(f"Type of self.name before setting attribute: {type(name).__name__}")
+        setattr(self, name, simplewidget)
         simplewidget.__doc__ = self.createdoc()
         self._pop(simplewidget)
 
