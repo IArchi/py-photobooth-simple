@@ -22,7 +22,7 @@ except ImportError:
     cv2 = None
 
 try:
-    import libs.piggyphoto as gp
+    import libs.gphoto2 as gp
 except ImportError:
     gp = None
 
@@ -108,7 +108,7 @@ class Gphoto2Camera(CaptureDevice):
     def __init__(self):
         if gp:
             # List connected DSLR cameras
-            if gp.cameraList(autodetect=True).count():
+            if gp.cameraList().count():
                 self._instance = gp.camera()
                 tmp_file, self._preview = tempfile.mkstemp(suffix='.jpg')
                 self._instance.leave_locked()
