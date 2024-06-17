@@ -120,8 +120,8 @@ class Gphoto2Camera(CaptureDevice):
 
                 print('/main/capturesettings/focusmode', config.get_path('/main/capturesettings/focusmode').get_value())
                 print('/main/capturesettings/aperture', config.get_path('/main/capturesettings/aperture').get_value())
-                print('/main/capturesettings/shutterspeed', config.get_path('/main/capturesettings/shutterspeed').get_value())
-                config.get_path('/main/capturesettings/shutterspeed').set_value(8)
+                config.get_path('/main/capturesettings/aperture').set_value(8)
+                print('/main/capturesettings/aperture', config.get_path('/main/capturesettings/aperture').get_value())
                 print('/main/capturesettings/shutterspeed', config.get_path('/main/capturesettings/shutterspeed').get_value())
                 print('/main/imgsettings/iso', config.get_path('/main/imgsettings/iso').get_value())
 
