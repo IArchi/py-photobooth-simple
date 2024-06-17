@@ -4,10 +4,10 @@ import tempfile
 from kivy.logger import Logger
 
 class Collage:
-    def __init__(self, count=1, print_format=None, squared=False):
+    def __init__(self, count=1, print_params={}, squared=False):
         Logger.info('Collage: __init__()')
         self._count = count
-        self._print_format = print_format
+        self._print_params = print_params
         self._squared = squared
 
     def get_photos_required(self):
@@ -17,9 +17,9 @@ class Collage:
     def is_squared(self):
         return self._squared
 
-    def get_print_format(self):
-        Logger.info('Collage: get_print_format()')
-        return self._print_format
+    def get_print_params(self):
+        Logger.info('Collage: get_print_params()')
+        return self._print_params
 
     def get_preview(self, logo_path=None):
         return
@@ -61,7 +61,7 @@ class Collage:
 
 class StripCollage(Collage):
     def __init__(self, count=3):
-        super(StripCollage, self).__init__(count=count, print_format='w432h576', squared=False)
+        super(StripCollage, self).__init__(count=count, print_params={'PageSize':'dnp6x8', 'Cutter':'2Inch'}, squared=False)
 
     def get_preview(self, logo_path=None):
         Logger.info('StripCollage: get_preview()')
@@ -152,7 +152,7 @@ class StripCollage(Collage):
 
 class PolaroidCollage(Collage):
     def __init__(self, count=1):
-        super(PolaroidCollage, self).__init__(count=count, print_format='w432h576', squared=True)
+        super(PolaroidCollage, self).__init__(count=count, print_params={'PageSize':'dnp6x8', 'Cutter':'Normal'}, squared=True)
 
     def get_preview(self, logo_path=None):
         Logger.info('PolaroidCollage: get_preview()')

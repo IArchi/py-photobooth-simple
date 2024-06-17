@@ -23,7 +23,7 @@ except ImportError:
 
 try:
     import libs.gphoto2 as gp
-except ImportError:
+except:
     gp = None
 
 class CaptureDevice:
@@ -67,7 +67,7 @@ class CaptureDevice:
 class PrintDevice:
     _instance = None
 
-    def print(self, file_path, copies=1, print_format=None):
+    def print(self, file_path, print_params={}):
         pass
 
     def get_print_status(self, task_id):
@@ -201,10 +201,8 @@ class CupsPrinter(PrintDevice):
                 Logger.warning('CupsPrinter: No printer named \'%s\' in CUPS (see http://localhost:631)', name)
         if not self._instance: raise Exception('Cannot find any CUPS printer or cups is not installed.')
 
-    def print(self, file_path, copies=1, print_format=None):
-        options = {'orientation-requested':'6', 'copies':str(copies)}
-        if print_format: options['media'] = print_format
-        return self._instance.printFile(self._name, file_path, ' ', options)
+    def print(self, file_path, print_params={}):
+        return self._instance.printFile(self._name, file_path, ' ', print_params)
 
     def get_print_status(self, task_id):
         status = self._instance.getJobAttributes(task_id)['job-state']
@@ -272,9 +270,10 @@ class DeviceUtils:
     def has_printer(self):
         return self._printer is not None
 
-    def print(self, file_path, copies=1, print_format=None):
+    def print(self, file_path, print_params={}):
         if not self._printer: return
-        self._printer.print(file_path, copies, print_format)
+        self._printer.print(file_path, print_params)
 
     def get_print_status(self, task_id):
-        self._printer.get_print_status(task_id)
+        if not self._printer: return 'done'
+        return self._printer.get_print_status(task_id)

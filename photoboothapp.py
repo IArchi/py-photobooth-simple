@@ -130,7 +130,9 @@ class PhotoboothApp(App):
 
     def trigger_print(self, copies, format=0):
         Logger.info('PhotoboothApp: trigger_print().')
-        return self.devices.print(self.get_collage(), copies=copies, print_format=self.print_formats[format].get_print_format())
+        options = self.print_formats[format].get_print_params()
+        options['copies'] = copies
+        return self.devices.print(self.get_collage(), options)
 
     def is_print_completed(self, print_task_id):
         return self.devices.get_print_status(print_task_id) == 'done'
