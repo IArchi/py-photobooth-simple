@@ -121,6 +121,8 @@ class Gphoto2Camera(CaptureDevice):
                 print(config.get_path('/main/capturesettings/focusmode').get_value())
                 print(config.get_path('/main/capturesettings/aperture').get_value())
                 print(config.get_path('/main/capturesettings/shutterspeed').get_value())
+                print(config.get_path('/main/capturesettings/shutterspeed').set_value(8))
+                print(config.get_path('/main/capturesettings/shutterspeed').get_value())
                 print(config.get_path('/main/imgsettings/iso').get_value())
 
                 #self._instance.config.main.actions.autofocusdrive.value = 1 # Autofocus (If it does not work, use main.actions.eosremoterelease)

@@ -180,7 +180,6 @@ class cameraConfig():
         current_widget = self
         for name in names:
             if name == 'main': continue
-            print('Get', name)
             current_widget = current_widget._get_child_by_name(name)
             if current_widget is None: return None
         return current_widget
@@ -242,10 +241,6 @@ class cameraConfig():
             check(gp.gp_widget_ref(child._ptr))
             if child.get_name() == name: return child
         return None
-
-        #child = cameraConfig()
-        #check(gp.gp_widget_get_child_by_name(self._ptr, name, PTR(child._ptr)))
-        return child
 
     def _count_children(self):
         return gp.gp_widget_count_children(self._ptr)
