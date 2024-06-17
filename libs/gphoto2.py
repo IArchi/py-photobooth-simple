@@ -331,6 +331,9 @@ class cameraConfig():
         simplechild.__doc__ = self.createdoc()
         self._pop(simplechild)
 
+    def __str__(self):
+        return getattr(self, str(self.name, encoding='ascii')).get_tree_structure()
+
     def __repr__(self):
         return "%s:%s:%s:%s:%s" % (str(self.label, encoding='ascii'), str(self.name, encoding='ascii'), str(self.info, encoding='ascii'), str(self.typestr, encoding='ascii'), str(self.value, encoding='ascii'))
 
@@ -348,4 +351,14 @@ class cameraConfig():
     range = property(_get_range, _set_range)
 
 class cameraConfigChild():
-    pass
+    def __str__(self):
+        return self.__doc__
+    
+    def get_tree_structure(self, indent=0):
+        tree_structure = ' ' * indent + str(self.name, encoding='ascii') + '\n'
+        for child_name, child_value in self.__dict__.items():
+            if isinstance(child_value, cameraConfigChild):
+                tree_structure += child_value.get_tree_structure(indent + 4)
+            else:
+                tree_structure += ' ' * (indent + 4) + str(child_value) + '\n'
+        return tree_structure
