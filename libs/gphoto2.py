@@ -222,6 +222,8 @@ class cameraConfig():
         return str(value.value, encoding='ascii')
 
     def set_value(self, value):
+        if isinstance(value, str): value = str.encode(value)
+        if not isinstance(s, bytes): raise libgphoto2error(type(value).__name__, 'Value should either be a string or bytes')
         type = self.get_type()
         if type in [2, 5, 6]: value = ctypes.c_char_p(value)
         elif type == 3: value = ctypes.c_float_p(value)
