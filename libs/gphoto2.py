@@ -204,12 +204,18 @@ class cameraConfig():
         check(gp.gp_widget_get_info(self._ptr, PTR(info)))
         return str(info.value, encoding='ascii')
 
+    def get_type(self):
+        type = ctypes.c_int()
+        check(gp.gp_widget_get_type(self._ptr, PTR(type)))
+        return type.value
+
     def get_value(self):
+        type = self.get_type()
         value = ctypes.c_void_p()
         ans = gp.gp_widget_get_value(self._ptr, PTR(value))
-        if self.type in [2, 5, 6]: value = ctypes.cast(value.value, ctypes.c_char_p)
-        elif self.type == 3: value = ctypes.cast(value.value, ctypes.c_float_p)
-        elif self.type in [4, 8]:
+        if type in [2, 5, 6]: value = ctypes.cast(value.value, ctypes.c_char_p)
+        elif type == 3: value = ctypes.cast(value.value, ctypes.c_float_p)
+        elif type in [4, 8]:
             #value = ctypes.cast(value.value, ctypes.c_int_p)
             pass
         else: return None
@@ -217,9 +223,10 @@ class cameraConfig():
         return value.value
 
     def set_value(self, value):
-        if self.type in [2, 5, 6]: value = ctypes.c_char_p(value)
-        elif self.type == 3: value = ctypes.c_float_p(value)
-        elif self.type in [4, 8]: value = PTR(ctypes.c_int(value)) # c_int_p ? TODO
+        type = self.get_type()
+        if type in [2, 5, 6]: value = ctypes.c_char_p(value)
+        elif type == 3: value = ctypes.c_float_p(value)
+        elif type in [4, 8]: value = PTR(ctypes.c_int(value)) # c_int_p ? TODO
         else: return
         check(gp.gp_widget_set_value(self._ptr, value))
 
