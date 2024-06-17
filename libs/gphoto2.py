@@ -195,12 +195,12 @@ class cameraConfig():
     def get_label(self):
         label = ctypes.c_char_p()
         check(gp.gp_widget_get_label(self._ptr, PTR(label)))
-        return label.value
+        return str(label.value, encoding='ascii')
 
     def get_info(self):
         info = ctypes.c_char_p()
         check(gp.gp_widget_get_info(self._ptr, PTR(info)))
-        return info.value
+        return str(info.value, encoding='ascii')
 
     def get_value(self):
         value = ctypes.c_void_p()
@@ -224,7 +224,7 @@ class cameraConfig():
     def get_name(self):
         name = ctypes.c_char_p()
         check(gp.gp_widget_get_name(self._ptr, PTR(name)))
-        return name.value
+        return str(name.value, encoding='ascii')
 
     def _get_child_by_name(self, name):
         child = cameraConfig()
