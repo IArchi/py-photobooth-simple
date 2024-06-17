@@ -61,7 +61,7 @@ class Collage:
 
 class StripCollage(Collage):
     def __init__(self, count=3):
-        super(StripCollage, self).__init__(count=count, print_format='Custom.3x8in', squared=False)
+        super(StripCollage, self).__init__(count=count, print_format='w432h576', squared=False)
 
     def get_preview(self, logo_path=None):
         Logger.info('StripCollage: get_preview()')
@@ -76,7 +76,7 @@ class StripCollage(Collage):
         Logger.info('StripCollage: assemble({})'.format(output_path))
 
         # Define the size of the output image
-        output_width, output_height = 3000, 8000
+        output_width, output_height = 1240, 3688 # Pixels*DPI/25.4 (25.4mm = 1 inch)
 
         # Calculate the size and position to paste the input image
         border_size = int(output_width * 0.05)
@@ -130,14 +130,23 @@ class StripCollage(Collage):
                     strip_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] * (1.0 - resized_alpha / 255.0)
 
         if type(output_path) is str:
+            print('hconcat')
+            # Duplicate for print
+            strip_image = cv2.hconcat([strip_image, strip_image])
+
             # Write to file
             cv2.imwrite(output_path, strip_image)
         elif type(output_path) is tuple and len(output_path) == 2:
-            # First element is small one
+            # First element is for preview only
             self._resize(output_path[0], strip_image)
+            
+            # Second element is for printing
+            if output_path[1]:
+                # Duplicate for print
+                strip_image = cv2.hconcat([strip_image, strip_image])
 
-            # Write to file
-            if output_path[1]: cv2.imwrite(output_path[1], strip_image)
+                # Write to file
+                cv2.imwrite(output_path[1], strip_image)
         else:
             raise Exception('Unhandled output_path. Must be a string or a tuple(2) for small and large files.')
 
@@ -160,7 +169,7 @@ class PolaroidCollage(Collage):
         input_image = cv2.imread(image_paths[0])
 
         # Define the size of the output image
-        output_width, output_height = 6000, 8000
+        output_width, output_height = 2480, 3688 # 156.13 x 104.99 mm at 600 dpi  => Pixels*DPI/25.4 (25.4mm = 1 inch)
 
         # Create a new image with white background
         polaroid_image = np.ones((output_height, output_width, 3), dtype=np.uint8) * 255
@@ -213,10 +222,10 @@ class PolaroidCollage(Collage):
             # Write to file
             cv2.imwrite(output_path, polaroid_image)
         elif type(output_path) is tuple and len(output_path) == 2:
-            # First element is small one
+            # First element is for preview only
             self._resize(output_path[0], polaroid_image)
 
-            # Write to file
+            # Second element is for printing
             if output_path[1]: cv2.imwrite(output_path[1], polaroid_image)
         else:
             raise Exception('Unhandled output_path. Must be a string or a tuple(2) for small and large files.')

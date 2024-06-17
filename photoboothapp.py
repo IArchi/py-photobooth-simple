@@ -121,6 +121,9 @@ class PhotoboothApp(App):
     def is_collage_completed(self):
         if any((process.is_alive() is None for process in self.processes)): return False
         return os.path.isfile(self.get_collage()[1])
+    
+    def has_physical_flash(self):
+        return self.devices.has_physical_flash()
 
     def has_printer(self):
         return self.devices.has_printer()

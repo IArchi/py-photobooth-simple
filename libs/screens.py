@@ -420,15 +420,15 @@ class CheeseScreen(Screen):
         Clock.unschedule(self._clock_trigger)
 
     def timer_trigger(self, obj):
-        # Make window full white
-        self.layout.background_color=(1,1,1,1)
-        self.layout.canvas.ask_update()
+        if not self.app.has_physical_flash():
+            # Make window full white
+            self.layout.background_color=(1,1,1,1)
+            self.layout.canvas.ask_update()
 
         # Trigger shot
         try:
             self.app.trigger_shot(self._current_shot, self._current_format)
-        except Exception as e:
-            raise e
+        except:
             return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['cheese']['error'])
 
     def timer_event(self, obj):

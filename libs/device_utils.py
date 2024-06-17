@@ -35,6 +35,9 @@ class CaptureDevice:
     def capture(self, output_name, square=False, flash_fn=None):
         pass
 
+    def has_physical_flash(self):
+        return False
+
     def _crop_to_square(self, image):
         height, width, _ = image.shape
 
@@ -120,6 +123,9 @@ class Gphoto2Camera(CaptureDevice):
                 self._instance.config.main.imgsettings.iso.value = 3 # 400 ISO
 
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
+
+    def has_physical_flash(self):
+        return True
 
     def get_preview(self, square=False):
         self._instance.capture_preview(self._preview)
@@ -253,6 +259,9 @@ class DeviceUtils:
         else:
             Logger.info('Cannot find any camera nor DSLR')
             raise Exception('This app requires at lease a piCamera, a DSLR or a webcam to work.')
+        
+    def has_physical_flash(self):
+        return self._capture.has_physical_flash()
 
     def get_preview(self, square=False):
         return self._preview.get_preview(square)
