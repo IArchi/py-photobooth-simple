@@ -115,14 +115,14 @@ class Gphoto2Camera(CaptureDevice):
                 self._instance.capture_preview(self._preview)
 
                 # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
-                print(dir(self._instance.config))
-                print(self._instance.config)
-                print(self._instance.config.main.__doc__)
-                self._instance.config.main.actions.autofocusdrive.value = 1 # Autofocus (If it does not work, use main.actions.eosremoterelease)
-                self._instance.config.main.capturesettings.focusmode.value = 0 # One Shot
-                self._instance.config.main.capturesettings.aperture.value = 7 # F/8
-                self._instance.config.main.capturesettings.shutterspeed.value=0.00625 # 1/160s
-                self._instance.config.main.imgsettings.iso.value = 3 # 400 ISO
+                config = self._instance.get_config()
+                print(config.list_paths())
+
+                #self._instance.config.main.actions.autofocusdrive.value = 1 # Autofocus (If it does not work, use main.actions.eosremoterelease)
+                #self._instance.config.main.capturesettings.focusmode.value = 0 # One Shot
+                #self._instance.config.main.capturesettings.aperture.value = 7 # F/8
+                #self._instance.config.main.capturesettings.shutterspeed.value=0.00625 # 1/160s
+                #self._instance.config.main.imgsettings.iso.value = 3 # 400 ISO
 
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
@@ -259,7 +259,7 @@ class DeviceUtils:
         else:
             Logger.info('Cannot find any camera nor DSLR')
             raise Exception('This app requires at lease a piCamera, a DSLR or a webcam to work.')
-        
+
     def has_physical_flash(self):
         return self._capture.has_physical_flash()
 

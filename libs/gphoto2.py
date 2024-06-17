@@ -82,16 +82,10 @@ class camera():
     def leave_locked(self):
         self._leave_locked = True
 
-    def _get_config(self):
+    def get_config(self):
         config = cameraConfig()
         check(gp.gp_camera_get_config(self._cam, PTR(config._ptr), context))
-        config.populate_children()
         return config
-
-    def _set_config(self, config):
-        check(gp.gp_camera_set_config(self._cam, config._ptr, context))
-
-    config = property(_get_config, _set_config)
 
     def capture_image(self, destpath=None):
         # Triffer capture
@@ -180,7 +174,7 @@ class cameraConfig():
 
     def __del__(self):
         self.unref()
-    
+
     def get_path(self, path):
         names = path.strip('/').split('/')
         current_widget = self
@@ -188,7 +182,7 @@ class cameraConfig():
             current_widget = current_widget._get_child_by_name(name)
             if current_widget is None: return None
         return current_widget
-    
+
     def list_paths(self, config, parent_path=""):
         children_paths = []
         children = config._get_children()
@@ -197,7 +191,7 @@ class cameraConfig():
             children_paths.append(child_path)
             children_paths.extend(self.list_paths(child, child_path))
         return children_paths
-    
+
     def get_label(self):
         label = ctypes.c_char_p()
         check(gp.gp_widget_get_label(self._ptr, PTR(label)))
@@ -236,7 +230,7 @@ class cameraConfig():
         child = cameraConfig()
         check(gp.gp_widget_get_child_by_name(self._ptr, str(name), PTR(child._ptr)))
         return child
-    
+
     def _count_children(self):
         return gp.gp_widget_count_children(self._ptr)
 
