@@ -84,12 +84,12 @@ class camera():
 
     def _get_config(self):
         config = cameraConfig()
-        check(gp.gp_camera_get_config(self._cam, PTR(config._w), context))
+        check(gp.gp_camera_get_config(self._cam, PTR(config._ptr), context))
         config.populate_children()
         return config
 
     def _set_config(self, config):
-        check(gp.gp_camera_set_config(self._cam, config._w, context))
+        check(gp.gp_camera_set_config(self._cam, config._ptr, context))
 
     config = property(_get_config, _set_config)
 
@@ -170,68 +170,68 @@ class cameraFile():
 
 class cameraConfig():
     def __init__(self):
-        self._w = ctypes.c_void_p()
+        self._ptr = ctypes.c_void_p()
 
     def ref(self):
-        check(gp.gp_widget_ref(self._w))
+        check(gp.gp_widget_ref(self._ptr))
 
     def unref(self):
-        check(gp.gp_widget_unref(self._w))
+        check(gp.gp_widget_unref(self._ptr))
 
     def __del__(self):
         self.unref()
 
     def _get_info(self):
         info = ctypes.c_char_p()
-        check(gp.gp_widget_get_info(self._w, PTR(info)))
+        check(gp.gp_widget_get_info(self._ptr, PTR(info)))
         return info.value
 
     def _set_info(self, info):
-        check(gp.gp_widget_set_info(self._w, str(info)))
+        check(gp.gp_widget_set_info(self._ptr, str(info)))
 
     def _get_name(self):
         name = ctypes.c_char_p()
-        check(gp.gp_widget_get_name(self._w, PTR(name)))
+        check(gp.gp_widget_get_name(self._ptr, PTR(name)))
         return name.value
 
     def _set_name(self, name):
-        check(gp.gp_widget_set_name(self._w, str(name)))
+        check(gp.gp_widget_set_name(self._ptr, str(name)))
 
     def _get_id(self):
         id = ctypes.c_int()
-        check(gp.gp_widget_get_id(self._w, PTR(id)))
+        check(gp.gp_widget_get_id(self._ptr, PTR(id)))
         return id.value
 
     def _set_changed(self, changed):
-        check(gp.gp_widget_set_changed(self._w, str(changed)))
+        check(gp.gp_widget_set_changed(self._ptr, str(changed)))
 
     def _get_changed(self):
-        return gp.gp_widget_changed(self._w)
+        return gp.gp_widget_changed(self._ptr)
 
     def _get_readonly(self):
         readonly = ctypes.c_int()
-        check(gp.gp_widget_get_readonly(self._w, PTR(readonly)))
+        check(gp.gp_widget_get_readonly(self._ptr, PTR(readonly)))
         return readonly.value
 
     def _set_readonly(self, readonly):
-        check(gp.gp_widget_set_readonly(self._w, int(readonly)))
+        check(gp.gp_widget_set_readonly(self._ptr, int(readonly)))
 
     def _get_type(self):
         type = ctypes.c_int()
-        check(gp.gp_widget_get_type(self._w, PTR(type)))
+        check(gp.gp_widget_get_type(self._ptr, PTR(type)))
         return type.value
 
     def _get_label(self):
         label = ctypes.c_char_p()
-        check(gp.gp_widget_get_label(self._w, PTR(label)))
+        check(gp.gp_widget_get_label(self._ptr, PTR(label)))
         return label.value
 
     def _set_label(self, label):
-        check(gp.gp_widget_set_label(self._w, str(label)))
+        check(gp.gp_widget_set_label(self._ptr, str(label)))
 
     def _get_value(self):
         value = ctypes.c_void_p()
-        ans = gp.gp_widget_get_value(self._w, PTR(value))
+        ans = gp.gp_widget_get_value(self._ptr, PTR(value))
         if self.type in [2, 5, 6]: value = ctypes.cast(value.value, ctypes.c_char_p)
         elif self.type == 3: value = ctypes.cast(value.value, ctypes.c_float_p)
         elif self.type in [4, 8]:
@@ -246,31 +246,31 @@ class cameraConfig():
         elif self.type == 3: value = ctypes.c_float_p(value)
         elif self.type in [4, 8]: value = PTR(ctypes.c_int(value)) # c_int_p ? TODO
         else: return
-        check(gp.gp_widget_set_value(self._w, value))
+        check(gp.gp_widget_set_value(self._ptr, value))
 
     def count_children(self):
-        return gp.gp_widget_count_children(self._w)
+        return gp.gp_widget_count_children(self._ptr)
 
     def get_child(self, child_number):
         w = cameraConfig()
-        check(gp.gp_widget_get_child(self._w, int(child_number), PTR(w._w)))
-        check(gp.gp_widget_ref(w._w))
+        check(gp.gp_widget_get_child(self._ptr, int(child_number), PTR(w._ptr)))
+        check(gp.gp_widget_ref(w._ptr))
         return w
 
     def get_child_by_label(self, label):
         w = cameraConfig()
-        check(gp.gp_widget_get_child_by_label(self._w, str(label), PTR(w._w)))
+        check(gp.gp_widget_get_child_by_label(self._ptr, str(label), PTR(w._ptr)))
         return w
 
     def get_child_by_id(self, id):
         w = cameraConfig()
-        check(gp.gp_widget_get_child_by_id(self._w, int(id), PTR(w._w)))
+        check(gp.gp_widget_get_child_by_id(self._ptr, int(id), PTR(w._ptr)))
         return w
 
     def get_child_by_name(self, name):
         w = cameraConfig()
         # this fails in 2.4.6 (Ubuntu 9.10)
-        check(gp.gp_widget_get_child_by_name(self._w, str(name), PTR(w._w)))
+        check(gp.gp_widget_get_child_by_name(self._ptr, str(name), PTR(w._ptr)))
         return w
 
     def _get_children(self):
@@ -281,31 +281,31 @@ class cameraConfig():
 
     def _get_parent(self):
         w = cameraConfig()
-        check(gp.gp_widget_get_parent(self._w, PTR(w._w)))
+        check(gp.gp_widget_get_parent(self._ptr, PTR(w._ptr)))
         return w
 
     def _get_root(self):
         w = cameraConfig()
-        check(gp.gp_widget_get_root(self._w, PTR(w._w)))
+        check(gp.gp_widget_get_root(self._ptr, PTR(w._ptr)))
         return w
 
     def _set_range(self, range):
         """cameraConfig.range = (min, max, increment)"""
         float = ctypes.c_float
         min, max, increment = range
-        check(gp.gp_widget_set_range(self._w, float(min), float(max), float(increment)))
+        check(gp.gp_widget_set_range(self._ptr, float(min), float(max), float(increment)))
 
     def _get_range(self, range):
         """cameraConfig.range => (min, max, increment)"""
         min, max, increment = ctypes.c_float(), ctypes.c_float(), ctypes.c_float()
-        check(gp.gp_widget_set_range(self._w, PTR(min), PTR(max), PTR(increment)))
+        check(gp.gp_widget_set_range(self._ptr, PTR(min), PTR(max), PTR(increment)))
         return (min.value, max.value, increment.value)
 
     def createdoc(self):
-        label = "Label: {}".format(str(self.label))
-        info = "Info: {}".format(str(self.info if str(self.info) != "" else "n/a"))
-        type = "Type: {}".format(str(self.typestr))
-        #value = "Current value: {}".format(str(self.value))
+        label = "Label: {}".format(str(self.label, encoding='ascii'))
+        info = "Info: {}".format(str(self.info, encoding='ascii') if str(self.info, encoding='ascii') != "" else "n/a")
+        type = "Type: {}".format(str(self.typestr, encoding='ascii'))
+        #value = "Current value: {}".format(str(self.value, encoding='ascii'))
         childs = []
         for c in self.children: childs.append("  - {}: {}".format(str(c.name), str(c.label)))
         if len(childs):
@@ -317,25 +317,22 @@ class cameraConfig():
     def _pop(widget, simplewidget):
         #print(widget)
         for c in widget.children:
-            simplechild = cameraConfigRow()
+            simplechild = cameraConfigChild()
             if c.count_children():
-                setattr(simplewidget, c.name, simplechild)
+                setattr(simplewidget, str(c.name, encoding='ascii'), simplechild)
                 simplechild.__doc__ = c.createdoc()
                 c._pop(simplechild)
             else:
-                setattr(simplewidget, c.name, c)
-
-            #print(c.name, simplewidget.__doc__)
-        #print(dir(simplewidget))
+                setattr(simplewidget, str(c.name, encoding='ascii'), c)
 
     def populate_children(self):
-        simplewidget = cameraConfigRow()
-        setattr(self, self.name, simplewidget)
-        simplewidget.__doc__ = self.createdoc()
-        self._pop(simplewidget)
+        simplechild = cameraConfigChild()
+        setattr(self, str(self.name, encoding='ascii'), simplechild)
+        simplechild.__doc__ = self.createdoc()
+        self._pop(simplechild)
 
     def __repr__(self):
-        return "%s:%s:%s:%s:%s" % (self.label, self.name, self.info, self.typestr, self.value)
+        return "%s:%s:%s:%s:%s" % (str(self.label, encoding='ascii'), str(self.name, encoding='ascii'), str(self.info, encoding='ascii'), str(self.typestr, encoding='ascii'), str(self.value, encoding='ascii'))
 
     info = property(_get_info, _set_info)
     name = property(_get_name, _set_name)
@@ -350,5 +347,5 @@ class cameraConfig():
     root = property(_get_root, None)
     range = property(_get_range, _set_range)
 
-class cameraConfigRow():
+class cameraConfigChild():
     pass
