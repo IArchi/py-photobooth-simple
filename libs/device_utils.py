@@ -118,12 +118,12 @@ class Gphoto2Camera(CaptureDevice):
                 config = self._instance.get_config()
                 print(config.list_paths())
 
-                print(config.get_path('/main/capturesettings/focusmode').get_value())
-                print(config.get_path('/main/capturesettings/aperture').get_value())
-                print(config.get_path('/main/capturesettings/shutterspeed').get_value())
-                print(config.get_path('/main/capturesettings/shutterspeed').set_value(8))
-                print(config.get_path('/main/capturesettings/shutterspeed').get_value())
-                print(config.get_path('/main/imgsettings/iso').get_value())
+                print('/main/capturesettings/focusmode', config.get_path('/main/capturesettings/focusmode').get_value())
+                print('/main/capturesettings/aperture', config.get_path('/main/capturesettings/aperture').get_value())
+                print('/main/capturesettings/shutterspeed', config.get_path('/main/capturesettings/shutterspeed').get_value())
+                config.get_path('/main/capturesettings/shutterspeed').set_value(8)
+                print('/main/capturesettings/shutterspeed', config.get_path('/main/capturesettings/shutterspeed').get_value())
+                print('/main/imgsettings/iso', config.get_path('/main/imgsettings/iso').get_value())
 
                 #self._instance.config.main.actions.autofocusdrive.value = 1 # Autofocus (If it does not work, use main.actions.eosremoterelease)
                 #self._instance.config.main.capturesettings.focusmode.value = 0 # One Shot
