@@ -118,6 +118,8 @@ class Gphoto2Camera(CaptureDevice):
                 config = self._instance.get_config()
                 print(config.list_paths())
 
+                print(config.get_path('/main/capturesettings/focusmode').get_value())
+
                 #self._instance.config.main.actions.autofocusdrive.value = 1 # Autofocus (If it does not work, use main.actions.eosremoterelease)
                 #self._instance.config.main.capturesettings.focusmode.value = 0 # One Shot
                 #self._instance.config.main.capturesettings.aperture.value = 7 # F/8

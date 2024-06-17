@@ -179,6 +179,7 @@ class cameraConfig():
         names = path.strip('/').split('/')
         current_widget = self
         for name in names:
+            if name == 'main': continue
             current_widget = current_widget._get_child_by_name(name)
             if current_widget is None: return None
         return current_widget
