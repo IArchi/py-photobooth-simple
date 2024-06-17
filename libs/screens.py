@@ -260,7 +260,7 @@ class ErrorScreen(BackgroundScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
-        if 'error' in kwargs: self.label.text = str(kwargs.get('error'))
+        if 'error' in kwargs: self.label.text = self.locales['error']['content'].format(str(kwargs.get('error')))
 
     def on_exit(self, kwargs={}):
         Logger.info('ErrorScreen: on_exit().')
@@ -701,8 +701,8 @@ class ConfirmPrintScreen(BackgroundScreen):
 
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
 
-        overlay_layout = FloatLayout()
-        self.layout.add_widget(overlay_layout)
+        self.overlay_layout = FloatLayout()
+        self.layout.add_widget(self.overlay_layout)
 
         # Display collage
         self.preview = Image(
@@ -710,7 +710,7 @@ class ConfirmPrintScreen(BackgroundScreen):
             size_hint=(0.5, 0.75),
             pos_hint={'x': 0.1, 'y': 0.05},
         )
-        overlay_layout.add_widget(self.preview)
+        self.overlay_layout.add_widget(self.preview)
 
         # Add title
         title = Label(
@@ -719,43 +719,47 @@ class ConfirmPrintScreen(BackgroundScreen):
             pos_hint={'x': 0.1, 'y': 0.85},
             font_size=NORMAL_FONT,
         )
-        overlay_layout.add_widget(title)
+        self.overlay_layout.add_widget(title)
 
         # Add buttons
-        self.btn_once = ImageLabelButton(
+        self.buttons_layout = FloatLayout()
+        btn_once = ImageLabelButton(
             source='./assets/icons/print-1.png',
             size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.8, 'y': 0.46},
+            pos_hint={'x': 0.8, 'y': 0.33},
             background_color=(.4, .733, .416, 1),
             text=self.locales['print']['one_copy'],
             text_color=[1, 1, 1, 1],
             font_size=IMAGE_BUTTON_FONT,
         )
-        self.btn_once.bind(on_release=self.print_once)
-        overlay_layout.add_widget(self.btn_once)
-        self.btn_twice = ImageLabelButton(
+        btn_once.bind(on_release=self.print_once)
+        self.buttons_layout.add_widget(btn_once)
+        btn_twice = ImageLabelButton(
             source='./assets/icons/print-2.png',
             size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.8, 'y': 0.33},
+            pos_hint={'x': 0.8, 'y': 0.20},
             background_color=(.4, .733, .416, 1),
             text=self.locales['print']['two_copies'],
             text_color=[1, 1, 1, 1],
             font_size=IMAGE_BUTTON_FONT,
         )
-        self.btn_twice.bind(on_release=self.print_twice)
-        overlay_layout.add_widget(self.btn_twice)
-        self.btn_3times = ImageLabelButton(
-            source='./assets/icons/print-3.png',
+        btn_twice.bind(on_release=self.print_twice)
+        self.buttons_layout.add_widget(btn_twice)
+
+        self.button_layout = FloatLayout()
+        btn_print = ImageLabelButton(
+            source='./assets/icons/print.png',
             size_hint=(0.2, 0.1),
             pos_hint={'x': 0.8, 'y': 0.20},
             background_color=(.4, .733, .416, 1),
-            text=self.locales['print']['three_copies'],
+            text=self.locales['print']['print'],
             text_color=[1, 1, 1, 1],
             font_size=IMAGE_BUTTON_FONT,
         )
-        self.btn_3times.bind(on_release=self.print_3times)
-        overlay_layout.add_widget(self.btn_3times)
-        self.no_button = ImageLabelButton(
+        btn_print.bind(on_release=self.print_once)
+        self.button_layout.add_widget(btn_print)
+
+        no_button = ImageLabelButton(
             source='./assets/icons/cancel.png',
             size_hint=(0.2, 0.1),
             pos_hint={'x': 0.8, 'y': 0.05},
@@ -764,14 +768,26 @@ class ConfirmPrintScreen(BackgroundScreen):
             text_color=[1, 1, 1, 1],
             font_size=IMAGE_BUTTON_FONT,
         )
-        self.no_button.bind(on_release=self.no_event)
-        overlay_layout.add_widget(self.no_button)
+        no_button.bind(on_release=self.no_event)
+        self.overlay_layout.add_widget(no_button)
 
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        # Polaroid collage
+        if self._current_format == 0:
+            self.overlay_layout.remove_widget(self.button_layout)
+            self.overlay_layout.add_widget(self.buttons_layout)
+        # Strip collage
+        elif self._current_format == 1:
+            self.overlay_layout.remove_widget(self.buttons_layout)
+            self.overlay_layout.add_widget(self.button_layout)
+        else:
+            self.app.transition_to(ScreenMgr.ERROR)
+            return
+
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
         self.preview.source = self.app.get_collage()[0]
@@ -789,10 +805,6 @@ class ConfirmPrintScreen(BackgroundScreen):
     def print_twice(self, obj):
         Clock.unschedule(self.auto_decline)
         self.app.transition_to(ScreenMgr.PRINTING, copies=2, format=self._current_format)
-
-    def print_3times(self, obj):
-        Clock.unschedule(self.auto_decline)
-        self.app.transition_to(ScreenMgr.PRINTING, copies=3, format=self._current_format)
 
     def no_event(self, obj):
         Clock.unschedule(self.auto_decline)

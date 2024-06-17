@@ -36,6 +36,7 @@ class Locales:
             },
             'print': {
                 'title': 'Do you want to print this collage ?',
+                'print': 'Print',
                 'one_copy': 'Print once',
                 'two_copies': 'Print twice',
                 'three_copies': 'Print three copies',
@@ -69,7 +70,7 @@ class Locales:
                 'content': '{}\nApouyez pour continuer.',
             },
             'ready': {
-                'content': ['Prêts ?', 'Parés ?', 'Au taquet ?'],
+                'content': ['Prêts ?', 'Parés ?'],
             },
             'cheese': {
                 'content': ['Souriez !', 'Cheese !'],
@@ -91,6 +92,7 @@ class Locales:
             },
             'print': {
                 'title': 'Voulez-vous imprimer ce montage ?',
+                'print': 'Imprimer',
                 'one_copy': 'Imprimer 1 fois',
                 'two_copies': 'Imprimer 2 fois',
                 'three_copies': 'Imprimer 3 fois',
