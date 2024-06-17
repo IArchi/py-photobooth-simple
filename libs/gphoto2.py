@@ -188,7 +188,7 @@ class cameraConfig():
         children = self._get_children()
         for child in children:
             child_path = f"{parent_path}/{child.get_name()}"
-            children_paths.append(child_path)
+            #children_paths.append(child_path)
             children_paths.extend(child.list_paths(child_path))
         return children_paths
 
