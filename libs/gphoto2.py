@@ -183,7 +183,7 @@ class cameraConfig():
             if current_widget is None: return None
         return current_widget
 
-    def list_paths(self, parent_path=""):
+    def list_paths(self, parent_path="main"):
         children_paths = []
         children = self._get_children()
         for child in children:
