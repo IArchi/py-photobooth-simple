@@ -230,7 +230,7 @@ class cameraConfig():
 
     def _get_child_by_name(self, name):
         child = cameraConfig()
-        check(gp.gp_widget_get_child_by_name(self._ptr, str(name), PTR(child._ptr)))
+        check(gp.gp_widget_get_child_by_name(self._ptr, name, PTR(child._ptr)))
         return child
 
     def _count_children(self):
