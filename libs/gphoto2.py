@@ -220,7 +220,7 @@ class cameraConfig():
             pass
         else: return None
         check(ans)
-        return value.value
+        return str(value.value, encoding='ascii')
 
     def set_value(self, value):
         type = self.get_type()
