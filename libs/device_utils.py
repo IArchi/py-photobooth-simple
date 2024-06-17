@@ -118,7 +118,7 @@ class Gphoto2Camera(CaptureDevice):
                 config = self._instance.get_config()
                 print(config.list_paths())
 
-                print(config.get_path('capturetarget'))
+                print(config.get_path('capturetarget').get_value())
                 print('>>>>')
 
                 print(config.get_path('/main/capturesettings/focusmode').get_value())
