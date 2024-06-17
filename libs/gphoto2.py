@@ -16,7 +16,7 @@ class libgphoto2error(Exception):
         self.message = message
     def __str__(self):
         return self.message + ' (' + str(self.result) + ')'
-    
+
 class CameraFilePath(ctypes.Structure):
     _fields_ = [('name', (ctypes.c_char * 128)), ('folder', (ctypes.c_char * 1024))]
 
@@ -26,38 +26,40 @@ class CameraText(ctypes.Structure):
 def check(result):
     if result < 0:
         gp.gp_result_as_string.restype = ctypes.c_char_p
-        message = gp.gp_result_as_string(result)
+        message = str(gp.gp_result_as_string(result), encoding='ascii')
         raise libgphoto2error(result, message)
     return result
 
+
 def check_unref(result, camfile):
-    if result!=0:
-        gp.gp_file_unref(camfile._cf)
+    if result != 0:
+        gp.gp_file_unref(camfile.pointer)
         gp.gp_result_as_string.restype = ctypes.c_char_p
         message = gp.gp_result_as_string(result)
         raise libgphoto2error(result, message)
-    
+
 class cameraList():
     def __init__(self):
-        self._l = ctypes.c_void_p()
+        self._ptr = ctypes.c_void_p()
+        check(gp.gp_list_new(PTR(self._ptr)))
         if not hasattr(gp, 'gp_camera_autodetect'): raise Exception('gphoto2 version is obsolete.')
-        gp.gp_camera_autodetect(self._l, context)
+        gp.gp_camera_autodetect(self._ptr, context)
 
     def get(self):
         return [(self._get_name(i), self._get_value(i)) for i in range(self.count())]
 
     def count(self):
-        return check(gp.gp_list_count(self._l))
+        return check(gp.gp_list_count(self._ptr))
 
     def _get_name(self, index):
         name = ctypes.c_char_p()
-        check(gp.gp_list_get_name(self._l, int(index), PTR(name)))
-        return name.value
-    
+        check(gp.gp_list_get_name(self._ptr, int(index), PTR(name)))
+        return str(name.value, encoding='ascii')
+
     def _get_value(self, index):
         value = ctypes.c_char_p()
-        check(gp.gp_list_get_value(self._l, int(index), PTR(value)))
-        return value.value
+        check(gp.gp_list_get_value(self._ptr, int(index), PTR(value)))
+        return str(value.value, encoding='ascii')
 
 class camera():
     def __init__(self, autoInit = True):
@@ -126,7 +128,7 @@ class camera():
             cfile.clean()
         else:
             return cfile
-        
+
     def trigger_capture(self):
         check(gp.gp_camera_trigger_capture(self._cam, context))
 
@@ -183,7 +185,7 @@ class cameraConfig():
         info = ctypes.c_char_p()
         check(gp.gp_widget_get_info(self._w, PTR(info)))
         return info.value
-    
+
     def _set_info(self, info):
         check(gp.gp_widget_set_info(self._w, str(info)))
 
@@ -191,7 +193,7 @@ class cameraConfig():
         name = ctypes.c_char_p()
         check(gp.gp_widget_get_name(self._w, PTR(name)))
         return name.value
-    
+
     def _set_name(self, name):
         check(gp.gp_widget_set_name(self._w, str(name)))
 
@@ -199,7 +201,7 @@ class cameraConfig():
         id = ctypes.c_int()
         check(gp.gp_widget_get_id(self._w, PTR(id)))
         return id.value
-    
+
     def _set_changed(self, changed):
         check(gp.gp_widget_set_changed(self._w, str(changed)))
 
@@ -210,7 +212,7 @@ class cameraConfig():
         readonly = ctypes.c_int()
         check(gp.gp_widget_get_readonly(self._w, PTR(readonly)))
         return readonly.value
-    
+
     def _set_readonly(self, readonly):
         check(gp.gp_widget_set_readonly(self._w, int(readonly)))
 
@@ -223,7 +225,7 @@ class cameraConfig():
         label = ctypes.c_char_p()
         check(gp.gp_widget_get_label(self._w, PTR(label)))
         return label.value
-    
+
     def _set_label(self, label):
         check(gp.gp_widget_set_label(self._w, str(label)))
 
@@ -238,7 +240,7 @@ class cameraConfig():
         else: return None
         check(ans)
         return value.value
-    
+
     def _set_value(self, value):
         if self.type in [2, 5, 6]: value = ctypes.c_char_p(value)
         elif self.type == 3: value = ctypes.c_float_p(value)
@@ -276,7 +278,7 @@ class cameraConfig():
         for i in range(self.count_children()):
             children.append(self.get_child(i))
         return children
-    
+
     def _get_parent(self):
         w = cameraConfig()
         check(gp.gp_widget_get_parent(self._w, PTR(w._w)))
@@ -292,7 +294,7 @@ class cameraConfig():
         float = ctypes.c_float
         min, max, increment = range
         check(gp.gp_widget_set_range(self._w, float(min), float(max), float(increment)))
-    
+
     def _get_range(self, range):
         """cameraConfig.range => (min, max, increment)"""
         min, max, increment = ctypes.c_float(), ctypes.c_float(), ctypes.c_float()
@@ -334,7 +336,7 @@ class cameraConfig():
 
     def __repr__(self):
         return "%s:%s:%s:%s:%s" % (self.label, self.name, self.info, self.typestr, self.value)
-    
+
     info = property(_get_info, _set_info)
     name = property(_get_name, _set_name)
     id = property(_get_id, None)
