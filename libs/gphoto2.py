@@ -183,9 +183,9 @@ class cameraConfig():
             if current_widget is None: return None
         return current_widget
 
-    def list_paths(self, config, parent_path=""):
+    def list_paths(self, parent_path=""):
         children_paths = []
-        children = config._get_children()
+        children = self._get_children()
         for child in children:
             child_path = f"{parent_path}/{child.get_name()}"
             children_paths.append(child_path)
