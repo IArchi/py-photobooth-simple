@@ -119,6 +119,7 @@ class Gphoto2Camera(CaptureDevice):
                 print(config.list_paths())
 
                 print(config.get_path('capturetarget'))
+                print('>>>>')
 
                 print(config.get_path('/main/capturesettings/focusmode').get_value())
 

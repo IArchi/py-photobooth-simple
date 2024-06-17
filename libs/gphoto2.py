@@ -229,8 +229,15 @@ class cameraConfig():
         return str(name.value, encoding='ascii')
 
     def _get_child_by_name(self, name):
-        child = cameraConfig()
-        check(gp.gp_widget_get_child_by_name(self._ptr, name, PTR(child._ptr)))
+        for i in range(self._count_children()):
+            child = cameraConfig()
+            check(gp.gp_widget_get_child(self._ptr, int(i), PTR(child._ptr)))
+            check(gp.gp_widget_ref(child._ptr))
+            if child.get_name() == name: return child
+        return None
+
+        #child = cameraConfig()
+        #check(gp.gp_widget_get_child_by_name(self._ptr, name, PTR(child._ptr)))
         return child
 
     def _count_children(self):
