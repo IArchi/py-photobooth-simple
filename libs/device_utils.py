@@ -118,18 +118,15 @@ class Gphoto2Camera(CaptureDevice):
                 config = self._instance.get_config()
                 print(config.list_paths())
 
-                print('/main/capturesettings/focusmode', config.get_path('/main/capturesettings/focusmode').get_value())
-                print('/main/capturesettings/aperture', config.get_path('/main/capturesettings/aperture').get_value())
-                config.get_path('/main/capturesettings/aperture').set_value('8')
-                print('/main/capturesettings/aperture', config.get_path('/main/capturesettings/aperture').get_value())
+                print('/main/capturesettings/autoexposuremode', config.get_path('/main/capturesettings/autoexposuremode').get_value())
                 print('/main/capturesettings/shutterspeed', config.get_path('/main/capturesettings/shutterspeed').get_value())
                 print('/main/imgsettings/iso', config.get_path('/main/imgsettings/iso').get_value())
 
                 #self._instance.config.main.actions.autofocusdrive.value = 1 # Autofocus (If it does not work, use main.actions.eosremoterelease)
-                #self._instance.config.main.capturesettings.focusmode.value = 0 # One Shot
-                #self._instance.config.main.capturesettings.aperture.value = 7 # F/8
+                config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
+                config.get_path('/main/capturesettings/aperture').set_value('8')
                 #self._instance.config.main.capturesettings.shutterspeed.value=0.00625 # 1/160s
-                #self._instance.config.main.imgsettings.iso.value = 3 # 400 ISO
+                config.get_path('/main/imgsettings/iso').set_value('400')
 
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
