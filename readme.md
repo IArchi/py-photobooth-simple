@@ -190,5 +190,4 @@ Application will not be usable during the copy process but will display a messag
 ## TODO
  - Rewrite piggyphoto lib to fix all issues...
  - Add zoom for picamera2 to match gphoto2 zoom at 55mm
- - Fix printer (Images must be 156.13x104.99mm). Disable 2inches cut on full size.
- - Add has_flash function for cameras to display white screen or not.
+ - Fix printer: Disable 2inches cut on full size.
