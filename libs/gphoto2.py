@@ -180,56 +180,35 @@ class cameraConfig():
 
     def __del__(self):
         self.unref()
-
-    def _get_info(self):
-        info = ctypes.c_char_p()
-        check(gp.gp_widget_get_info(self._ptr, PTR(info)))
-        return info.value
-
-    def _set_info(self, info):
-        check(gp.gp_widget_set_info(self._ptr, str(info)))
-
-    def _get_name(self):
-        name = ctypes.c_char_p()
-        check(gp.gp_widget_get_name(self._ptr, PTR(name)))
-        return name.value
-
-    def _set_name(self, name):
-        check(gp.gp_widget_set_name(self._ptr, str(name)))
-
-    def _get_id(self):
-        id = ctypes.c_int()
-        check(gp.gp_widget_get_id(self._ptr, PTR(id)))
-        return id.value
-
-    def _set_changed(self, changed):
-        check(gp.gp_widget_set_changed(self._ptr, str(changed)))
-
-    def _get_changed(self):
-        return gp.gp_widget_changed(self._ptr)
-
-    def _get_readonly(self):
-        readonly = ctypes.c_int()
-        check(gp.gp_widget_get_readonly(self._ptr, PTR(readonly)))
-        return readonly.value
-
-    def _set_readonly(self, readonly):
-        check(gp.gp_widget_set_readonly(self._ptr, int(readonly)))
-
-    def _get_type(self):
-        type = ctypes.c_int()
-        check(gp.gp_widget_get_type(self._ptr, PTR(type)))
-        return type.value
-
-    def _get_label(self):
+    
+    def get_path(self, path):
+        names = path.strip('/').split('/')
+        current_widget = self
+        for name in names:
+            current_widget = current_widget._get_child_by_name(name)
+            if current_widget is None: return None
+        return current_widget
+    
+    def list_paths(self, config, parent_path=""):
+        children_paths = []
+        children = config._get_children()
+        for child in children:
+            child_path = f"{parent_path}/{child.get_name()}"
+            children_paths.append(child_path)
+            children_paths.extend(self.list_paths(child, child_path))
+        return children_paths
+    
+    def get_label(self):
         label = ctypes.c_char_p()
         check(gp.gp_widget_get_label(self._ptr, PTR(label)))
         return label.value
 
-    def _set_label(self, label):
-        check(gp.gp_widget_set_label(self._ptr, str(label)))
+    def get_info(self):
+        info = ctypes.c_char_p()
+        check(gp.gp_widget_get_info(self._ptr, PTR(info)))
+        return info.value
 
-    def _get_value(self):
+    def get_value(self):
         value = ctypes.c_void_p()
         ans = gp.gp_widget_get_value(self._ptr, PTR(value))
         if self.type in [2, 5, 6]: value = ctypes.cast(value.value, ctypes.c_char_p)
@@ -241,124 +220,31 @@ class cameraConfig():
         check(ans)
         return value.value
 
-    def _set_value(self, value):
+    def set_value(self, value):
         if self.type in [2, 5, 6]: value = ctypes.c_char_p(value)
         elif self.type == 3: value = ctypes.c_float_p(value)
         elif self.type in [4, 8]: value = PTR(ctypes.c_int(value)) # c_int_p ? TODO
         else: return
         check(gp.gp_widget_set_value(self._ptr, value))
 
-    def count_children(self):
+    def get_name(self):
+        name = ctypes.c_char_p()
+        check(gp.gp_widget_get_name(self._ptr, PTR(name)))
+        return name.value
+
+    def _get_child_by_name(self, name):
+        child = cameraConfig()
+        check(gp.gp_widget_get_child_by_name(self._ptr, str(name), PTR(child._ptr)))
+        return child
+    
+    def _count_children(self):
         return gp.gp_widget_count_children(self._ptr)
-
-    def get_child(self, child_number):
-        w = cameraConfig()
-        check(gp.gp_widget_get_child(self._ptr, int(child_number), PTR(w._ptr)))
-        check(gp.gp_widget_ref(w._ptr))
-        return w
-
-    def get_child_by_label(self, label):
-        w = cameraConfig()
-        check(gp.gp_widget_get_child_by_label(self._ptr, str(label), PTR(w._ptr)))
-        return w
-
-    def get_child_by_id(self, id):
-        w = cameraConfig()
-        check(gp.gp_widget_get_child_by_id(self._ptr, int(id), PTR(w._ptr)))
-        return w
-
-    def get_child_by_name(self, name):
-        w = cameraConfig()
-        # this fails in 2.4.6 (Ubuntu 9.10)
-        check(gp.gp_widget_get_child_by_name(self._ptr, str(name), PTR(w._ptr)))
-        return w
 
     def _get_children(self):
         children = []
-        for i in range(self.count_children()):
-            children.append(self.get_child(i))
+        for i in range(self._count_children()):
+            child = cameraConfig()
+            check(gp.gp_widget_get_child(self._ptr, int(i), PTR(child._ptr)))
+            check(gp.gp_widget_ref(child._ptr))
+            children.append(child)
         return children
-
-    def _get_parent(self):
-        w = cameraConfig()
-        check(gp.gp_widget_get_parent(self._ptr, PTR(w._ptr)))
-        return w
-
-    def _get_root(self):
-        w = cameraConfig()
-        check(gp.gp_widget_get_root(self._ptr, PTR(w._ptr)))
-        return w
-
-    def _set_range(self, range):
-        """cameraConfig.range = (min, max, increment)"""
-        float = ctypes.c_float
-        min, max, increment = range
-        check(gp.gp_widget_set_range(self._ptr, float(min), float(max), float(increment)))
-
-    def _get_range(self, range):
-        """cameraConfig.range => (min, max, increment)"""
-        min, max, increment = ctypes.c_float(), ctypes.c_float(), ctypes.c_float()
-        check(gp.gp_widget_set_range(self._ptr, PTR(min), PTR(max), PTR(increment)))
-        return (min.value, max.value, increment.value)
-
-    def createdoc(self):
-        label = "Label: {}".format(str(self.label, encoding='ascii'))
-        info = "Info: {}".format(str(self.info, encoding='ascii') if str(self.info, encoding='ascii') != "" else "n/a")
-        type = "Type: {}".format(str(self.typestr, encoding='ascii'))
-        #value = "Current value: {}".format(str(self.value, encoding='ascii'))
-        childs = []
-        for c in self.children: childs.append("  - {}: {}".format(str(c.name), str(c.label)))
-        if len(childs):
-            childstr = "Children:\n" + "\n".join(childs)
-            return label + "\n" + info + "\n" + type + "\n" + childstr
-        else:
-            return label + "\n" + info + "\n" + type
-
-    def _pop(widget, simplewidget):
-        #print(widget)
-        for c in widget.children:
-            simplechild = cameraConfigChild()
-            if c.count_children():
-                setattr(simplewidget, str(c.name, encoding='ascii'), simplechild)
-                simplechild.__doc__ = c.createdoc()
-                c._pop(simplechild)
-            else:
-                setattr(simplewidget, str(c.name, encoding='ascii'), c)
-
-    def populate_children(self):
-        simplechild = cameraConfigChild()
-        setattr(self, str(self.name, encoding='ascii'), simplechild)
-        simplechild.__doc__ = self.createdoc()
-        self._pop(simplechild)
-
-    def __str__(self):
-        return getattr(self, str(self.name, encoding='ascii')).get_tree_structure()
-
-    def __repr__(self):
-        return "%s:%s:%s:%s:%s" % (str(self.label, encoding='ascii'), str(self.name, encoding='ascii'), str(self.info, encoding='ascii'), str(self.typestr, encoding='ascii'), str(self.value, encoding='ascii'))
-
-    info = property(_get_info, _set_info)
-    name = property(_get_name, _set_name)
-    id = property(_get_id, None)
-    changed = property(_get_changed, _set_changed)
-    readonly = property(_get_readonly, _set_readonly)
-    type = property(_get_type, None)
-    label = property(_get_label, _set_label)
-    value = property(_get_value, _set_value)
-    children = property(_get_children, None)
-    parent = property(_get_parent, None)
-    root = property(_get_root, None)
-    range = property(_get_range, _set_range)
-
-class cameraConfigChild():
-    def __str__(self):
-        return self.__doc__
-    
-    def get_tree_structure(self, indent=0):
-        tree_structure = ' ' * indent + str(self.name, encoding='ascii') + '\n'
-        for child_name, child_value in self.__dict__.items():
-            if isinstance(child_value, cameraConfigChild):
-                tree_structure += child_value.get_tree_structure(indent + 4)
-            else:
-                tree_structure += ' ' * (indent + 4) + str(child_value) + '\n'
-        return tree_structure
