@@ -1,3 +1,4 @@
+import tempfile
 import numpy as np
 from kivy.logger import Logger
 from threading import Condition
@@ -124,7 +125,7 @@ class Gphoto2Camera(CaptureDevice):
                 config.get_path('/main/imgsettings/iso').set_value('100')
 
                 # Commit changes
-                _instance.commit_config(config)
+                self._instance.commit_config(config)
 
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
