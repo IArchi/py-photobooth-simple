@@ -35,7 +35,7 @@ if gp.cameraList().count():
 
 
     # Update some
-    #config.get_path('/main/actions/autofocusdrive').set_value(1) # Autofocus (If it does not work, use main.actions.eosremoterelease)
+    config.get_path('/main/actions/eosremoterelease').set_value('Press Half') # Autofocus (If it does not work, use main.actions.eosremoterelease)
     config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
     config.get_path('/main/capturesettings/aperture').set_value('13')
     config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
