@@ -94,7 +94,7 @@ libcamera-still --autofocus-mode=auto -f -o test.jpg
 
 ```
 # Install driver
-./arducam_driver.sh
+./scripts/arducam_driver.sh
 
 # Reboot
 sudo reboot

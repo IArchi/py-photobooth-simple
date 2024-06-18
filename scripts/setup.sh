@@ -12,10 +12,10 @@ sudo apt update
 
 # Install arducam 64Mp camera
 ./arducam_driver.sh
-sudo reboot
+#sudo reboot
 
 # Test camera
-libcamera-still --list-camera
+#libcamera-still --list-camera
 
 # Install dependencies
 sudo apt-get install -y gcc make build-essential git scons swig
@@ -79,3 +79,6 @@ echo '#!/bin/bash' > /home/pi/photobooth.sh
 echo 'cd /home/pi/' >> /home/pi/photobooth.sh
 echo 'python3 photoboothapp.py' >> /home/pi/photobooth.sh
 chmod +x photobooth.sh
+
+# Reboot device
+sudo reboot
