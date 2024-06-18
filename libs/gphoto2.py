@@ -30,7 +30,6 @@ def check(result):
         raise libgphoto2error(result, message)
     return result
 
-
 def check_unref(result, camfile):
     if result != 0:
         gp.gp_file_unref(camfile.pointer)

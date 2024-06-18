@@ -191,3 +191,4 @@ Application will not be usable during the copy process but will display a messag
  - Rewrite piggyphoto lib to fix all issues...
  - Add zoom for picamera2 to match gphoto2 zoom at 55mm
  - Fix printer: Disable 2inches cut on full size.
+ - Generate print icon
