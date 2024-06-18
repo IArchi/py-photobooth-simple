@@ -1,6 +1,7 @@
 import sys
 sys.path.append('..')
 import cv2
+import tempfile
 import numpy as np
 import libs.gphoto2 as gp
 
@@ -31,18 +32,13 @@ if gp.cameraList().count():
     config.get_path('/main/imgsettings/iso').set_value('400')
 
     # Display preview
+    _, tmp_output = tempfile.mkstemp(suffix='.jpg')
     while True:
         # Capture
-        cfile = _instance.capture_preview()
-        if cfile is None: continue
-        buf = cfile.get_data(auto_clean=True) # Must clean to avoid memory leak or call cfile.clean() once finished
-        print(type(buf))
+        _instance.capture_preview(tmp_output)
 
         # Convert to CV2
-        buf = np.frombuffer(buf, np.uint8)
-        im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-        if im is None:
-            continue
+        im = cv2.im_read(tmp_output)
         print(im.shape)
 
         # Display
