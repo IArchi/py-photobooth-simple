@@ -1,5 +1,3 @@
-import os
-import time
 import tempfile
 import numpy as np
 from kivy.logger import Logger
@@ -155,11 +153,6 @@ class Gphoto2Camera(CaptureDevice):
         # Dump to file
         cv2.imwrite(output_name, im)
 
-        # Wait until photo is saved (for large images)
-        print('>>> Wait for image transfer')
-        while not os.path.exists(output_name): time.sleep(0.3)
-        print('>>> Done')
-
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
         if Picamera2:
@@ -187,9 +180,6 @@ class Picamera2Camera(CaptureDevice):
         if square: im = self._crop_to_square(im)
         cv2.imwrite(output_name, im)
         self._instance.switch_mode(self._preview_config)
-
-        # Wait until photo is saved (for large images)
-        while not os.path.exists(output_name): time.sleep(0.3)
 
 class CupsPrinter(PrintDevice):
     _name = None

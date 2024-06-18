@@ -776,13 +776,14 @@ class ConfirmPrintScreen(BackgroundScreen):
     def on_entry(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self.overlay_layout.remove_widget(self.button_layout)
+        self.overlay_layout.remove_widget(self.buttons_layout)
+
         # Polaroid collage
         if self._current_format == 0:
-            self.overlay_layout.remove_widget(self.button_layout)
             self.overlay_layout.add_widget(self.buttons_layout)
         # Strip collage
         elif self._current_format == 1:
-            self.overlay_layout.remove_widget(self.buttons_layout)
             self.overlay_layout.add_widget(self.button_layout)
         else:
             self.app.transition_to(ScreenMgr.ERROR)
