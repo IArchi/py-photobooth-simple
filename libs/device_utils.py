@@ -222,7 +222,7 @@ class Picamera2Camera(CaptureDevice):
         self._resize(output_name, im)
 
 class CupsPrinter(PrintDevice):
-    _printer = None
+    _name = None
 
     def __init__(self, name=None):
         if cups:
@@ -237,7 +237,7 @@ class CupsPrinter(PrintDevice):
 
             # Cannot find any printer
             if printer_found:
-                self._printer = name
+                self._name = name
                 self._instance = cups_conn
                 Logger.info('CupsPrinter: Connected to printer \'%s\'', name)
             elif name.lower() == 'default':
@@ -247,7 +247,8 @@ class CupsPrinter(PrintDevice):
         if not self._instance: raise Exception('Cannot find any CUPS printer or cups is not installed.')
 
     def print(self, file_path, print_params={}):
-        return self._instance.printFile(self._printer, file_path, "Photobooth", print_params)
+        print('Print', file_path, 'on', self._name, 'with params', print_params)
+        return self._instance.printFile(self._name, file_path, os.path.basename(file_path), print_params)
 
     def get_print_status(self, task_id):
         status = self._instance.getJobAttributes(task_id)['job-state']
