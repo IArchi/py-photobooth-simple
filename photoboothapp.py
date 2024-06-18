@@ -107,7 +107,7 @@ class PhotoboothApp(App):
         self.processes = [t]
 
     def is_shot_completed(self, shot_idx):
-        if any((process.is_alive() is None for process in self.processes)): return False
+        if any(process.is_alive() for process in self.processes): return False
         return True
 
     def trigger_collage(self, format=0):
@@ -119,7 +119,7 @@ class PhotoboothApp(App):
         self.processes = [t]
 
     def is_collage_completed(self):
-        if any((process.is_alive() is None for process in self.processes)): return False
+        if any(process.is_alive() for process in self.processes): return False
         return os.path.isfile(self.get_collage()[1])
 
     def has_physical_flash(self):
