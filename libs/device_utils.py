@@ -1,5 +1,3 @@
-import os
-import tempfile
 import numpy as np
 from kivy.logger import Logger
 from threading import Condition
@@ -110,9 +108,7 @@ class Gphoto2Camera(CaptureDevice):
             # List connected DSLR cameras
             if gp.cameraList().count():
                 self._instance = gp.camera()
-                tmp_file, self._preview = tempfile.mkstemp(suffix='.jpg')
-                self._instance.leave_locked()
-                self._instance.capture_preview(self._preview)
+                self._instance.capture_preview()
 
                 # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
                 config = self._instance.get_config()
@@ -133,8 +129,10 @@ class Gphoto2Camera(CaptureDevice):
         return True
 
     def get_preview(self, square=False):
-        self._instance.capture_preview(self._preview)
-        im = cv2.imread(self._preview)
+        cfile = self._instance.capture_preview()
+        buf = cfile.get_data()
+        buf = np.fromstring(buf, np.uint8)
+        im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         return im
@@ -142,11 +140,13 @@ class Gphoto2Camera(CaptureDevice):
     def capture(self, output_name, square=False, flash_fn=None):
         # Capture photo
         if flash_fn: flash_fn()
-        self._instance.capture_image(self._preview)
+        cfile = self._instance.capture_image()
         if flash_fn: flash_fn(stop=True)
 
         # Rotate and crop if necessary
-        im = cv2.imread(self._preview)
+        buf = cfile.get_data()
+        buf = np.fromstring(buf, np.uint8)
+        im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
 

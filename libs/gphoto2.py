@@ -62,29 +62,35 @@ class cameraList():
         return str(value.value, encoding='ascii')
 
 class camera():
-    def __init__(self, autoInit = True):
-        self._cam = ctypes.c_void_p()
-        self._leave_locked = False
-        check(gp.gp_camera_new(PTR(self._cam)))
+    def __init__(self):
+        self._ptr = ctypes.c_void_p()
+        check(gp.gp_camera_new(PTR(self._ptr)))
         self.initialized = False
         self._init()
 
     def __del__(self):
-        if not self._leave_locked:
-            check(gp.gp_camera_exit(self._cam))
-            check(gp.gp_camera_free(self._cam))
+        check(gp.gp_camera_exit(self._ptr))
+        check(gp.gp_camera_free(self._ptr))
+
+    def close(self):
+        check(gp.gp_camera_exit(self._ptr, context))
 
     def summary(self):
         txt = CameraText()
-        check(gp.gp_camera_get_summary(self._cam, PTR(txt), context))
-        return txt.text
-
-    def leave_locked(self):
-        self._leave_locked = True
+        check(gp.gp_camera_get_summary(self._ptr, PTR(txt), context))
+        summary = str(txt.text, encoding='ascii')
+        r = {}
+        for l in summary.splitlines():
+            try:
+                k, v = l.split(':')
+            except ValueError:
+                continue
+            r[k.strip()] = v.strip()
+        return summary
 
     def get_config(self):
         config = cameraConfig()
-        check(gp.gp_camera_get_config(self._cam, PTR(config._ptr), context))
+        check(gp.gp_camera_get_config(self._ptr, PTR(config._ptr), context))
         return config
 
     def capture_image(self, destpath=None):
@@ -92,16 +98,17 @@ class camera():
         path = CameraFilePath()
         ans = 0
         for _ in range(1 + RETRIES):
-            ans = gp.gp_camera_capture(self._cam, GP_CAPTURE_IMAGE, PTR(path), context)
+            ans = gp.gp_camera_capture(self._ptr, GP_CAPTURE_IMAGE, PTR(path), context)
             if ans == 0: break
         check(ans)
-        cfile = cameraFile(self._cam, path.folder, path.name)
+        cfile = cameraFile(self._ptr, path.folder, path.name)
 
         # Save to file
         if destpath:
             cfile.save(destpath.encode('ascii'))
             cfile.unref()
             cfile.clean()
+            return None
         else:
             return cfile
 
@@ -111,7 +118,7 @@ class camera():
         cfile = cameraFile()
         ans = 0
         for _ in range(1 + RETRIES):
-            ans = gp.gp_camera_capture_preview(self._cam, cfile._cf, context)
+            ans = gp.gp_camera_capture_preview(self._ptr, cfile._ptr, context)
             if ans == 0: break
         check(ans)
 
@@ -120,16 +127,17 @@ class camera():
             cfile.save(destpath.encode('ascii'))
             cfile.unref()
             cfile.clean()
+            return None
         else:
             return cfile
 
     def trigger_capture(self):
-        check(gp.gp_camera_trigger_capture(self._cam, context))
+        check(gp.gp_camera_trigger_capture(self._ptr, context))
 
     def _init(self):
         ans = 0
         for i in range(1 + RETRIES):
-            ans = gp.gp_camera_init(self._cam, context)
+            ans = gp.gp_camera_init(self._ptr, context)
             # Success
             if ans == 0: break
 
@@ -142,25 +150,34 @@ class camera():
 
 class cameraFile():
     def __init__(self, cam = None, srcfolder = None, srcfilename = None):
-        self._cf = ctypes.c_void_p()
-        check(gp.gp_file_new(PTR(self._cf)))
-        if cam: check_unref(gp.gp_camera_file_get(cam, srcfolder, srcfilename, GP_FILE_TYPE_NORMAL, self._cf, context), self)
+        self._ptr = ctypes.c_void_p()
+        check(gp.gp_file_new(PTR(self._ptr)))
+        if cam: check_unref(gp.gp_camera_file_get(cam, srcfolder, srcfilename, GP_FILE_TYPE_NORMAL, self._ptr, context), self)
 
     def open(self, filename):
-        check(gp.gp_file_open(PTR(self._cf), filename))
+        check(gp.gp_file_open(PTR(self._ptr), filename))
+
+    def get_data(self, auto_clean=True):
+        data = ctypes.c_char_p()
+        size = ctypes.c_ulong()
+        check(gp.gp_file_get_data_and_size(self._ptr, PTR(data), PTR(size)))
+        if auto_clean:
+            self.unref()
+            self.clean()
+        return ctypes.string_at(data, int(size.value))
 
     def save(self, filename=None):
         if filename is None: filename = self.name
-        check(gp.gp_file_save(self._cf, filename))
+        check(gp.gp_file_save(self._ptr, filename))
 
     def ref(self):
-        check(gp.gp_file_ref(self._cf))
+        check(gp.gp_file_ref(self._ptr))
 
     def unref(self):
-        check(gp.gp_file_unref(self._cf))
+        check(gp.gp_file_unref(self._ptr))
 
     def clean(self):
-        check(gp.gp_file_clean(self._cf))
+        check(gp.gp_file_clean(self._ptr))
 
 class cameraConfig():
     def __init__(self):
