@@ -114,15 +114,13 @@ class Gphoto2Camera(CaptureDevice):
                 # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
                 config = self._instance.get_config()
 
-                print('/main/capturesettings/shutterspeed', config.get_path('/main/capturesettings/shutterspeed').get_value())
-                print('/main/imgsettings/iso', config.get_path('/main/imgsettings/iso').get_value())
-
-                #self._instance.config.main.actions.autofocusdrive.value = 1 # Autofocus (If it does not work, use main.actions.eosremoterelease)
-                config.get_path('/main/capturesettings/focusmode').set_value('Manual')
                 config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
-                config.get_path('/main/capturesettings/aperture').set_value('8')
-                #self._instance.config.main.capturesettings.shutterspeed.value=0.00625 # 1/160s
-                config.get_path('/main/imgsettings/iso').set_value('400')
+                config.get_path('/main/capturesettings/aperture').set_value('13')
+                config.get_path('/main/capturesettings/shutterspeed').set_value('1/154')
+                config.get_path('/main/imgsettings/iso').set_value('100')
+
+                # Commit changes
+                _instance.commit_config(config)
 
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 

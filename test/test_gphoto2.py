@@ -41,7 +41,9 @@ if gp.cameraList().count():
 
     # Commit changes
     _instance.commit_config(config)
-    time.sleep(2)
+
+    # Trigger capture
+    _instance.capture_image('./capture.jpg')
 
     # Display preview
     _, tmp_output = tempfile.mkstemp(suffix='.jpg')
