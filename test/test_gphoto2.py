@@ -1,3 +1,5 @@
+import sys
+sys.path.append('..')
 import cv2
 import numpy as np
 import libs.gphoto2 as gp
@@ -34,7 +36,7 @@ if gp.cameraList().count():
         cfile = _instance.capture_preview()
         if cfile is None: continue
         buf = cfile.get_data(auto_clean=True) # Must clean to avoid memory leak or call cfile.clean() once finished
-        
+
         # Convert to CV2
         buf = np.fromstring(buf, np.uint8)
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
@@ -42,7 +44,7 @@ if gp.cameraList().count():
         # Display
         cv2.imshow('Camera', im)
         if cv2.waitKey(1) > 0: break
-    
+
     # Trigger capture
     _instance.capture_image('./capture.jpg')
 
