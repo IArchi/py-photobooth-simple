@@ -5,6 +5,14 @@ import tempfile
 import numpy as np
 import libs.gphoto2 as gp
 
+_instance = None
+
+def signal_handler(sig, frame):
+    print("\nCtrl+C detected. Exiting gracefully...")
+    if _instance: _instance.close()
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+
 if gp.cameraList().count():
     _instance = gp.camera()
 
