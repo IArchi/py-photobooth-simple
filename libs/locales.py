@@ -93,9 +93,8 @@ class Locales:
             'print': {
                 'title': 'Voulez-vous imprimer ce montage ?',
                 'print': 'Imprimer',
-                'one_copy': 'Imprimer 1 fois',
-                'two_copies': 'Imprimer 2 fois',
-                'three_copies': 'Imprimer 3 fois',
+                'one_copy': 'Imprimer\n1 fois',
+                'two_copies': 'Imprimer\n2 fois',
                 'no': 'Ignorer',
             },
             'printing': {
