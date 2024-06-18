@@ -66,7 +66,7 @@ if gp.cameraList().count():
         cv2.imshow('Camera', im)
         if cv2.waitKey(1) > 0: break
 
-    # Trigger capture
+    # Trigger capture (Can also be captured as a bytes array)
     _instance.capture_image('./capture.jpg')
 
     # Release camera

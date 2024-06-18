@@ -189,6 +189,5 @@ Application will not be usable during the copy process but will display a messag
 
 ## TODO
  - Printer is detected even when turned off
- - gphoto cfile.get_data() does not work with cv2
+ - Issue with printer driver on linux (works on mac)
  - Add zoom for picamera2 to match gphoto2 zoom at 55mm
- - Fix printer: Disable 2inches cut on full size.
