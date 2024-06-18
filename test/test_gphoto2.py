@@ -37,7 +37,7 @@ if gp.cameraList().count():
         if cfile is None: continue
         buf = cfile.get_data(auto_clean=True) # Must clean to avoid memory leak or call cfile.clean() once finished
 
-        print(len(buf))
+        print(len(buf), buf.shape)
 
         # Convert to CV2
         buf = np.frombuffer(buf, np.uint8)
