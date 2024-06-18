@@ -14,7 +14,4 @@ while False:
 
 # Trigger capture
 camera.capture('test.jpg')
-im = cv2.imread('test.jpg')
-cv2.imshow('camera', im)
-cv2.waitKey(0)
 cv2.destroyAllWindows()
