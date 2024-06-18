@@ -78,7 +78,7 @@ class CaptureDevice:
     def _get_original_path(path):
         filename = os.path.basename(path)
         name, ext = os.path.splitext(filename)
-        return = f"{name}_original{ext}"
+        return f"{name}_original{ext}"
 
     def cv2_imshow(self, im, size=None):
         if size: im = im.reshape((size[1], size[0], 3))
@@ -129,7 +129,7 @@ class Cv2Camera(CaptureDevice):
         if not ret: return
         #im_cv = cv2.flip(im_cv, 0)
         if square: im_cv = self._crop_to_square(im_cv)
-        
+
         # Dump to file
         cv2.imwrite(_get_original_path(output_name), im)
 
