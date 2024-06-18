@@ -248,10 +248,10 @@ class cameraConfig():
             if not isinstance(value, bytes): raise libgphoto2error(type(value).__name__, 'Value should either be a string or bytes')
             value = ctypes.c_char_p(value)
         elif type == 3:
-            if not isinstance(value, float): raise libgphoto2error(type(value).__name__, 'Value should be a float')
+            if isinstance(value, str): value = float(value)
             value = ctypes.c_float_p(value)
         elif type in [4, 8]:
-            if not isinstance(value, int): raise libgphoto2error(type(value).__name__, 'Value should be a int')
+            if isinstance(value, str): value = int(value)
             value = PTR(ctypes.c_int(value)) # c_int_p ? TODO
         else: return
         check(gp.gp_widget_set_value(self._ptr, value))
