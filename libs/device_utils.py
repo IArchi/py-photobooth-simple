@@ -156,7 +156,9 @@ class Gphoto2Camera(CaptureDevice):
         cv2.imwrite(output_name, im)
 
         # Wait until photo is saved (for large images)
+        print('>>> Wait for image transfer')
         while not os.path.exists(output_name): time.sleep(0.3)
+        print('>>> Done')
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
