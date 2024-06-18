@@ -92,7 +92,7 @@ class camera():
         return config
 
     def commit_config(self, config):
-        check(gp.gp_camera_set_config(self._ptr, config))
+        check(gp.gp_camera_set_config(self._ptr, config._ptr, context))
 
     def capture_image(self, destpath=None):
         # Triffer capture
