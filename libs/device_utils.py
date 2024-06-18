@@ -1,5 +1,6 @@
 import os
 import tempfile
+import subprocess
 import numpy as np
 from kivy.logger import Logger
 from threading import Condition
@@ -247,7 +248,17 @@ class CupsPrinter(PrintDevice):
         if not self._instance: raise Exception('Cannot find any CUPS printer or cups is not installed.')
 
     def print(self, file_path, print_params={}):
-        return self._instance.printFile(self._name, os.path.abspath(file_path), os.path.basename(file_path), print_params)
+        command = ['lp', '-d', self._name]
+        command.extend([arg for key, value in data.items() for arg in ("-o", "{}={}".format(key, value))])
+        command.append(os.path.abspath(file_path))
+        print(command)
+
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        print(result.stdout)
+        print(result.stderr)
+        return -1
+
+        #return self._instance.printFile(self._name, os.path.abspath(file_path), os.path.basename(file_path), print_params)
 
     def get_print_status(self, task_id):
         status = self._instance.getJobAttributes(task_id)['job-state']
