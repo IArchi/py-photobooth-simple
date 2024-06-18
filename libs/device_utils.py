@@ -52,6 +52,34 @@ class CaptureDevice:
         # Crop the image
         return image[top:bottom, left:right]
 
+    def _resize(self, output_path, image, max_height=1080, max_width=1920):
+        # Get original dimensions
+        height, width = image.shape[:2]
+
+        # Calculate aspect ratio
+        aspect_ratio = width / height
+
+        # Determine new dimensions based on the aspect ratio
+        if width > max_width or height > max_height:
+            if (max_width / width) < (max_height / height):
+                new_width = max_width
+                new_height = int(new_width / aspect_ratio)
+            else:
+                new_height = max_height
+                new_width = int(new_height * aspect_ratio)
+
+            resized_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        else:
+            # If image is within the maximum dimensions, return the original image
+            resized_image = image
+
+        cv2.imwrite(output_path, resized_image)
+
+    def _get_original_path(path):
+        filename = os.path.basename(path)
+        name, ext = os.path.splitext(filename)
+        return = f"{name}_original{ext}"
+
     def cv2_imshow(self, im, size=None):
         if size: im = im.reshape((size[1], size[0], 3))
         im = cv2.flip(im, 0)
@@ -101,7 +129,12 @@ class Cv2Camera(CaptureDevice):
         if not ret: return
         #im_cv = cv2.flip(im_cv, 0)
         if square: im_cv = self._crop_to_square(im_cv)
-        cv2.imwrite(output_name, im_cv)
+        
+        # Dump to file
+        cv2.imwrite(_get_original_path(output_name), im)
+
+        # Resize for display
+        self._resize(output_name, im)
 
 class Gphoto2Camera(CaptureDevice):
     def __init__(self):
@@ -151,7 +184,10 @@ class Gphoto2Camera(CaptureDevice):
         if square: im = self._crop_to_square(im)
 
         # Dump to file
-        cv2.imwrite(output_name, im)
+        cv2.imwrite(_get_original_path(output_name), im)
+
+        # Resize for display
+        self._resize(output_name, im)
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
@@ -178,8 +214,11 @@ class Picamera2Camera(CaptureDevice):
         if flash_fn: flash_fn(stop=True)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
-        cv2.imwrite(output_name, im)
+        cv2.imwrite(_get_original_path(output_name), im)
         self._instance.switch_mode(self._preview_config)
+
+        # Resize for display
+        self._resize(output_name, im)
 
 class CupsPrinter(PrintDevice):
     _name = None
