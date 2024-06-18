@@ -46,7 +46,14 @@ if gp.cameraList().count():
     _instance.commit_config(config)
 
     # Trigger capture to focus
-    _instance.capture_image()
+    cfile = _instance.capture_image()
+
+
+    with open('temp.jpg', 'wb') as file:
+        file.write(cfile.get_data())
+    im = cv2.imread('temp.jpg')
+    cv2.imshow('Camera', im)
+
 
     # Display preview
     _, tmp_output = tempfile.mkstemp(suffix='.jpg')
