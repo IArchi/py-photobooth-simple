@@ -68,8 +68,9 @@ class camera():
         self._init()
 
     def __del__(self):
-        check(gp.gp_camera_exit(self._ptr))
-        check(gp.gp_camera_free(self._ptr))
+        #check(gp.gp_camera_exit(self._ptr))
+        #check(gp.gp_camera_free(self._ptr))
+        pass
 
     def close(self):
         check(gp.gp_camera_exit(self._ptr, context))
