@@ -75,7 +75,7 @@ class CaptureDevice:
 
         cv2.imwrite(output_path, resized_image)
 
-    def _get_original_path(path):
+    def _get_original_path(self, path):
         filename = os.path.basename(path)
         name, ext = os.path.splitext(filename)
         return f"{name}_original{ext}"
