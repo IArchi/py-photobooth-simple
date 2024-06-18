@@ -91,6 +91,9 @@ class camera():
         check(gp.gp_camera_get_config(self._ptr, PTR(config._ptr), context))
         return config
 
+    def commit_config(self, config):
+        check(gp.gp_camera_set_config(self._ptr, config))
+
     def capture_image(self, destpath=None):
         # Triffer capture
         path = CameraFilePath()

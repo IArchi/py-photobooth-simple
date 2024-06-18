@@ -188,6 +188,7 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Rewrite piggyphoto lib to fix all issues...
+ - gphoto does not seem to write settings correctly
+ - gphoto cfile.get_data() does not work with cv2
  - Add zoom for picamera2 to match gphoto2 zoom at 55mm
  - Fix printer: Disable 2inches cut on full size.

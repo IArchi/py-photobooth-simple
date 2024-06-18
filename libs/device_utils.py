@@ -109,6 +109,8 @@ class Gphoto2Camera(CaptureDevice):
             if gp.cameraList().count():
                 self._instance = gp.camera()
 
+                _, self._preview = tempfile.mkstemp(suffix='.jpg')
+
                 # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
                 config = self._instance.get_config()
 
@@ -128,10 +130,8 @@ class Gphoto2Camera(CaptureDevice):
         return True
 
     def get_preview(self, square=False):
-        cfile = self._instance.capture_preview()
-        buf = cfile.get_data()
-        buf = np.frombuffer(buf, np.uint8)
-        im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        self._instance.capture_preview(self._preview)
+        im = cv2.imread(self._preview)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         return im
@@ -139,13 +139,11 @@ class Gphoto2Camera(CaptureDevice):
     def capture(self, output_name, square=False, flash_fn=None):
         # Capture photo
         if flash_fn: flash_fn()
-        cfile = self._instance.capture_image()
+        self._instance.capture_image(self._preview)
         if flash_fn: flash_fn(stop=True)
 
         # Rotate and crop if necessary
-        buf = cfile.get_data()
-        buf = np.frombuffer(buf, np.uint8)
-        im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        im = cv2.imread(self._preview)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
 
