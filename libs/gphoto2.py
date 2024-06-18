@@ -228,22 +228,31 @@ class cameraConfig():
         type = self.get_type()
         value = ctypes.c_void_p()
         ans = gp.gp_widget_get_value(self._ptr, PTR(value))
-        if type in [2, 5, 6]: value = ctypes.cast(value.value, ctypes.c_char_p)
-        elif type == 3: value = ctypes.cast(value.value, ctypes.c_float_p)
-        elif type in [4, 8]:
-            #value = ctypes.cast(value.value, ctypes.c_int_p)
-            pass
-        else: return None
         check(ans)
-        return str(value.value, encoding='ascii')
+        if type in [2, 5, 6]:
+            value = ctypes.cast(value.value, ctypes.c_char_p)
+            return str(value.value, encoding='ascii')
+        elif type == 3:
+            value = ctypes.cast(value.value, ctypes.c_float_p)
+            return value.value
+        elif type in [4, 8]:
+            value = ctypes.cast(value.value, ctypes.c_int_p)
+            return value.value
+        else:
+            return None
 
     def set_value(self, value):
-        if isinstance(value, str): value = str.encode(value)
-        if not isinstance(value, bytes): raise libgphoto2error(type(value).__name__, 'Value should either be a string or bytes')
         type = self.get_type()
-        if type in [2, 5, 6]: value = ctypes.c_char_p(value)
-        elif type == 3: value = ctypes.c_float_p(value)
-        elif type in [4, 8]: value = PTR(ctypes.c_int(value)) # c_int_p ? TODO
+        if type in [2, 5, 6]:
+            if isinstance(value, str): value = str.encode(value)
+            if not isinstance(value, bytes): raise libgphoto2error(type(value).__name__, 'Value should either be a string or bytes')
+            value = ctypes.c_char_p(value)
+        elif type == 3:
+            if not isinstance(value, float): raise libgphoto2error(type(value).__name__, 'Value should be a float')
+            value = ctypes.c_float_p(value)
+        elif type in [4, 8]:
+            if not isinstance(value, int): raise libgphoto2error(type(value).__name__, 'Value should be a int')
+            value = PTR(ctypes.c_int(value)) # c_int_p ? TODO
         else: return
         check(gp.gp_widget_set_value(self._ptr, value))
 
