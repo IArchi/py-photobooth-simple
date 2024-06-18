@@ -797,7 +797,6 @@ class ConfirmPrintScreen(BackgroundScreen):
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_exit().')
         self.app.ringled.clear()
-        self.app.save_collage()
 
     def print_once(self, obj):
         Clock.unschedule(self.auto_decline)
@@ -809,10 +808,12 @@ class ConfirmPrintScreen(BackgroundScreen):
 
     def no_event(self, obj):
         Clock.unschedule(self.auto_decline)
+        self.app.save_collage()
         self.app.transition_to(ScreenMgr.WAITING)
 
     def timer_event(self, obj):
         Logger.info('ConfirmPrintScreen: timer_event().')
+        self.app.save_collage()
         self.app.transition_to(ScreenMgr.WAITING)
 
 class PrintingScreen(BackgroundScreen):
@@ -865,6 +866,7 @@ class PrintingScreen(BackgroundScreen):
         Logger.info('PrintingScreen: on_exit().')
         if self._clock: Clock.unschedule(self._clock)
         if self._auto_cancel: Clock.unschedule(self._auto_cancel)
+        self.app.save_collage()
         self.app.ringled.clear()
 
     def timer_event(self, obj):
