@@ -108,7 +108,6 @@ class Gphoto2Camera(CaptureDevice):
             # List connected DSLR cameras
             if gp.cameraList().count():
                 self._instance = gp.camera()
-                self._instance.capture_preview()
 
                 # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
                 config = self._instance.get_config()
