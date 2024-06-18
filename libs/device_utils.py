@@ -330,7 +330,35 @@ class DeviceUtils:
         return self._capture.capture(output_name, square, flash_fn)
 
     def has_printer(self):
-        return self._printer is not None
+        if self._printer is None: return False
+        try:
+            # Run lsusb and capture the output
+            result = subprocess.run(['lsusb'], stdout=subprocess.PIPE, text=True)
+            lsusb_output = result.stdout
+
+            # Define common keywords and vendor names associated with printers
+            printer_keywords = [
+                'Printer',        # Generic term
+                'Canon',          # Canon printers
+                'Epson',          # Epson printers
+                'HP',             # HP printers
+                'Brother',        # Brother printers
+                'Samsung',        # Samsung printers
+                'Lexmark',        # Lexmark printers
+                'Xerox',          # Xerox printers
+                'Ricoh',          # Ricoh printers
+                'Kyocera',        # Kyocera printers
+                'OKI',            # OKI printers
+                'Konica',         # Konica Minolta printers
+                'Sharp',          # Sharp printers
+                'Toshiba',        # Toshiba printers
+            ]
+            for keyword in printer_keywords:
+                if keyword.lower() in lsusb_output.lower(): return True
+        except Exception as e:
+            Logger.error("An error occurred while checking for printers: {}".format(str(e)))
+
+        return False
 
     def print(self, file_path, print_params={}):
         if not self._printer: return
