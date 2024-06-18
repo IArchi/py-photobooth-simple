@@ -249,7 +249,7 @@ class CupsPrinter(PrintDevice):
 
     def print(self, file_path, print_params={}):
         command = ['lp', '-d', self._name]
-        command.extend([arg for key, value in data.items() for arg in ("-o", "{}={}".format(key, value))])
+        command.extend([arg for key, value in print_params.items() for arg in ("-o", "{}={}".format(key, value))])
         command.append(os.path.abspath(file_path))
         print(command)
 
