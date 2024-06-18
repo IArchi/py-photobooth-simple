@@ -793,11 +793,11 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.app.ringled.start_rainbow()
         self.preview.source = self.app.get_collage()[0]
         self.preview.reload()
-        self.app.save_collage()
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_exit().')
         self.app.ringled.clear()
+        self.app.save_collage()
 
     def print_once(self, obj):
         Clock.unschedule(self.auto_decline)
