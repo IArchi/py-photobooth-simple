@@ -947,7 +947,7 @@ class CopyingScreen(BackgroundScreen):
             text=self.locales['copying']['content'],
             halign='center',
             valign='middle',
-            font_size=LARGE_FONT
+            font_size=NORMAL_FONT
         )
         self.layout = BoxLayout()
         self.layout.add_widget(self.label)
