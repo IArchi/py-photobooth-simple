@@ -1,3 +1,4 @@
+import os
 import tempfile
 import numpy as np
 from kivy.logger import Logger
