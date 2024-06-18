@@ -166,6 +166,7 @@ class PolaroidCollage(Collage):
         if len(image_paths) != self._count: raise Exception('Not enough photos to assemble. Expected {}.'.format(self._count))
 
         # Load the input image
+        print('PATH', image_paths[0])
         input_image = cv2.imread(image_paths[0])
 
         # Define the size of the output image
