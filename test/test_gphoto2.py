@@ -46,23 +46,21 @@ if gp.cameraList().count():
     _instance.commit_config(config)
 
     # Trigger capture to focus
-    cfile = _instance.capture_image()
-
-
-    with open('temp.jpg', 'wb') as file:
-        file.write(cfile.get_data())
-    im = cv2.imread('temp.jpg')
-    cv2.imshow('Camera', im)
-
+    _instance.capture_image()
 
     # Display preview
+    PREVIEW_TO_FILE = False
     _, tmp_output = tempfile.mkstemp(suffix='.jpg')
     while True:
-        # Capture
-        _instance.capture_preview(tmp_output)
-
-        # Convert to CV2
-        im = cv2.imread(tmp_output)
+        if PREVIEW_TO_FILE:
+            # Capture is saved into a local file
+            _instance.capture_preview(tmp_output)
+            im = cv2.imread(tmp_output)
+        else:
+            # Capture is directly read as bytes array
+            cfile = _instance.capture_preview()
+            buf = np.frombuffer(cfile.get_data(), dtype=np.uint8)
+            im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
 
         # Display
         cv2.imshow('Camera', im)
