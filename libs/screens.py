@@ -857,8 +857,9 @@ class PrintingScreen(BackgroundScreen):
             self._print_task_id = self.app.trigger_print(self._current_copies, self._current_format)
             self._clock = Clock.schedule_once(self.timer_event, 1)
             self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
-        except:
-            return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error'])
+        except Exception as e:
+            raise e
+            #return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error'])
 
     def on_exit(self, kwargs={}):
         Logger.info('PrintingScreen: on_exit().')
