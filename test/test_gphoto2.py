@@ -38,7 +38,7 @@ if gp.cameraList().count():
         _instance.capture_preview(tmp_output)
 
         # Convert to CV2
-        im = cv2.im_read(tmp_output)
+        im = cv2.imread(tmp_output)
         print(im.shape)
 
         # Display
