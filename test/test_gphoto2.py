@@ -43,6 +43,7 @@ if gp.cameraList().count():
         buf = np.frombuffer(buf, np.uint8)
         print(len(buf), buf.shape)
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        if im is None: print('empty...')
         print(im.shape)
 
         # Display
