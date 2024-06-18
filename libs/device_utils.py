@@ -114,9 +114,13 @@ class Gphoto2Camera(CaptureDevice):
                 # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
                 config = self._instance.get_config()
 
+                # Update some
+                current_mode = config.get_path('/main/capturesettings/autoexposuremode').get_value()
+                if current_mode in ['Manual', 'TV']:
+                    config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
+                if current_mode in ['Manual', 'AV']:
+                    config.get_path('/main/capturesettings/aperture').set_value('13')
                 config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
-                config.get_path('/main/capturesettings/aperture').set_value('13')
-                config.get_path('/main/capturesettings/shutterspeed').set_value('1/154')
                 config.get_path('/main/imgsettings/iso').set_value('100')
 
                 # Commit changes

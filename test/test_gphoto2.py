@@ -33,19 +33,20 @@ if gp.cameraList().count():
     print('/main/imgsettings/iso', config.get_path('/main/imgsettings/iso').get_value())
     print('/main/actions/eosremoterelease', config.get_path('/main/actions/eosremoterelease').get_value())
 
-
     # Update some
-    config.get_path('/main/actions/eosremoterelease').set_value('Press Half') # Autofocus (If it does not work, use main.actions.eosremoterelease)
+    current_mode = config.get_path('/main/capturesettings/autoexposuremode').get_value()
+    if current_mode in ['Manual', 'TV']:
+        config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
+    if current_mode in ['Manual', 'AV']:
+        config.get_path('/main/capturesettings/aperture').set_value('13')
     config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
-    config.get_path('/main/capturesettings/aperture').set_value('13')
-    #config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
     config.get_path('/main/imgsettings/iso').set_value('100')
 
     # Commit changes
     _instance.commit_config(config)
 
-    # Trigger capture
-    #_instance.capture_image('./capture.jpg')
+    # Trigger capture to focus
+    _instance.capture_image()
 
     # Display preview
     _, tmp_output = tempfile.mkstemp(suffix='.jpg')
