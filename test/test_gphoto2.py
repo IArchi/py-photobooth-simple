@@ -30,6 +30,9 @@ if gp.cameraList().count():
     #config.get_path('/main/capturesettings/shutterspeed').set_value('1/160')
     config.get_path('/main/imgsettings/iso').set_value('400')
 
+    # Commit changes
+    _instance.commit_config(config)
+
     # Display preview
     _, tmp_output = tempfile.mkstemp(suffix='.jpg')
     while True:
