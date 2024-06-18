@@ -64,13 +64,11 @@ class camera():
     def __init__(self):
         self._ptr = ctypes.c_void_p()
         check(gp.gp_camera_new(PTR(self._ptr)))
-        self.initialized = False
         self._init()
 
     def __del__(self):
-        #check(gp.gp_camera_exit(self._ptr))
-        #check(gp.gp_camera_free(self._ptr))
-        pass
+        check(gp.gp_camera_exit(self._ptr))
+        check(gp.gp_camera_free(self._ptr))
 
     def close(self):
         check(gp.gp_camera_exit(self._ptr, context))
@@ -146,7 +144,6 @@ class camera():
                 os.system('gvfs-mount -s gphoto2')
                 time.sleep(1)
         check(ans)
-        self.initialized = True
 
 class cameraFile():
     def __init__(self, cam = None, srcfolder = None, srcfilename = None):

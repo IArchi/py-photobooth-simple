@@ -68,7 +68,7 @@ class StripCollage(Collage):
         photos = [tempfile.mkstemp(suffix='.jpg') for i in range(0, 3)]
         photos = [p[1] for p in photos]
         for p in photos: self._create_dummy_photo(p)
-        tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
+        _, tmp_output = tempfile.mkstemp(suffix='.jpg')
         self.assemble((tmp_output, None), photos, logo_path)
         return tmp_output
 
@@ -139,7 +139,7 @@ class StripCollage(Collage):
         elif type(output_path) is tuple and len(output_path) == 2:
             # First element is for preview only
             self._resize(output_path[0], strip_image)
-            
+
             # Second element is for printing
             if output_path[1]:
                 # Duplicate for print
@@ -156,9 +156,9 @@ class PolaroidCollage(Collage):
 
     def get_preview(self, logo_path=None):
         Logger.info('PolaroidCollage: get_preview()')
-        tmp_file, tmp_input = tempfile.mkstemp(suffix='.jpg')
+        _, tmp_input = tempfile.mkstemp(suffix='.jpg')
         self._create_dummy_photo(tmp_input, squared=True)
-        tmp_file, tmp_output = tempfile.mkstemp(suffix='.jpg')
+        _, tmp_output = tempfile.mkstemp(suffix='.jpg')
         self.assemble((tmp_output, None), [tmp_input], logo_path)
         return tmp_output
 
