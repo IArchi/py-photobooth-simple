@@ -302,6 +302,10 @@ class DeviceUtils:
             Logger.info('Switch to Picamera camera')
             self._preview = pi2_camera
             self._capture = pi2_camera
+        elif g2_camera:
+            Logger.info('Switch to gPhoto2 camera')
+            self._preview = g2_camera
+            self._capture = g2_camera
         elif cv2_camera:
             Logger.info('Switch to CV2 camera')
             self._preview = cv2_camera
