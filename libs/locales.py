@@ -96,7 +96,7 @@ class Locales:
                 'one_copy': 'Imprimer 1 fois',
                 'two_copies': 'Imprimer 2 fois',
                 'three_copies': 'Imprimer 3 fois',
-                'no': 'Ignore',
+                'no': 'Ignorer',
             },
             'printing': {
                 'content': ['Impression en cours ...', 'Patience ...', 'Ça arrive ...', 'On y est presque ...'],
