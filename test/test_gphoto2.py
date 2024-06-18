@@ -1,6 +1,7 @@
 import sys
 sys.path.append('..')
 import cv2
+import signal
 import tempfile
 import numpy as np
 import libs.gphoto2 as gp
