@@ -1,4 +1,3 @@
-import os
 import time
 import tempfile
 import numpy as np
@@ -155,9 +154,7 @@ class Gphoto2Camera(CaptureDevice):
         # Dump to file
         cv2.imwrite(output_name, im)
 
-        while True:
-            if os.path.exists(output_name): break
-            time.sleep(0.1)
+        time.sleep(1)
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
@@ -186,10 +183,6 @@ class Picamera2Camera(CaptureDevice):
         if square: im = self._crop_to_square(im)
         cv2.imwrite(output_name, im)
         self._instance.switch_mode(self._preview_config)
-
-        while True:
-            if os.path.exists(output_name): break
-            time.sleep(0.1)
 
 class CupsPrinter(PrintDevice):
     _name = None
