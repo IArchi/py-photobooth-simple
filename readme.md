@@ -136,7 +136,7 @@ sudo apt install -y printer-driver-gutenprint
 sudo /etc/init.d/cups restart
 ```
 
-Then go to `http://<raspberry-ip>:631/admin/`, declare a new printer and import `doc/DS620.ppd`.
+Then go to `http://<raspberry-ip>:631/admin/`, declare a new printer and import `doc/Dai_Nippon_Printing_DP_DS620.ppd`.
 Change default paper size to 6x8 in printing setup.
 
 ### Led ring (Only if you plan to install one)
