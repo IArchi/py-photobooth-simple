@@ -124,9 +124,9 @@ class Cv2Camera(CaptureDevice):
         return im
 
     def capture(self, output_name, square=False, flash_fn=None):
-        if flash_fn: flash_fn()
+        if flash_fn and not self.has_physical_flash(): flash_fn()
         ret, im_cv = self._instance.read()
-        if flash_fn: flash_fn(stop=True)
+        if flash_fn and not self.has_physical_flash(): lash_fn(stop=True)
         if not ret: return
         #im_cv = cv2.flip(im_cv, 0)
         if square: im_cv = self._crop_to_square(im_cv)
@@ -175,9 +175,9 @@ class Gphoto2Camera(CaptureDevice):
 
     def capture(self, output_name, square=False, flash_fn=None):
         # Capture photo
-        if flash_fn: flash_fn()
+        if flash_fn and not self.has_physical_flash(): flash_fn()
         self._instance.capture_image(self._preview)
-        if flash_fn: flash_fn(stop=True)
+        if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
 
         # Rotate and crop if necessary
         im = cv2.imread(self._preview)
@@ -210,9 +210,9 @@ class Picamera2Camera(CaptureDevice):
 
     def capture(self, output_name, square=False, flash_fn=None):
         self._instance.switch_mode(self._still_config)
-        if flash_fn: flash_fn()
+        if flash_fn and not self.has_physical_flash(): flash_fn()
         im = self._instance.capture_array()
-        if flash_fn: flash_fn(stop=True)
+        if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         cv2.imwrite(self._get_original_path(output_name), im)
