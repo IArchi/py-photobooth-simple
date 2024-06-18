@@ -103,8 +103,8 @@ class PhotoboothApp(App):
     def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
         t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), self.print_formats[format_idx].is_squared(), self.ringled.flash))
-        self.processes = [t]
         t.start()
+        self.processes = [t]
 
     def is_shot_completed(self, shot_idx):
         if any((process.is_alive() is None for process in self.processes)): return False
@@ -115,13 +115,13 @@ class PhotoboothApp(App):
         photos = []
         for i in range(0, self.get_shots_to_take(format)): photos.append(self.get_shot(i))
         t = threading.Thread(target=self.print_formats[format].assemble, kwargs={'output_path':self.get_collage(), 'image_paths':photos, 'logo_path':self.get_logo()})
-        self.processes = [t]
         t.start()
+        self.processes = [t]
 
     def is_collage_completed(self):
         if any((process.is_alive() is None for process in self.processes)): return False
         return os.path.isfile(self.get_collage()[1])
-    
+
     def has_physical_flash(self):
         return self.devices.has_physical_flash()
 
