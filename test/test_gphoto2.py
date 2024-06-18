@@ -1,6 +1,7 @@
 import sys
 sys.path.append('..')
 import cv2
+import time
 import signal
 import tempfile
 import numpy as np
@@ -40,6 +41,7 @@ if gp.cameraList().count():
 
     # Commit changes
     _instance.commit_config(config)
+    time.sleep(2)
 
     # Display preview
     _, tmp_output = tempfile.mkstemp(suffix='.jpg')
