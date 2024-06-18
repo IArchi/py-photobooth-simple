@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 import tempfile
@@ -167,6 +168,7 @@ class PolaroidCollage(Collage):
 
         # Load the input image
         print('PATH', image_paths[0])
+        print(os.path.exists(image_paths[0]))
         input_image = cv2.imread(image_paths[0])
 
         # Define the size of the output image
