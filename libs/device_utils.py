@@ -131,7 +131,7 @@ class Cv2Camera(CaptureDevice):
         if square: im_cv = self._crop_to_square(im_cv)
 
         # Dump to file
-        cv2.imwrite(_get_original_path(output_name), im)
+        cv2.imwrite(self._get_original_path(output_name), im)
 
         # Resize for display
         self._resize(output_name, im)
@@ -184,7 +184,7 @@ class Gphoto2Camera(CaptureDevice):
         if square: im = self._crop_to_square(im)
 
         # Dump to file
-        cv2.imwrite(_get_original_path(output_name), im)
+        cv2.imwrite(self._get_original_path(output_name), im)
 
         # Resize for display
         self._resize(output_name, im)
@@ -214,7 +214,7 @@ class Picamera2Camera(CaptureDevice):
         if flash_fn: flash_fn(stop=True)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
-        cv2.imwrite(_get_original_path(output_name), im)
+        cv2.imwrite(self._get_original_path(output_name), im)
         self._instance.switch_mode(self._preview_config)
 
         # Resize for display
