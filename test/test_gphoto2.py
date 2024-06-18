@@ -39,7 +39,9 @@ if gp.cameraList().count():
 
         # Convert to CV2
         buf = np.frombuffer(buf, np.uint8)
+        print(len(buf))
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        print(im, im.shape)
 
         # Display
         cv2.imshow('Camera', im)
