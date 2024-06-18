@@ -168,8 +168,9 @@ class Gphoto2Camera(CaptureDevice):
         return True
 
     def get_preview(self, square=False):
-        self._instance.capture_preview(self._preview)
-        im = cv2.imread(self._preview)
+        cfile = self._instance.capture_preview()
+        buf = np.frombuffer(cfile.get_data(), dtype=np.uint8)
+        im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         return im
@@ -177,11 +178,12 @@ class Gphoto2Camera(CaptureDevice):
     def capture(self, output_name, square=False, flash_fn=None):
         # Capture photo
         if flash_fn and not self.has_physical_flash(): flash_fn()
-        self._instance.capture_image(self._preview)
+        cfile = self._instance.capture_image()
         if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
 
         # Rotate and crop if necessary
-        im = cv2.imread(self._preview)
+        buf = np.frombuffer(cfile.get_data(), dtype=np.uint8)
+        im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
 
