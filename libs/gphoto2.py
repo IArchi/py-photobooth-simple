@@ -161,10 +161,11 @@ class cameraFile():
         data = ctypes.c_char_p()
         size = ctypes.c_ulong()
         check(gp.gp_file_get_data_and_size(self._ptr, PTR(data), PTR(size)))
+        data = ctypes.string_at(data, int(size.value))
         if auto_clean:
             self.unref()
             self.clean()
-        return ctypes.string_at(data, int(size.value))
+        return data
 
     def save(self, filename=None):
         if filename is None: filename = self.name
