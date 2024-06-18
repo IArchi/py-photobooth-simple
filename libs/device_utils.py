@@ -247,7 +247,6 @@ class CupsPrinter(PrintDevice):
         if not self._instance: raise Exception('Cannot find any CUPS printer or cups is not installed.')
 
     def print(self, file_path, print_params={}):
-        print('Options', print_params)
         return self._instance.printFile(self._name, file_path, os.path.basename(file_path), print_params)
 
     def get_print_status(self, task_id):
