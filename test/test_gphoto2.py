@@ -16,7 +16,7 @@ if gp.cameraList().count():
 
     # Print avilable settings
     print('Available parameters:')
-    print("\n".join(_instance.list_paths()))
+    print("\n".join(config.list_paths()))
 
     # Print some
     print('/main/capturesettings/shutterspeed', config.get_path('/main/capturesettings/shutterspeed').get_value())
