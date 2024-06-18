@@ -23,8 +23,6 @@ if gp.cameraList().count():
     print('/main/imgsettings/iso', config.get_path('/main/imgsettings/iso').get_value())
 
     # Update some
-    config.get_path('/main/capturesettings/autoexposuremode').set_value('Manual')
-
     #config.get_path('/main/actions/viewfinder').set_value(1) # Autofocus (If it does not work, use main.actions.eosremoterelease)
     config.get_path('/main/capturesettings/focusmode').set_value('Manual')
     config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
