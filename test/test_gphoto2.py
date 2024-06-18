@@ -9,14 +9,14 @@ if gp.cameraList().count():
     _instance.capture_preview() # Apparently first call always fails
 
     # Print summary
-    print(_instance.summary())
+    #print(_instance.summary())
 
     # Retrieve settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
     config = _instance.get_config()
 
     # Print avilable settings
-    print('Available parameters:')
-    print("\n".join(config.list_paths()))
+    #print('Available parameters:')
+    #print("\n".join(config.list_paths()))
 
     # Print some
     print('/main/capturesettings/shutterspeed', config.get_path('/main/capturesettings/shutterspeed').get_value())
@@ -36,6 +36,8 @@ if gp.cameraList().count():
         cfile = _instance.capture_preview()
         if cfile is None: continue
         buf = cfile.get_data(auto_clean=True) # Must clean to avoid memory leak or call cfile.clean() once finished
+
+        print(len(buf))
 
         # Convert to CV2
         buf = np.frombuffer(buf, np.uint8)
