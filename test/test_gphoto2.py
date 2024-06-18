@@ -31,13 +31,15 @@ if gp.cameraList().count():
     # Print some
     print('/main/capturesettings/shutterspeed', config.get_path('/main/capturesettings/shutterspeed').get_value())
     print('/main/imgsettings/iso', config.get_path('/main/imgsettings/iso').get_value())
+    print('/main/actions/eosremoterelease', config.get_path('/main/actions/eosremoterelease').get_value())
+
 
     # Update some
     #config.get_path('/main/actions/autofocusdrive').set_value(1) # Autofocus (If it does not work, use main.actions.eosremoterelease)
     config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
-    config.get_path('/main/capturesettings/aperture').set_value('8')
-    #config.get_path('/main/capturesettings/shutterspeed').set_value('1/160')
-    config.get_path('/main/imgsettings/iso').set_value('400')
+    config.get_path('/main/capturesettings/aperture').set_value('13')
+    config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
+    config.get_path('/main/imgsettings/iso').set_value('100')
 
     # Commit changes
     _instance.commit_config(config)
