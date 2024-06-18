@@ -36,12 +36,12 @@ if gp.cameraList().count():
         cfile = _instance.capture_preview()
         if cfile is None: continue
         buf = cfile.get_data(auto_clean=True) # Must clean to avoid memory leak or call cfile.clean() once finished
+        print(type(buf))
 
         # Convert to CV2
         buf = np.frombuffer(buf, np.uint8)
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         if im is None:
-            print('empty...')
             continue
         print(im.shape)
 
