@@ -1,6 +1,4 @@
-import os
 import cv2
-import time
 import numpy as np
 import tempfile
 from kivy.logger import Logger
@@ -168,11 +166,6 @@ class PolaroidCollage(Collage):
         if len(image_paths) != self._count: raise Exception('Not enough photos to assemble. Expected {}.'.format(self._count))
 
         # Load the input image
-        print('PATH', image_paths[0])
-        while not os.path.exists(image_paths[0]):
-            time.sleep(1)
-            print('Does not exist')
-        print('Exist !!!!')
         input_image = cv2.imread(image_paths[0])
 
         # Define the size of the output image
