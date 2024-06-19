@@ -188,6 +188,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Printer is detected even when turned off
  - Issue with printer driver on linux (works on mac)
  - Add zoom for picamera2 to match gphoto2 zoom at 55mm
