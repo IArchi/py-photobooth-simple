@@ -135,7 +135,10 @@ class PhotoboothApp(App):
         return self.devices.print(self.get_collage()[1], options)
 
     def is_print_completed(self, print_task_id):
-        return self.devices.get_print_status(print_task_id) == 'done'
+        try:
+            return self.devices.get_print_status(print_task_id) == 'done'
+        except:
+            return True
 
     def save_collage(self):
         Logger.info('PhotoboothApp: save_collage().')

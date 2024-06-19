@@ -125,6 +125,12 @@ class ImageLabelButton(ButtonBehavior, BoxLayout):
     background_color = ListProperty([0, 0, 0, 0])  # Background color
     border_radius = NumericProperty(15)  # Border radius
 
+    def on_touch_up(self, touch):
+        if self.collide_point(*touch.pos):
+            # Handle touch release here
+            if super().on_touch_up(touch):
+                return True
+        return super(BoxLayout, self).on_touch_up(touch)
 
 Builder.load_string("""
 <BorderedLabel@Label>:
