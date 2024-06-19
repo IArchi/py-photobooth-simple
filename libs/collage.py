@@ -230,7 +230,7 @@ class PolaroidCollage(Collage):
             if output_path[1]: cv2.imwrite(output_path[1], polaroid_image)
         else:
             raise Exception('Unhandled output_path. Must be a string or a tuple(2) for small and large files.')
-        
+
 class FullpageCollage(Collage):
     def __init__(self, count=1):
         super(FullpageCollage, self).__init__(count=count, print_params={'PageSize':'w288h432', 'print-scaling':'fill'}, squared=False)
@@ -250,56 +250,67 @@ class FullpageCollage(Collage):
         input_image = cv2.imread(image_paths[0])
 
         # Define the size of the output image
-        output_width, output_height = 3840, 2480 # (297.600 points / 72) inches * 600 DPI = 2480 pixels
+        output_width, output_height = 3840, 2480
 
         # Create a new image with white background
         output_image = np.ones((output_height, output_width, 3), dtype=np.uint8) * 255
 
         # Calculate the size and position to paste the input image
         border_size = int(output_width * 0.05)
-        image_size = output_width - 2 * border_size
+        image_width = output_width - 2 * border_size
 
-        # Resize the input image to fit within the borders
-        print(input_image.shape)
-        input_image = cv2.resize(input_image, (image_size, int(input_image.shape[0] * image_size / input_image.shape[1])))
-        print(input_image.shape)
+        # Resize the input image to fit within the borders while maintaining aspect ratio
+        aspect_ratio = input_image.shape[1] / input_image.shape[0]
+        resized_height = int(image_width / aspect_ratio)
+        input_image = cv2.resize(input_image, (image_width, resized_height))
 
         # Calculate the position to paste the input image
         start_y = border_size
         start_x = border_size
 
         # Paste the input image onto the polaroid image
-        output_image[start_y:start_y+image_size, start_x:start_x+image_size] = input_image
+        output_image[start_y:start_y+resized_height, start_x:start_x+image_width] = input_image
 
         # Calculate available height for the logo including the bottom border
-        available_height = output_height - (start_y + image_size + 2 * border_size)
+        available_height = output_height - (start_y + resized_height + 2 * border_size)
 
-        if logo_path:
+        if logo_path and available_height > 0:
             # Load logo with alpha channel
             logo_image = cv2.imread(logo_path, cv2.IMREAD_UNCHANGED)
 
-            # Check if the logo image has an alpha channel
-            if logo_image.shape[2] == 4:
-                alpha_channel = logo_image[:, :, 3]
+            if logo_image is not None:
+                # Check if the logo image has an alpha channel
+                if logo_image.shape[2] == 4:
+                    alpha_channel = logo_image[:, :, 3]
+                else:
+                    # Create an alpha channel filled with 255 (fully opaque)
+                    alpha_channel = np.ones((logo_image.shape[0], logo_image.shape[1]), dtype=logo_image.dtype) * 255
+
+                # Resize logo to fit the available height while maintaining aspect ratio
+                logo_height = available_height
+                logo_aspect_ratio = logo_image.shape[1] / logo_image.shape[0]
+                logo_width = int(logo_height * logo_aspect_ratio)
+
+                # Ensure logo dimensions are positive
+                if logo_width > 0 and logo_height > 0:
+                    resized_logo = cv2.resize(logo_image, (logo_width, logo_height))
+                    resized_alpha = cv2.resize(alpha_channel, (logo_width, logo_height))
+
+                    # Calculate the position to paste the logo
+                    logo_start_x = (output_width - logo_width) // 2
+                    logo_start_y = start_y + resized_height + border_size
+
+                    # Blend the logo onto the polaroid image
+                    for c in range(0, 3):
+                        output_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] = \
+                            resized_logo[:, :, c] * (resized_alpha / 255.0) + \
+                            output_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] * (1.0 - resized_alpha / 255.0)
+                else:
+                    print(f"Invalid logo dimensions after resizing: width={logo_width}, height={logo_height}")
             else:
-                # Create an alpha channel filled with 255 (fully opaque)
-                alpha_channel = np.ones((logo_image.shape[0], logo_image.shape[1]), dtype=logo_image.dtype) * 255
-
-            # Resize logo to fit the available height
-            logo_height = available_height
-            logo_width = int(logo_image.shape[1] * (logo_height / logo_image.shape[0]))
-            resized_logo = cv2.resize(logo_image, (logo_width, logo_height))
-            resized_alpha = cv2.resize(alpha_channel, (logo_width, logo_height))
-
-            # Calculate the position to paste the logo
-            logo_start_x = (output_width - logo_width) // 2
-            logo_start_y = start_y + image_size + border_size
-
-            # Blend the logo onto the polaroid image
-            for c in range(0, 3):
-                output_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] = \
-                    resized_logo[:, :, c] * (resized_alpha / 255.0) + \
-                    output_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] * (1.0 - resized_alpha / 255.0)
+                print("Logo image could not be loaded.")
+        else:
+            print("No available height for logo or logo path is not provided.")
 
         if type(output_path) is str:
             # Write to file
@@ -312,6 +323,7 @@ class FullpageCollage(Collage):
             if output_path[1]: cv2.imwrite(output_path[1], output_image)
         else:
             raise Exception('Unhandled output_path. Must be a string or a tuple(2) for small and large files.')
+
 
 class CollageManager:
     STRIP = StripCollage(count=3)
