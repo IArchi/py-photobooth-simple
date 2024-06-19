@@ -136,8 +136,7 @@ sudo apt install -y printer-driver-gutenprint
 sudo /etc/init.d/cups restart
 ```
 
-Then go to `http://<raspberry-ip>:631/admin/`, declare a new printer and import `doc/Dai_Nippon_Printing_DP_DS620.ppd`.
-Change default paper size to 6x8 in printing setup.
+Then go to `http://<raspberry-ip>:631/admin/`, declare a new printer and import `doc/DS620.ppd`.
 
 ### Led ring (Only if you plan to install one)
 ```
@@ -188,5 +187,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Bug: printing screen is displayed twice
+ - Bug: Custom widgets trigger event multiple times
  - Add zoom for picamera2 to match gphoto2 zoom at 55mm

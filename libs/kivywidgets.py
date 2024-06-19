@@ -87,18 +87,7 @@ class ImageButton(ButtonBehavior, AsyncImage):
     pass
 
 class LayoutButton(ButtonBehavior, FloatLayout):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.register_event_type('on_single_release')
-
-    def on_single_release(self, *args):
-        pass
-
-    def on_touch_up(self, touch):
-        if self.collide_point(*touch.pos):
-            self.dispatch('on_single_release')
-            return True
-        return super().on_touch_up(touch)
+    pass
 
 Builder.load_string("""
 <ImageLabelButton>:
