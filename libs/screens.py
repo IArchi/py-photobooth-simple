@@ -869,7 +869,7 @@ class PrintingScreen(BackgroundScreen):
 
         # Trigger print
         try:
-            self._print_task_id = -1#self.app.trigger_print(self._current_copies, self._current_format)
+            self._print_task_id = self.app.trigger_print(self._current_copies, self._current_format)
             self._clock = Clock.schedule_once(self.timer_event, 10)
             self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
         except Exception as e:
