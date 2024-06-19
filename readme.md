@@ -188,5 +188,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Issue with printer driver on linux (works on mac)
+ - Bug: printing screen is displayed twice
  - Add zoom for picamera2 to match gphoto2 zoom at 55mm
