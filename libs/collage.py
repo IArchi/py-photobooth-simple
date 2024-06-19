@@ -61,7 +61,7 @@ class Collage:
 
 class StripCollage(Collage):
     def __init__(self, count=3):
-        super(StripCollage, self).__init__(count=count, print_params={'PageSize':'w288h432-div2'}, squared=False)
+        super(StripCollage, self).__init__(count=count, print_params={'PageSize':'w288h432-div2', 'print-scaling':'fill'}, squared=False)
 
     def get_preview(self, logo_path=None):
         Logger.info('StripCollage: get_preview()')
@@ -152,7 +152,7 @@ class StripCollage(Collage):
 
 class PolaroidCollage(Collage):
     def __init__(self, count=1):
-        super(PolaroidCollage, self).__init__(count=count, print_params={'PageSize':'w288h432'}, squared=True)
+        super(PolaroidCollage, self).__init__(count=count, print_params={'PageSize':'w288h432', 'print-scaling':'fill'}, squared=True)
 
     def get_preview(self, logo_path=None):
         Logger.info('PolaroidCollage: get_preview()')
