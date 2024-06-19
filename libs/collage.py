@@ -27,7 +27,7 @@ class Collage:
     def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
         return
 
-    def _resize(self, output_path, image, max_height=1080, max_width=1920):
+    def _resize(self, output_path=None, image=None, max_height=1080, max_width=1920):
         # Get original dimensions
         height, width = image.shape[:2]
 
@@ -48,7 +48,8 @@ class Collage:
             # If image is within the maximum dimensions, return the original image
             resized_image = image
 
-        cv2.imwrite(output_path, resized_image)
+        if output_path: cv2.imwrite(output_path, resized_image)
+        return resized_image
 
     def _create_dummy_photo(self, filename, squared=False):
         height, width = (1080, 1920) if not squared else (1080, 1080)
@@ -229,7 +230,90 @@ class PolaroidCollage(Collage):
             if output_path[1]: cv2.imwrite(output_path[1], polaroid_image)
         else:
             raise Exception('Unhandled output_path. Must be a string or a tuple(2) for small and large files.')
+        
+class FullpageCollage(Collage):
+    def __init__(self, count=1):
+        super(FullpageCollage, self).__init__(count=count, print_params={'PageSize':'w288h432', 'print-scaling':'fill'}, squared=False)
+
+    def get_preview(self, logo_path=None):
+        Logger.info('FullpageCollage: get_preview()')
+        _, tmp_input = tempfile.mkstemp(suffix='.jpg')
+        self._create_dummy_photo(tmp_input, squared=False)
+        _, tmp_output = tempfile.mkstemp(suffix='.jpg')
+        self.assemble((tmp_output, None), [tmp_input], logo_path)
+        return tmp_output
+
+    def assemble(self, output_path='collage.jpg', image_paths=[], logo_path=None):
+        if len(image_paths) != self._count: raise Exception('Not enough photos to assemble. Expected {}.'.format(self._count))
+
+        # Load the input image
+        input_image = cv2.imread(image_paths[0])
+
+        # Define the size of the output image
+        output_width, output_height = 3840, 2480 # (297.600 points / 72) inches * 600 DPI = 2480 pixels
+
+        # Create a new image with white background
+        output_image = np.ones((output_height, output_width, 3), dtype=np.uint8) * 255
+
+        # Calculate the size and position to paste the input image
+        border_size = int(output_width * 0.05)
+        image_size = output_width - 2 * border_size
+
+        # Resize the input image to fit within the borders
+        print(input_image.shape)
+        input_image = cv2.resize(input_image, (image_size, int(input_image.shape[0] * image_size / input_image.shape[1])))
+        print(input_image.shape)
+
+        # Calculate the position to paste the input image
+        start_y = border_size
+        start_x = border_size
+
+        # Paste the input image onto the polaroid image
+        output_image[start_y:start_y+image_size, start_x:start_x+image_size] = input_image
+
+        # Calculate available height for the logo including the bottom border
+        available_height = output_height - (start_y + image_size + 2 * border_size)
+
+        if logo_path:
+            # Load logo with alpha channel
+            logo_image = cv2.imread(logo_path, cv2.IMREAD_UNCHANGED)
+
+            # Check if the logo image has an alpha channel
+            if logo_image.shape[2] == 4:
+                alpha_channel = logo_image[:, :, 3]
+            else:
+                # Create an alpha channel filled with 255 (fully opaque)
+                alpha_channel = np.ones((logo_image.shape[0], logo_image.shape[1]), dtype=logo_image.dtype) * 255
+
+            # Resize logo to fit the available height
+            logo_height = available_height
+            logo_width = int(logo_image.shape[1] * (logo_height / logo_image.shape[0]))
+            resized_logo = cv2.resize(logo_image, (logo_width, logo_height))
+            resized_alpha = cv2.resize(alpha_channel, (logo_width, logo_height))
+
+            # Calculate the position to paste the logo
+            logo_start_x = (output_width - logo_width) // 2
+            logo_start_y = start_y + image_size + border_size
+
+            # Blend the logo onto the polaroid image
+            for c in range(0, 3):
+                output_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] = \
+                    resized_logo[:, :, c] * (resized_alpha / 255.0) + \
+                    output_image[logo_start_y:logo_start_y+logo_height, logo_start_x:logo_start_x+logo_width, c] * (1.0 - resized_alpha / 255.0)
+
+        if type(output_path) is str:
+            # Write to file
+            cv2.imwrite(output_path, output_image)
+        elif type(output_path) is tuple and len(output_path) == 2:
+            # First element is for preview only
+            self._resize(output_path[0], output_image)
+
+            # Second element is for printing
+            if output_path[1]: cv2.imwrite(output_path[1], output_image)
+        else:
+            raise Exception('Unhandled output_path. Must be a string or a tuple(2) for small and large files.')
 
 class CollageManager:
     STRIP = StripCollage(count=3)
     POLAROID = PolaroidCollage(count=1)
+    FULLPAGE = FullpageCollage(count=1)
