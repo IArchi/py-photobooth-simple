@@ -76,7 +76,7 @@ class StripCollage(Collage):
         Logger.info('StripCollage: assemble({})'.format(output_path))
 
         # Define the size of the output image
-        output_width, output_height = 1240, 3688 # Pixels*DPI/25.4 (25.4mm = 1 inch)
+        output_width, output_height = 1240, 3840 # Pixels*DPI/25.4 (25.4mm = 1 inch)
 
         # Calculate the size and position to paste the input image
         border_size = int(output_width * 0.05)
@@ -169,7 +169,7 @@ class PolaroidCollage(Collage):
         input_image = cv2.imread(image_paths[0])
 
         # Define the size of the output image
-        output_width, output_height = 2480, 3688 # 156.13 x 104.99 mm at 600 dpi  => Pixels*DPI/25.4 (25.4mm = 1 inch)
+        output_width, output_height = 2480, 3840 # (297.600 points / 72) inches * 600 DPI = 2480 pixels
 
         # Create a new image with white background
         polaroid_image = np.ones((output_height, output_width, 3), dtype=np.uint8) * 255
