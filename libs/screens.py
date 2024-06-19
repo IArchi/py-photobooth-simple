@@ -9,6 +9,7 @@ from kivy.graphics import Rectangle, Color, Line
 from kivy.uix.image import Image, AsyncImage
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
+from kivy.input.providers.mouse import MouseMotionEvent
 from kivy.core.window import Window
 
 from libs.kivywidgets import *
@@ -119,7 +120,7 @@ class WaitingScreen(BackgroundScreen):
         )
         overlay_layout.add_widget(version)
 
-        overlay_layout.bind(on_single_release=self.on_click)
+        overlay_layout.bind(on_release=self.on_click)
 
         self.add_widget(overlay_layout)
 
@@ -134,8 +135,10 @@ class WaitingScreen(BackgroundScreen):
 
     def on_click(self, obj):
         Logger.info('WaitingScreen: on_click().')
-        self.app.transition_to(ScreenMgr.SELECT_FORMAT)
-        return True
+        if isinstance(obj.last_touch, MouseMotionEvent):
+            self.app.transition_to(ScreenMgr.SELECT_FORMAT)
+        else:
+            Logger.info('WaitingScreen: {} event'.format(type(obj.last_touch)))
 
 class SelectFormatScreen(BackgroundScreen):
     """
