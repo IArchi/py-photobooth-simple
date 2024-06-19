@@ -213,12 +213,12 @@ class SelectFormatScreen(BackgroundScreen):
         Logger.info('SelectFormatScreen: on_exit().')
         self.app.ringled.clear()
 
-    def on_click_left(self, x, y=0):
+    def on_click_left(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('SelectFormatScreen: on_click_left().')
         self.app.transition_to(ScreenMgr.READY, shot=0, format=0)
 
-    def on_click_right(self, x, y=0):
+    def on_click_right(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('SelectFormatScreen: on_click_right().')
         self.app.transition_to(ScreenMgr.READY, shot=0, format=1)
