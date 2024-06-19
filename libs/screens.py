@@ -134,11 +134,9 @@ class WaitingScreen(BackgroundScreen):
         self.app.ringled.clear()
 
     def on_click(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('WaitingScreen: on_click().')
-        if isinstance(obj.last_touch, MouseMotionEvent):
-            self.app.transition_to(ScreenMgr.SELECT_FORMAT)
-        else:
-            Logger.info('WaitingScreen: {} event'.format(type(obj.last_touch)))
+        self.app.transition_to(ScreenMgr.SELECT_FORMAT)
 
 class SelectFormatScreen(BackgroundScreen):
     """
@@ -216,10 +214,12 @@ class SelectFormatScreen(BackgroundScreen):
         self.app.ringled.clear()
 
     def on_click_left(self, x, y=0):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('SelectFormatScreen: on_click_left().')
         self.app.transition_to(ScreenMgr.READY, shot=0, format=0)
 
     def on_click_right(self, x, y=0):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('SelectFormatScreen: on_click_right().')
         self.app.transition_to(ScreenMgr.READY, shot=0, format=1)
 
@@ -270,6 +270,7 @@ class ErrorScreen(BackgroundScreen):
         Logger.info('ErrorScreen: on_exit().')
 
     def on_click(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ErrorScreen: on_click().')
         self.app.transition_to(ScreenMgr.WAITING)
 
@@ -530,11 +531,13 @@ class ConfirmCaptureScreen(BackgroundScreen):
         Logger.info('ConfirmCaptureScreen: on_exit().')
 
     def yes_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_leave)
         if self._current_shot == self.app.get_shots_to_take(self._current_format) - 1: self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
         else: self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot + 1, format=self._current_format)
 
     def no_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_leave)
         self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
 
@@ -673,11 +676,13 @@ class ConfirmSaveScreen(BackgroundScreen):
         self.app.ringled.clear()
 
     def yes_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_confirm)
         self.app.save_collage()
         self.app.transition_to(ScreenMgr.SUCCESS)
 
     def no_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_confirm)
         self.app.transition_to(ScreenMgr.WAITING)
 
@@ -803,16 +808,19 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.app.ringled.clear()
 
     def print_once(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ConfirmPrintScreen: print_once().')
         Clock.unschedule(self.auto_decline)
         self.app.transition_to(ScreenMgr.PRINTING, copies=1, format=self._current_format)
 
     def print_twice(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ConfirmPrintScreen: print_twice().')
         Clock.unschedule(self.auto_decline)
         self.app.transition_to(ScreenMgr.PRINTING, copies=2, format=self._current_format)
 
     def no_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_decline)
         self.app.save_collage()
         self.app.transition_to(ScreenMgr.WAITING)
@@ -865,8 +873,7 @@ class PrintingScreen(BackgroundScreen):
             self._clock = Clock.schedule_once(self.timer_event, 10)
             self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
         except Exception as e:
-            raise e
-            #return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error'])
+            return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error'])
 
     def on_exit(self, kwargs={}):
         Logger.info('PrintingScreen: on_exit().')
