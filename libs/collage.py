@@ -76,7 +76,7 @@ class StripCollage(Collage):
         Logger.info('StripCollage: assemble({})'.format(output_path))
 
         # Define the size of the output image
-        output_width, output_height = 1240, 3840 # Pixels*DPI/25.4 (25.4mm = 1 inch)
+        output_width, output_height = 1240, 3840 # (297.600 points / 72) inches * 600 DPI = 2480 pixels
 
         # Calculate the size and position to paste the input image
         border_size = int(output_width * 0.05)
