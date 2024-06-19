@@ -135,6 +135,7 @@ class WaitingScreen(BackgroundScreen):
     def on_click(self, obj):
         Logger.info('WaitingScreen: on_click().')
         self.app.transition_to(ScreenMgr.SELECT_FORMAT)
+        return True
 
 class SelectFormatScreen(BackgroundScreen):
     """
