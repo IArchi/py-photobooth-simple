@@ -119,7 +119,7 @@ class WaitingScreen(BackgroundScreen):
         )
         overlay_layout.add_widget(version)
 
-        overlay_layout.bind(on_release=self.on_click)
+        overlay_layout.bind(on_single_release=self.on_click)
 
         self.add_widget(overlay_layout)
 
