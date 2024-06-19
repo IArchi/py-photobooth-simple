@@ -799,10 +799,12 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.app.ringled.clear()
 
     def print_once(self, obj):
+        Logger.info('ConfirmPrintScreen: print_once().')
         Clock.unschedule(self.auto_decline)
         self.app.transition_to(ScreenMgr.PRINTING, copies=1, format=self._current_format)
 
     def print_twice(self, obj):
+        Logger.info('ConfirmPrintScreen: print_twice().')
         Clock.unschedule(self.auto_decline)
         self.app.transition_to(ScreenMgr.PRINTING, copies=2, format=self._current_format)
 
@@ -855,7 +857,7 @@ class PrintingScreen(BackgroundScreen):
 
         # Trigger print
         try:
-            self._print_task_id = self.app.trigger_print(self._current_copies, self._current_format)
+            self._print_task_id = -1#self.app.trigger_print(self._current_copies, self._current_format)
             self._clock = Clock.schedule_once(self.timer_event, 10)
             self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
         except Exception as e:
