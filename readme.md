@@ -189,3 +189,4 @@ Application will not be usable during the copy process but will display a messag
 ## TODO
  - Add zoom for picamera2 to match gphoto2 zoom at 55mm
  - Fix strip prints (Maybe 4 photos ?) and cuts
+ - Buy pi camera module 3 for better quality ?
