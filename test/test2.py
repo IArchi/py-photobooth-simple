@@ -201,9 +201,9 @@ if __name__ == "__main__":
     fullpge_collage = fullpge.assemble(['../doc/dummy.png'], overlay='../overlay.png')
 
     # Display the final image
-    cv2.imshow('Preview', strip_preview)
     cv2.imshow('Collage', strip_collage)
+    cv2.imshow('Preview', strip_preview)
     cv2.waitKey(0)
-    cv2.imshow('Preview', fullpge_preview)
     cv2.imshow('Collage', fullpge_collage)
+    cv2.imshow('Preview', fullpge_preview)
     cv2.waitKey(0)
