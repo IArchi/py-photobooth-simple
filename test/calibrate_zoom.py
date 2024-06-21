@@ -1,6 +1,5 @@
 import sys
 import cv2
-import keyboard
 
 sys.path.append('..')
 from libs.file_utils import FileUtils
