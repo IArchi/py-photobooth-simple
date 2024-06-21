@@ -178,7 +178,8 @@ You can also edit `photoboothapp.py` to change some parameters such as:
  - FULLSCREEN = False (If set to True, the window fill take all available space)
  - COUNTDOWN = 3 (Countdown before the photo is taken)
  - DCIM_DIRECTORY = './DCIM' (Directory in which the photos and collages are stored)
- - PRINTER = 'truc' (The printer's name in CUPS)
+ - PRINTER = 'DS620' (The printer's name in CUPS)
+ - HYBRID_ZOOM = None (To make the preview and captures devices match. Run `test/calibration_zoom.py` to find the correct tupple to apply (zoom, offset_x, offset_y))
 
 ## USB dump
 A dedicated thread will handle USB dongles and automatically dump the whole content of the `DCIM_DIRECTORY` to the device.
@@ -187,7 +188,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Add zoom for picamera2 to match gphoto2 zoom at 55mm
- - Fix strip prints (Maybe 4 photos ?) and cuts
- - Print full size ?
+ - Test zoom
  - Buy pi camera module 3 for better quality ?

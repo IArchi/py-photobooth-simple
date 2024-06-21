@@ -13,6 +13,7 @@ from kivy.input.providers.mouse import MouseMotionEvent
 from kivy.core.window import Window
 
 from libs.kivywidgets import *
+from libs.file_utils import FileUtils
 
 XLARGE_FONT = '200sp'
 LARGE_FONT = '60sp'
@@ -159,12 +160,12 @@ class SelectFormatScreen(BackgroundScreen):
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
-        title = Label(
+        title = ResizeLabel(
             text=self.locales['select_format']['title'],
-            font_size=LARGE_FONT,
-            size_hint=(0.7, 0.2),
+            max_font_size=LARGE_FONT,
+            size_hint=(0.9, 0.2),
             padding=(30,30,30,30),
-            pos_hint={'x': 0.15, 'y': 0.8},
+            pos_hint={'x': 0.05, 'y': 0.8},
         )
         overlay_layout.add_widget(title)
 
@@ -172,8 +173,8 @@ class SelectFormatScreen(BackgroundScreen):
         available_formats = self.app.get_layout_previews()
         self.preview_left = ImageButton(
             source=available_formats[0],
-            size_hint=(0.3, 0.7),
-            pos_hint={'x': 0.1, 'y': 0.05},
+            size_hint=(0.4, 0.7),
+            pos_hint={'x': 0.05, 'y': 0.05},
         )
         overlay_layout.add_widget(self.preview_left)
         self.preview_left.bind(on_release=self.on_click_left)
@@ -475,11 +476,11 @@ class ConfirmCaptureScreen(BackgroundScreen):
         self.layout.add_widget(overlay_layout)
 
         # Add title
-        self.title = Label(
+        self.title = ResizeLabel(
             text=self.locales['capture']['title'].format(1, 'n'),
             size_hint=(0.8, 0.1),
-            pos_hint={'x': 0.1, 'y': 0.85},
-            font_size=NORMAL_FONT,
+            pos_hint={'x': 0.1, 'y': 0.88},
+            max_font_size=NORMAL_FONT,
         )
         overlay_layout.add_widget(self.title)
 
@@ -523,7 +524,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.title.text=self.locales['capture']['title'].format(self._current_shot + 1, self.app.get_shots_to_take(self._current_format))
         self.time_remaining = 10
-        self.preview.source = self.app.get_shot(self._current_shot)
+        self.preview.source = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
         self.preview.reload()
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
 
@@ -622,18 +623,18 @@ class ConfirmSaveScreen(BackgroundScreen):
         self.layout.add_widget(overlay_layout)
 
         # Add title
-        title = Label(
+        title = ResizeLabel(
             text=self.locales['save']['title'],
-            size_hint=(0.8, 0.1),
-            pos_hint={'x': 0.1, 'y': 0.85},
-            font_size=NORMAL_FONT,
+            size_hint=(0.9, 0.2),
+            pos_hint={'x': 0.05, 'y': 0.8},
+            max_font_size=NORMAL_FONT,
         )
         overlay_layout.add_widget(title)
 
         # Display collage
         self.preview = Image(
             fit_mode='contain',
-            size_hint=(0.5, 0.75),
+            size_hint=(0.6, 0.75),
             pos_hint={'x': 0.1, 'y': 0.05},
         )
         overlay_layout.add_widget(self.preview)
@@ -668,7 +669,7 @@ class ConfirmSaveScreen(BackgroundScreen):
         Logger.info('ConfirmSaveScreen: on_entry().')
         self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
-        self.preview.source = self.app.get_collage()[0]
+        self.preview.source = FileUtils.get_small_path(self.app.get_collage())
         self.preview.reload()
 
     def on_exit(self, kwargs={}):
@@ -716,17 +717,17 @@ class ConfirmPrintScreen(BackgroundScreen):
         # Display collage
         self.preview = Image(
             fit_mode='contain',
-            size_hint=(0.5, 0.75),
+            size_hint=(0.6, 0.75),
             pos_hint={'x': 0.1, 'y': 0.05},
         )
         self.overlay_layout.add_widget(self.preview)
 
         # Add title
-        title = Label(
+        title = ResizeLabel(
             text=self.locales['print']['title'],
-            size_hint=(0.8, 0.1),
-            pos_hint={'x': 0.1, 'y': 0.85},
-            font_size=NORMAL_FONT,
+            size_hint=(0.9, 0.2),
+            pos_hint={'x': 0.05, 'y': 0.8},
+            max_font_size=NORMAL_FONT,
         )
         self.overlay_layout.add_widget(title)
 
@@ -788,7 +789,7 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.overlay_layout.remove_widget(self.button_layout)
         self.overlay_layout.remove_widget(self.buttons_layout)
 
-        # Polaroid collage
+        # Full page collage
         if self._current_format == 0:
             self.overlay_layout.add_widget(self.buttons_layout)
         # Strip collage
@@ -800,7 +801,7 @@ class ConfirmPrintScreen(BackgroundScreen):
 
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
-        self.preview.source = self.app.get_collage()[0]
+        self.preview.source = FileUtils.get_small_path(self.app.get_collage())
         self.preview.reload()
 
     def on_exit(self, kwargs={}):
