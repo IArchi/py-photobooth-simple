@@ -89,14 +89,11 @@ class PhotoboothApp(App):
     def get_collage(self):
         return os.path.join(self.tmp_directory, 'collage.jpg')
 
-    def get_overlay(self):
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'overlay.png')
-
     def get_shots_to_take(self, format=0):
         return self.print_formats[format].get_photos_required()
 
     def get_layout_previews(self, format=0):
-        return [f.get_preview(overlay=self.get_overlay()) for f in self.print_formats]
+        return [f.get_preview() for f in self.print_formats]
 
     def is_square_format(self, format_idx):
         return self.print_formats[format_idx].is_squared()
@@ -115,7 +112,7 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_collage().')
         photos = []
         for i in range(0, self.get_shots_to_take(format)): photos.append(self.get_shot(i))
-        t = threading.Thread(target=self.print_formats[format].assemble, kwargs={'output_path':self.get_collage(), 'image_paths':photos, 'overlay':self.get_overlay()})
+        t = threading.Thread(target=self.print_formats[format].assemble, kwargs={'output_path':self.get_collage(), 'image_paths':photos})
         t.start()
         self.processes = [t]
 
