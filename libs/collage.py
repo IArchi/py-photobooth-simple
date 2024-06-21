@@ -1,4 +1,4 @@
-import sys
+import os
 import cv2
 import tempfile
 import numpy as np
@@ -7,12 +7,15 @@ from kivy.logger import Logger
 from libs.file_utils import FileUtils
 
 class Collage:
-    def __init__(self, count=1, print_params={}, squared=False):
+    def __init__(self, count=1, print_params={}, squared=False, overlay=None):
         Logger.info('Collage: __init__()')
         self._count = count
         self._print_params = print_params
         self._squared = squared
         self._margin_percent = 5
+        _module_dir = os.path.dirname(os.path.abspath(__file__))
+        self._dummy = os.path.join(_module_dir, '../doc/dummy.png')
+        self._overlay = os.path.join(_module_dir, overlay)
 
     def get_photos_required(self):
         Logger.info('Collage: get_photos_required()')
@@ -26,10 +29,10 @@ class Collage:
         Logger.info('Collage: get_print_params()')
         return self._print_params
 
-    def get_preview(self, overlay=None):
+    def get_preview(self):
         pass
 
-    def assemble(self, image_paths, overlay=None, output_path=None):
+    def assemble(self, image_paths, target_size=(1000, 1000), output_path=None):
         pass
 
     def _resize(self, image, max_size=(1080, 1920)):
@@ -76,11 +79,11 @@ class Collage:
         return image
 
 class FullpageCollage(Collage):
-    def __init__(self):
-        super(FullpageCollage, self).__init__(count=1, print_params={'PageSize':'w288h432', 'print-scaling':'fill'}, squared=False)
+    def __init__(self, overlay=None):
+        super(FullpageCollage, self).__init__(count=1, print_params={'PageSize':'w288h432', 'print-scaling':'fill'}, squared=False, overlay=overlay)
 
-    def get_preview(self, overlay=None):
-        collage = self.assemble(['./doc/dummy.png'], overlay=overlay)
+    def get_preview(self):
+        collage = self.assemble([self._dummy])
         collage = FileUtils.resize(collage)
 
         # Dump to temp file
@@ -88,7 +91,7 @@ class FullpageCollage(Collage):
         cv2.imwrite(tmp_output, collage)
         return tmp_output
 
-    def assemble(self, image_paths, target_size=(2480, 3840), overlay=None, output_path=None):
+    def assemble(self, image_paths, target_size=(2480, 3840), output_path=None):
         # Read the original image
         img = cv2.imread(image_paths[0], cv2.IMREAD_COLOR)
 
@@ -110,7 +113,7 @@ class FullpageCollage(Collage):
         new_img[margin_height:margin_height + new_height, margin_width:margin_width + new_width] = img_resized
 
         # Add overlay
-        if overlay: new_img = self._apply_overlay(new_img, overlay)
+        new_img = self._apply_overlay(new_img, self._overlay)
 
         # Dump to file
         if output_path:
@@ -123,12 +126,12 @@ class FullpageCollage(Collage):
         return new_img
 
 class StripCollage(Collage):
-    def __init__(self):
-        super(StripCollage, self).__init__(count=3, print_params={'PageSize':'w288h432-div2', 'print-scaling':'fill'}, squared=True)
+    def __init__(self, overlay=None):
+        super(StripCollage, self).__init__(count=3, print_params={'PageSize':'w288h432-div2', 'print-scaling':'fill'}, squared=True, overlay=overlay)
 
-    def get_preview(self, overlay=None):
-        image_paths = ['./doc/dummy.png' for _ in range(self._count)]
-        collage = self.assemble(image_paths, overlay=overlay)
+    def get_preview(self):
+        image_paths = [self._dummy for _ in range(self._count)]
+        collage = self.assemble(image_paths)
         collage = FileUtils.resize(collage)
 
         # Dump to temp file
@@ -136,7 +139,7 @@ class StripCollage(Collage):
         cv2.imwrite(tmp_output, collage)
         return tmp_output
 
-    def assemble(self, image_paths, target_size=(3840, 1240), overlay=None, output_path=None):
+    def assemble(self, image_paths, target_size=(3840, 1240), output_path=None):
         # Calculate margin size
         margin_height = int(target_size[0] * (self._margin_percent / 100))
         margin_width = int(target_size[1] * (self._margin_percent / 100))
@@ -169,7 +172,7 @@ class StripCollage(Collage):
                 break
 
         # Add overlay
-        if overlay: new_img = self._apply_overlay(new_img, overlay)
+        new_img = self._apply_overlay(new_img, self._overlay)
 
         # Dump to file
         if output_path:
@@ -184,5 +187,5 @@ class StripCollage(Collage):
         return new_img
 
 class CollageManager:
-    STRIP = StripCollage()
-    FULLPAGE = FullpageCollage()
+    STRIP = StripCollage(overlay='../overlays/strip.png')
+    FULLPAGE = FullpageCollage(overlay='../overlays/fullpage.png')
