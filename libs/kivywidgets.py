@@ -107,11 +107,11 @@ Builder.load_string("""
         fit_mode: 'contain'
         keep_ratio: True
 
-    Label:
+    ResizeLabel:
         text: root.text
         size_hint: None, None
         size: root.width - root.height * 0.8, root.height
-        font_size: root.font_size
+        max_font_size: root.font_size
         color: root.text_color
         halign: 'center'
         valign: 'middle'
@@ -124,13 +124,6 @@ class ImageLabelButton(ButtonBehavior, BoxLayout):
     font_size = NumericProperty(sp(16))
     background_color = ListProperty([0, 0, 0, 0])  # Background color
     border_radius = NumericProperty(15)  # Border radius
-
-    def on_touch_up(self, touch):
-        if self.collide_point(*touch.pos):
-            # Handle touch release here
-            if super().on_touch_up(touch):
-                return True
-        return super(BoxLayout, self).on_touch_up(touch)
 
 Builder.load_string("""
 <BorderedLabel@Label>:
@@ -151,6 +144,16 @@ class BorderedLabel(Label):
         if 'border_width' in kwargs:
             self.border_width = kwargs.pop('border_width')
         super(BorderedLabel, self).__init__(**kwargs)
+
+    def on_size(self, *args):
+        self.font_size = self.width / len(self.text) * 1.5
+
+class ResizeLabel(Label):
+    max_font_size = NumericProperty(sp(16))
+
+    def on_size(self, *args):
+        font_size = self.width / len(self.text) * 1.5
+        self.font_size = min(self.size[1] if font_size > self.size[1] else font_size, self.max_font_size)
 
 Builder.load_string("""
 <ShadowLabel>:

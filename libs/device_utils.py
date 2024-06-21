@@ -3,7 +3,8 @@ import tempfile
 import subprocess
 import numpy as np
 from kivy.logger import Logger
-from threading import Condition
+
+from libs.file_utils import FileUtils
 
 try:
     import cups
@@ -54,44 +55,10 @@ class CaptureDevice:
         # Crop the image
         return image[top:bottom, left:right]
 
-    def _resize(self, output_path, image, max_height=1080, max_width=1920):
-        # Get original dimensions
-        height, width = image.shape[:2]
-
-        # Calculate aspect ratio
-        aspect_ratio = width / height
-
-        # Determine new dimensions based on the aspect ratio
-        if width > max_width or height > max_height:
-            if (max_width / width) < (max_height / height):
-                new_width = max_width
-                new_height = int(new_width / aspect_ratio)
-            else:
-                new_height = max_height
-                new_width = int(new_height * aspect_ratio)
-
-            resized_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
-        else:
-            # If image is within the maximum dimensions, return the original image
-            resized_image = image
-
-        cv2.imwrite(output_path, resized_image)
-
-    def _get_original_path(self, path):
-        filename = os.path.basename(path)
-        name, ext = os.path.splitext(filename)
-        return f"{name}_original{ext}"
-
     def cv2_imshow(self, im, size=None):
         if size: im = im.reshape((size[1], size[0], 3))
         im = cv2.flip(im, 0)
         cv2.imshow('Camera', im)
-
-    def zoom(self, im, zoom=1.0):
-        h, w, _ = [ zoom * i for i in im.shape ]
-        cx, cy = w/2, h/2
-        im = cv2.resize(im, (0, 0), fx=zoom, fy=zoom)
-        return im[ int(round(cy - h/zoom * .5)) : int(round(cy + h/zoom * .5)), int(round(cx - w/zoom * .5)) : int(round(cx + w/zoom * .5)), : ]
 
 class PrintDevice:
     _instance = None
@@ -116,27 +83,31 @@ class Cv2Camera(CaptureDevice):
                         break
         if not self._instance: raise Exception('Cannot find any CV2 camera or CV2 is not installed.')
 
-    def get_preview(self, square=False):
+    def get_preview(self, square=False, zoom=None):
         ret, buf = self._instance.read()
         if not ret: return None
         im = cv2.flip(buf, 0)
         im = cv2.flip(im, 1)
         if square: im = self._crop_to_square(im)
+        if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
 
-    def capture(self, output_name, square=False, flash_fn=None):
+    def capture(self, output_name, square=False, zoom=None, flash_fn=None):
         if flash_fn and not self.has_physical_flash(): flash_fn()
-        ret, im_cv = self._instance.read()
-        if flash_fn and not self.has_physical_flash(): lash_fn(stop=True)
+        ret, im = self._instance.read()
+        if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
         if not ret: return
-        #im_cv = cv2.flip(im_cv, 0)
-        if square: im_cv = self._crop_to_square(im_cv)
+        #im = cv2.flip(im, 0)
+        if square: im = self._crop_to_square(im)
+        if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
         # Dump to file
-        cv2.imwrite(self._get_original_path(output_name), im)
+        cv2.imwrite(output_name, im)
 
         # Resize for display
-        self._resize(output_name, im)
+        resized_im = FileUtils.resize(im)
+        print(FileUtils.get_small_path(output_name))
+        cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
 
 class Gphoto2Camera(CaptureDevice):
     def __init__(self):
@@ -167,15 +138,16 @@ class Gphoto2Camera(CaptureDevice):
     def has_physical_flash(self):
         return True
 
-    def get_preview(self, square=False):
+    def get_preview(self, square=False, zoom=None):
         cfile = self._instance.capture_preview()
         buf = np.frombuffer(cfile.get_data(), dtype=np.uint8)
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
+        if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
 
-    def capture(self, output_name, square=False, flash_fn=None):
+    def capture(self, output_name, square=False, zoom=None, flash_fn=None):
         # Capture photo
         if flash_fn and not self.has_physical_flash(): flash_fn()
         cfile = self._instance.capture_image()
@@ -186,12 +158,14 @@ class Gphoto2Camera(CaptureDevice):
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
+        if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
         # Dump to file
-        cv2.imwrite(self._get_original_path(output_name), im)
+        cv2.imwrite(output_name, im)
 
         # Resize for display
-        self._resize(output_name, im)
+        resized_im = FileUtils.resize(im)
+        cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
@@ -205,24 +179,29 @@ class Picamera2Camera(CaptureDevice):
             self._instance.start()
         if not self._instance: raise Exception('Cannot find any Picamera2 or picamera2 is not installed.')
 
-    def get_preview(self, square=False):
+    def get_preview(self, square=False, zoom=None):
         im = self._instance.capture_array()
         #im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
+        if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
 
-    def capture(self, output_name, square=False, flash_fn=None):
+    def capture(self, output_name, square=False, zoom=None, flash_fn=None):
         self._instance.switch_mode(self._still_config)
         if flash_fn and not self.has_physical_flash(): flash_fn()
         im = self._instance.capture_array()
         if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
-        cv2.imwrite(self._get_original_path(output_name), im)
         self._instance.switch_mode(self._preview_config)
+        if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
+
+        # Dump to file
+        cv2.imwrite(output_name, im)
 
         # Resize for display
-        self._resize(output_name, im)
+        resized_im = FileUtils.resize(im)
+        cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
 
 class CupsPrinter(PrintDevice):
     _name = None
@@ -271,7 +250,9 @@ class DeviceUtils:
     _capture = None
     _printer = None
 
-    def __init__(self, printer_name=None, picamera2_port=0, cv2_port=-1):
+    def __init__(self, printer_name=None, picamera2_port=0, cv2_port=-1, zoom=None):
+        self._zoom = zoom
+
         try:
             self._printer = CupsPrinter(printer_name)
         except:
@@ -324,10 +305,10 @@ class DeviceUtils:
         return self._capture.has_physical_flash()
 
     def get_preview(self, square=False):
-        return self._preview.get_preview(square)
+        return self._preview.get_preview(square=square, zoom=self._zoom)
 
     def capture(self, output_name, square=False, flash_fn=None):
-        return self._capture.capture(output_name, square, flash_fn)
+        return self._capture.capture(output_name, square, self._zoom, flash_fn)
 
     def has_printer(self):
         if self._printer is None: return False

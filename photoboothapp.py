@@ -29,9 +29,10 @@ class PhotoboothApp(App):
     # Configuration
     LOCALES = Locales.get_FR
     FULLSCREEN = True
-    COUNTDOWN = 3
-    DCIM_DIRECTORY = './DCIM' #'/tmp/photobooth'
+    COUNTDOWN = 5
+    DCIM_DIRECTORY = './DCIM'
     PRINTER = 'DS620'
+    HYBRID_ZOOM = None # Run test/calibration_zoom.py to find the correct tupple to apply (zoom, offset_x, offset_y)
 
     def __init__(self, **kwargs):
         Logger.info('PhotoboothApp: __init__().')
@@ -42,8 +43,8 @@ class PhotoboothApp(App):
         self._requested_kwargs = None
         self.processes = []
         self.ringled = RINGLED
-        self.devices = DeviceUtils(printer_name=self.PRINTER)
-        self.print_formats = [CollageManager.POLAROID, CollageManager.STRIP]
+        self.devices = DeviceUtils(printer_name=self.PRINTER, zoom=self.HYBRID_ZOOM)
+        self.print_formats = [CollageManager.FULLPAGE, CollageManager.STRIP]
 
         # Create required directories
         self.tmp_directory = os.path.join(self.DCIM_DIRECTORY, 'tmp')
@@ -86,16 +87,16 @@ class PhotoboothApp(App):
         return os.path.join(self.tmp_directory, "capture-{}.jpg".format(shot_idx))
 
     def get_collage(self):
-        return (os.path.join(self.tmp_directory, 'collage_small.jpg'), os.path.join(self.tmp_directory, 'collage.jpg'))
+        return os.path.join(self.tmp_directory, 'collage.jpg')
 
-    def get_logo(self):
-        return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logo.png')
+    def get_overlay(self):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'overlay.png')
 
     def get_shots_to_take(self, format=0):
         return self.print_formats[format].get_photos_required()
 
     def get_layout_previews(self, format=0):
-        return [f.get_preview(self.get_logo()) for f in self.print_formats]
+        return [f.get_preview(overlay=self.get_overlay()) for f in self.print_formats]
 
     def is_square_format(self, format_idx):
         return self.print_formats[format_idx].is_squared()
@@ -114,13 +115,13 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_collage().')
         photos = []
         for i in range(0, self.get_shots_to_take(format)): photos.append(self.get_shot(i))
-        t = threading.Thread(target=self.print_formats[format].assemble, kwargs={'output_path':self.get_collage(), 'image_paths':photos, 'logo_path':self.get_logo()})
+        t = threading.Thread(target=self.print_formats[format].assemble, kwargs={'output_path':self.get_collage(), 'image_paths':photos, 'overlay':self.get_overlay()})
         t.start()
         self.processes = [t]
 
     def is_collage_completed(self):
         if any(process.is_alive() for process in self.processes): return False
-        return os.path.isfile(self.get_collage()[1])
+        return True
 
     def has_physical_flash(self):
         return self.devices.has_physical_flash()
@@ -132,7 +133,7 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_print().')
         options = self.print_formats[format].get_print_params()
         options['copies'] = str(copies)
-        return self.devices.print(self.get_collage()[1], options)
+        return self.devices.print(self.get_collage(), options)
 
     def is_print_completed(self, print_task_id):
         try:
@@ -153,6 +154,7 @@ class PhotoboothApp(App):
 
         # Move to save_directory
         for f in all_files:
+            if '_small' in f: continue
             src_path = os.path.join(self.tmp_directory, f)
             dst_path = os.path.join(destination, f)
             os.rename(src_path, dst_path)

@@ -6,7 +6,7 @@ from libs.device_utils import Gphoto2Camera
 
 # Connect to camera
 camera = Gphoto2Camera()
-while False:
+while True:
     im = camera.get_preview()
     if im is None: continue
     camera.cv2_imshow(im)
