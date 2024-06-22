@@ -188,6 +188,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Design overlays
  - Buy pi camera module 3 for better quality ?
  - Enable auto restart on crash
