@@ -165,13 +165,11 @@ class PhotoboothApp(App):
             os.remove(src_path)
 
 if __name__ == '__main__':
-    PhotoboothApp().run()
-
-    # # Auto restart app on crash
-    # while True:
-    #     try:
-    #         PhotoboothApp().run()
-    #         break # stop the loop if the app completes sucessfully
-    #     except Exception as e:
-    #         print("Application errored out!", e)
-    #         print("Retrying ... ")
+    # Auto restart app on crash
+    while True:
+        try:
+            PhotoboothApp().run()
+            break # stop the loop if the app completes sucessfully
+        except Exception as e:
+            print("Application errored out!", e)
+            print("Retrying ... ")
