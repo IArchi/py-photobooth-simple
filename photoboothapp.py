@@ -18,9 +18,12 @@ from libs.collage import *
 from libs.usb_transfer import UsbTransfer
 
 RINGLED = RingLed(num_pixels=12)
+autorestart = True
 
 def signal_handler(sig, frame):
+    global autorestart
     print("\nCtrl+C detected. Exiting gracefully...")
+    autorestart = False
     if RINGLED: RINGLED.clear()
     sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
@@ -166,12 +169,11 @@ class PhotoboothApp(App):
             os.remove(src_path)
 
 if __name__ == '__main__':
-    PhotoboothApp().run()
     # Auto restart app on crash
-    # while True:
-    #     try:
-    #         PhotoboothApp().run()
-    #         break # stop the loop if the app completes sucessfully
-    #     except Exception as e:
-    #         print("Application errored out!", e)
-    #         print("Retrying ... ")
+    while autorestart:
+        try:
+            PhotoboothApp().run()
+            break # stop the loop if the app completes sucessfully
+        except Exception as e:
+            print("Application errored out!", e)
+            print("Retrying ... ")
