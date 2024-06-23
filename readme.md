@@ -171,15 +171,14 @@ python3 photoboothapp.py
 ```
 
 ## Customization
-To customize collages, you can edit `logo.png`. As a PNG file, you can use transparency.
-
 You can also edit `photoboothapp.py` to change some parameters such as:
  - LOCALES = Locales.get_EN (To select language to use among EN and FR)
  - FULLSCREEN = False (If set to True, the window fill take all available space)
  - COUNTDOWN = 3 (Countdown before the photo is taken)
  - DCIM_DIRECTORY = './DCIM' (Directory in which the photos and collages are stored)
  - PRINTER = 'DS620' (The printer's name in CUPS)
- - HYBRID_ZOOM = None (To make the preview and captures devices match. Run `test/calibration_zoom.py` to find the correct tupple to apply (zoom, offset_x, offset_y))
+ - HYBRID_ZOOM = None (To make the preview and captures devices match. Run `test/calibration_zoom.py` to find the correct tuple to apply (zoom, offset_x, offset_y))
+ - OVERLAY_INDEX = 0 (Select current overlay among `/overlays` directory)
 
 ## USB dump
 A dedicated thread will handle USB dongles and automatically dump the whole content of the `DCIM_DIRECTORY` to the device.
