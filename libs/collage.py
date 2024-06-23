@@ -185,7 +185,3 @@ class StripCollage(Collage):
             cv2.imwrite(FileUtils.get_small_path(output_path), small)
 
         return new_img
-
-class CollageManager:
-    STRIP = StripCollage(overlay='../overlays/strip.png')
-    FULLPAGE = FullpageCollage(overlay='../overlays/fullpage.png')

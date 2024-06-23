@@ -14,7 +14,7 @@ from libs.locales import Locales
 from libs.device_utils import DeviceUtils
 from libs.screens import ScreenMgr
 from libs.ringled import RingLed
-from libs.collage import CollageManager
+from libs.collage import *
 from libs.usb_transfer import UsbTransfer
 
 RINGLED = RingLed(num_pixels=12)
@@ -33,6 +33,7 @@ class PhotoboothApp(App):
     DCIM_DIRECTORY = './DCIM'
     PRINTER = 'DS620'
     HYBRID_ZOOM = None # Run test/calibration_zoom.py to find the correct tupple to apply (zoom, offset_x, offset_y)
+    OVERLAY_INDEX = 0
 
     def __init__(self, **kwargs):
         Logger.info('PhotoboothApp: __init__().')
@@ -44,7 +45,7 @@ class PhotoboothApp(App):
         self.processes = []
         self.ringled = RINGLED
         self.devices = DeviceUtils(printer_name=self.PRINTER, zoom=self.HYBRID_ZOOM)
-        self.print_formats = [CollageManager.FULLPAGE, CollageManager.STRIP]
+        self.print_formats = [FullpageCollage(overlay='../overlays/fullpage{}.png'.format(self.OVERLAY_INDEX)), StripCollage(overlay='../overlays/strip{}.png'.format(self.OVERLAY_INDEX))]
 
         # Create required directories
         self.tmp_directory = os.path.join(self.DCIM_DIRECTORY, 'tmp')
@@ -165,11 +166,12 @@ class PhotoboothApp(App):
             os.remove(src_path)
 
 if __name__ == '__main__':
+    PhotoboothApp().run()
     # Auto restart app on crash
-    while True:
-        try:
-            PhotoboothApp().run()
-            break # stop the loop if the app completes sucessfully
-        except Exception as e:
-            print("Application errored out!", e)
-            print("Retrying ... ")
+    # while True:
+    #     try:
+    #         PhotoboothApp().run()
+    #         break # stop the loop if the app completes sucessfully
+    #     except Exception as e:
+    #         print("Application errored out!", e)
+    #         print("Retrying ... ")
