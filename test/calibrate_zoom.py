@@ -14,7 +14,7 @@ devices = DeviceUtils()
 if devices._preview == devices._capture:
     print('Your system is not hybrid (DSLR + Webcam or DSLR + piCamera).')
     print('Zoom to set in configuration:')
-    print('HYBRID_ZOOM=None')
+    print('CALIBRATION = None')
 else:
     current_zoom = 1.0
     current_x_offset = 0
@@ -68,4 +68,4 @@ else:
     cv2.destroyAllWindows()
 
     print('Zoom to set in configuration:')
-    print('HYBRID_ZOOM={}'.format((current_zoom, current_x_offset, current_y_offset)))
+    print('CALIBRATION = {}'.format((current_zoom, current_x_offset, current_y_offset)))

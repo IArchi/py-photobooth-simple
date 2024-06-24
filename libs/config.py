@@ -21,6 +21,9 @@ class Config:
         printer = self.config.get('Picture', 'PRINTER')
         return printer if printer != 'None' else None
 
-    def get_hybrid_zoom(self):
-        hybrid_zoom = self.config.get('Picture', 'HYBRID_ZOOM')
-        return eval(hybrid_zoom) if hybrid_zoom != 'None' else None
+    def get_calibration(self):
+        calibration = self.config.get('Picture', 'CALIBRATION')
+        return eval(calibration) if calibration != 'None' else None
+    
+    def get_overlay(self):
+        return self.config.getint('Picture', 'OVERLAY')
