@@ -24,10 +24,17 @@ If one of these is not available, it will use the first available one.
 Tested on MacOs Sonoma and RaspberryPi 5 8GB with Pi Camera module 3.
 
 ## Materials
-| Name | Link | Price |
-|-------------|-------|
-| TODO | TODO | 0.00  |
-TODO
+| Product                              | Links                                                                                                             |
+|--------------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| Raspberry Pi 5                       | https://www.raspberrypi.com/products/raspberry-pi-5/                                                              |
+| Pi camera module 3                   | https://www.raspberrypi.com/products/camera-module-3/                                                             |
+| Led Ring 5V - 12 bits                | https://www.az-delivery.de/en/products/rgb-led-ring-ws2812-mit-12-rgb-leds-5v-fuer-arduino?variant=18912609108064 |
+| DNP DS620 printer                    | https://www.dnpphoto.eu/en/product-range/photo-printers/item/120-ds620                                            |
+| Canon EOS 2000D (EU) / Rebel T7 (US) | https://global.canon/en/c-museum/product/dslr873.html                                                             |
+| Ingcool 7" touchscreen               | http://www.ingcool.com/wiki/7DP-CAPLCD                                                                            |
+| Godox Flash MS300V                   | https://store.godox.eu/en/flash-lamps/5732-godox-ms300-v-studio-flash-6952344225646.html                          |
+| Godox BDR-W420 Beauty Dish 42cm      | https://store.godox.eu/en/beauty-dish/101-godox-bdr-w420-beauty-dish-420mm-white-bounce-6952344206126.html        |
+| Pixel TF-321 Hot Shoe                |                                                                                                                   |
 
 ## Installation
 
