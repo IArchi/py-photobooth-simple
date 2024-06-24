@@ -10,6 +10,7 @@ from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.uix.screenmanager import NoTransition
 
+from libs.config import Config
 from libs.locales import Locales
 from libs.device_utils import DeviceUtils
 from libs.screens import ScreenMgr
@@ -26,18 +27,20 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 class PhotoboothApp(App):
-    # Configuration
-    LOCALES = Locales.get_FR
-    FULLSCREEN = True
-    COUNTDOWN = 5
-    DCIM_DIRECTORY = './DCIM'
-    PRINTER = 'DS620'
-    HYBRID_ZOOM = None # Run test/calibration_zoom.py to find the correct tupple to apply (zoom, offset_x, offset_y)
-
     def __init__(self, **kwargs):
         Logger.info('PhotoboothApp: __init__().')
         super(PhotoboothApp, self).__init__(**kwargs)
 
+        # Load configuration
+        config = Config()
+        self.LOCALES = getattr(Locales, 'get_{}'.format(config.get_locales()))
+        self.FULLSCREEN = config.get_fullscreen()
+        self.COUNTDOWN = config.get_countdown()
+        self.DCIM_DIRECTORY = config.get_dcim_directory()
+        self.PRINTER = config.get_printer()
+        self.HYBRID_ZOOM = config.get_hybrid_zoom()
+
+        # Assign local variables
         self.sm = None
         self._requested_screen = None
         self._requested_kwargs = None
