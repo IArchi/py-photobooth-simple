@@ -1,6 +1,6 @@
 class Locales:
     @staticmethod
-    def get_EN(self):
+    def get_EN():
         return {
             'waiting': {
                 'action': 'Press to begin',
@@ -56,7 +56,7 @@ class Locales:
         }
 
     @staticmethod
-    def get_FR(self):
+    def get_FR():
         return {
             'waiting': {
                 'action': 'Appuyez pour démarrer',

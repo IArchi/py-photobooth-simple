@@ -171,14 +171,14 @@ python3 photoboothapp.py
 ```
 
 ## Customization
-You can also edit `photoboothapp.py` to change some parameters such as:
- - LOCALES = Locales.get_EN (To select language to use among EN and FR)
- - FULLSCREEN = False (If set to True, the window fill take all available space)
- - COUNTDOWN = 3 (Countdown before the photo is taken)
- - DCIM_DIRECTORY = './DCIM' (Directory in which the photos and collages are stored)
- - PRINTER = 'DS620' (The printer's name in CUPS)
- - HYBRID_ZOOM = None (To make the preview and captures devices match. Run `test/calibration_zoom.py` to find the correct tuple to apply (zoom, offset_x, offset_y))
- - OVERLAY_INDEX = 0 (Select current overlay among `/overlays` directory)
+You can also edit `config.ini` to change some parameters such as:
+ - Selected language ;
+ - Full screen window ;
+ - Countdown before the photo is taken ;
+ - Directory in which the photos and collages are stored ;
+ - Printer's name in CUPS ;
+ - Calibration matrix if using hybrid mode (DSLR + piCamera or DSLR + webcam) ;
+ - Overlay to use.
 
 ## USB dump
 A dedicated thread will handle USB dongles and automatically dump the whole content of the `DCIM_DIRECTORY` to the device.

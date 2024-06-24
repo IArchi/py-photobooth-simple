@@ -41,7 +41,8 @@ class PhotoboothApp(App):
         self.COUNTDOWN = config.get_countdown()
         self.DCIM_DIRECTORY = config.get_dcim_directory()
         self.PRINTER = config.get_printer()
-        self.HYBRID_ZOOM = config.get_hybrid_zoom()
+        self.CALIBRATION = config.get_calibration()
+        self.OVERLAY_INDEX = config.get_overlay()
 
         # Assign local variables
         self.sm = None
@@ -49,7 +50,7 @@ class PhotoboothApp(App):
         self._requested_kwargs = None
         self.processes = []
         self.ringled = RINGLED
-        self.devices = DeviceUtils(printer_name=self.PRINTER, zoom=self.HYBRID_ZOOM)
+        self.devices = DeviceUtils(printer_name=self.PRINTER, zoom=self.CALIBRATION)
         self.print_formats = [FullpageCollage(overlay='../overlays/fullpage{}.png'.format(self.OVERLAY_INDEX)), StripCollage(overlay='../overlays/strip{}.png'.format(self.OVERLAY_INDEX))]
 
         # Create required directories
