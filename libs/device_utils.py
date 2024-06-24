@@ -320,7 +320,6 @@ class DeviceUtils:
             # Define common keywords and vendor names associated with printers
             printer_keywords = [
                 'Print',          # Generic term
-                'Canon',          # Canon printers
                 'Epson',          # Epson printers
                 'HP',             # HP printers
                 'Brother',        # Brother printers
