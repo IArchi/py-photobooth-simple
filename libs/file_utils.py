@@ -10,7 +10,7 @@ class FileUtils:
         name, ext = os.path.splitext(filename)
         new_filename = f"{name}_small{ext}"
         return os.path.join(directory, new_filename)
-    
+
     @staticmethod
     def resize(image, max_height=1080, max_width=1920):
         # Get original dimensions
@@ -34,7 +34,7 @@ class FileUtils:
             resized_image = image
 
         return resized_image
-    
+
     @staticmethod
     def resize_and_crop(image, target_size):
         # Calculate aspect ratios
@@ -70,17 +70,17 @@ class FileUtils:
             return cropped_image
         else:
             return resized_image
-        
+
     @staticmethod
-    def zoom(im, zoom=1.0, x_offset=0, y_offset=0):
-        h, w, _ = [ int(zoom * i) for i in im.shape ]
-        if zoom < 1.0: raise Exception('Zoom must be greater than 1.0')
+    def zoom(im, zoom=(1.0, 0, 0)):
+        h, w, _ = [ int(zoom[0] * i) for i in im.shape ]
+        if zoom[0] < 1.0: raise Exception('Zoom must be greater than 1.0')
         cx, cy = w/2, h/2
-        im = cv2.resize(im, (0, 0), fx=zoom, fy=zoom)
-        cx = cx - x_offset
-        cy = cy - y_offset
-        y_start = max(0, int(round(cy - h / (2 * zoom))))
-        y_end = min(int(round(cy + h / (2 * zoom))), im.shape[0])
-        x_start = max(0, int(round(cx - w / (2 * zoom))))
-        x_end = min(int(round(cx + w / (2 * zoom))), im.shape[1])
+        im = cv2.resize(im, (0, 0), fx=zoom[0], fy=zoom[0])
+        cx = cx - zoom[1]
+        cy = cy - zoom[2]
+        y_start = max(0, int(round(cy - h / (2 * zoom[0]))))
+        y_end = min(int(round(cy + h / (2 * zoom[0]))), im.shape[0])
+        x_start = max(0, int(round(cx - w / (2 * zoom[0]))))
+        x_end = min(int(round(cx + w / (2 * zoom[0]))), im.shape[1])
         return im[y_start:y_end, x_start:x_end, :]

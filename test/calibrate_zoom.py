@@ -1,6 +1,5 @@
 import sys
 import cv2
-import keyboard
 
 sys.path.append('..')
 from libs.file_utils import FileUtils
@@ -33,11 +32,11 @@ else:
 
         if current_zoom < 1.0:
             # Zoom should apply on capture image
-            capture_im = FileUtils.zoom(capture_im, 1.0/current_zoom, current_x_offset, current_y_offset)
+            capture_im = FileUtils.zoom(capture_im, (1.0/current_zoom, current_x_offset, current_y_offset))
             im = _merge_transparency(preview_im, capture_im)
         else:
             # Zoom should apply on preview image
-            preview_im = FileUtils.zoom(preview_im, current_zoom, current_x_offset, current_y_offset)
+            preview_im = FileUtils.zoom(preview_im, (current_zoom, current_x_offset, current_y_offset))
             im = _merge_transparency(capture_im, preview_im)
 
         # Display info
@@ -46,10 +45,10 @@ else:
         im = cv2.putText(im, 'Offset Y (Keys: y or u): {}'.format(current_y_offset), (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         im = cv2.putText(im, 'Reset (Key: r)', (10, 200), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
         im = cv2.putText(im, 'Exit (Key: q)', (10, 250), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-        
+
         # Display images
         cv2.imshow('Calibration', im)
-        
+
         # Controls
         key = cv2.waitKey(1)
         if key == ord('q') or key == 27: break
