@@ -13,7 +13,7 @@ It relies on a state machine to display screens.
 ![Print screen](doc/print.png)
 
 ## Cameras
-The application is compatible with [piCamera module 3](https://www.raspberrypi.com/products/camera-module-3/) (or [Arducam 64Mp B0399](https://www.arducam.com/product/64mp-af-for-raspberry-pi/)), DSLR and CV2 devices.
+The application is compatible with [piCamera module 3](https://www.raspberrypi.com/products/camera-module-3/) (or [Arducam OV64A40 64Mpx](https://www.arducam.com/product/arducam-1-1-32-64mp-autofocus-camera-module-for-raspebrry-pi/)), DSLR and CV2 devices.
 By default, it will try to use the best available quality:
  - If piCamera/Arducam is connected, it will be used for preview ;
  - If DSLR is connected, it will be used for capture ;
@@ -53,17 +53,15 @@ pip3 install -r requirements.txt --break-system-packages
 
 ### Customize Pi and enable Kiosk mode
 ```
-# Hide mouse
-echo "autohide = true" >> .config/wf-panel-pi.ini
-echo "autohide_duration = 500" >> .config/wf-panel-pi.ini
-echo "layer = top" >> .config/wf-panel-pi.ini
+# Hide mouse and panel
+sudo sed -i 's/\[autostart\]/\[autostart]\r\background = wf-background/g /etc/wayfire/defaults.ini
 
 # Hide taskbar
 #sudo sed -i 's/^@lxpanel --profile LXDE-pi/#@lxpanel --profile LXDE-pi/' /etc/xdg/lxsession/LXDE-pi/autostart
 sudo sed -i '/^[^#].*wfrespawn wf-panel-pi/ s/^/# /' /etc/wayfire/defaults.ini
 
 # Disable power warning
-echo "avoid_warnings=1" | sudo tee -a /boot/config.txt && sudo apt remove lxplug-ptbatt -y
+echo "avoid_warnings=1" | sudo tee -a /boot/firmware/config.txt && sudo apt remove lxplug-ptbatt -y
 
 # Disable media mount dialog
 sudo sed -i -e 's/autorun=1/autorun=0/g' /etc/xdg/pcmanfm/LXDE-pi/pcmanfm.conf
@@ -83,11 +81,17 @@ sudo sh -c "echo 'hdmi_drive=1' >> /boot/firmware/config.txt"
 sudo sh -c "echo '' >> /boot/firmware/config.txt"
 ```
 
-### Install Raspberry Camera Module V3 (Only if you plan to use one)
+### Install Raspberry Camera Module V3 (Only if you plan to use one. Hightly suggested)
 
 ```
 # Allocate more memory
 sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
+
+# Enable camera
+sudo sh -c "echo '# Camera module 3' >> /boot/firmware/config.txt"
+sudo sh -c "echo 'dtoverlay=imx708,cam0' >> /boot/firmware/config.txt"
+sudo sh -c "echo '' >> /boot/firmware/config.txt"
+
 
 # Reboot
 sudo reboot
@@ -97,11 +101,16 @@ libcamera-still --list-camera
 libcamera-still --autofocus-mode=auto -f -o test.jpg
 ```
 
-### Install Arducam 64 B0399 (Only if you plan to use one)
+### Install Arducam OV64A40 (Only if you plan to use one)
 
 ```
-# Install driver
-./scripts/arducam_driver.sh
+# Allocate more memory
+sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
+
+# Enable camera
+sudo sh -c "echo '# Arducam OV64A40' >> /boot/firmware/config.txt"
+sudo sh -c "echo 'dtoverlay=ov64a40,cam0,link-frequency=360000000' >> /boot/firmware/config.txt"
+sudo sh -c "echo '' >> /boot/firmware/config.txt"
 
 # Reboot
 sudo reboot
