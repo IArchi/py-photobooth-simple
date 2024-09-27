@@ -152,7 +152,11 @@ sudo apt install -y printer-driver-gutenprint
 sudo /etc/init.d/cups restart
 ```
 
-Then go to `http://<raspberry-ip>:631/admin/`, declare a new printer and import `doc/DS620.ppd`.
+ - Connect the printer through USB ;
+ - Go to `https://<raspberry-ip>:631/admin/` ;
+ - Declare a new printer (credentials are the ones to connect to SSH) ;
+ - Name it `DS620` (Accordingly to your `config.ini`);
+ - Select DNP brand and DS620 model.
 
 ### Led ring (Only if you plan to install one)
 ```
