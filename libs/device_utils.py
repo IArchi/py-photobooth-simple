@@ -156,7 +156,7 @@ class Gphoto2Camera(CaptureDevice):
         # Rotate and crop if necessary
         buf = np.frombuffer(cfile.get_data(), dtype=np.uint8)
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-        im = cv2.rotate(im, cv2.ROTATE_180)
+        #im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
@@ -172,8 +172,8 @@ class Picamera2Camera(CaptureDevice):
         if Picamera2:
             self._instance = Picamera2(camera_num=port)
 
-            self._preview_config = self._instance.create_preview_configuration(main={'format': 'RGB888', 'size': (1920, 1080)}, controls={'FrameRate': 30})
-            self._still_config = self._instance.create_still_configuration(main={"size": (1920, 1080), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
+            self._preview_config = self._instance.create_preview_configuration(main={'format': 'RGB888', 'size': (2304, 1296)}, controls={'FrameRate': 30})
+            self._still_config = self._instance.create_still_configuration(main={"size": (2304, 1296), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
             self._instance.configure(self._preview_config)
             self._instance.set_controls({'AfMode': controls.AfModeEnum.Continuous, 'AfSpeed': controls.AfSpeedEnum.Fast})
             self._instance.start()
@@ -181,7 +181,7 @@ class Picamera2Camera(CaptureDevice):
 
     def get_preview(self, square=False, zoom=None):
         im = self._instance.capture_array()
-        #im = cv2.rotate(im, cv2.ROTATE_180)
+        im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
