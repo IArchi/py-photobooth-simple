@@ -80,7 +80,7 @@ class Collage:
 
 class FullpageCollage(Collage):
     def __init__(self, overlay=None):
-        super(FullpageCollage, self).__init__(count=1, print_params={'PageSize':'w288h432', 'print-scaling':'fill'}, squared=False, overlay=overlay)
+        super(FullpageCollage, self).__init__(count=1, print_params={'PageSize':'w288h432', 'print-scaling':'fit'}, squared=False, overlay=overlay)
 
     def get_preview(self):
         collage = self.assemble([self._dummy])
@@ -91,7 +91,7 @@ class FullpageCollage(Collage):
         cv2.imwrite(tmp_output, collage)
         return tmp_output
 
-    def assemble(self, image_paths, target_size=(2480, 3840), output_path=None):
+    def assemble(self, image_paths, target_size=(2880, 4320), output_path=None):
         # Read the original image
         img = cv2.imread(image_paths[0], cv2.IMREAD_COLOR)
 
@@ -127,7 +127,7 @@ class FullpageCollage(Collage):
 
 class StripCollage(Collage):
     def __init__(self, overlay=None):
-        super(StripCollage, self).__init__(count=3, print_params={'PageSize':'w288h432-div2', 'print-scaling':'fill'}, squared=True, overlay=overlay)
+        super(StripCollage, self).__init__(count=3, print_params={'PageSize':'w288h432-div2', 'print-scaling':'fit'}, squared=True, overlay=overlay)
 
     def get_preview(self):
         image_paths = [self._dummy for _ in range(self._count)]
@@ -139,7 +139,7 @@ class StripCollage(Collage):
         cv2.imwrite(tmp_output, collage)
         return tmp_output
 
-    def assemble(self, image_paths, target_size=(3840, 1240), output_path=None):
+    def assemble(self, image_paths, target_size=(4320, 1440), output_path=None):
         # Calculate margin size
         margin_height = int(target_size[0] * (self._margin_percent / 100))
         margin_width = int(target_size[1] * (self._margin_percent / 100))
