@@ -13,9 +13,9 @@ It relies on a state machine to display screens.
 ![Print screen](doc/print.png)
 
 ## Cameras
-The application is compatible with [piCamera module 3](https://www.raspberrypi.com/products/camera-module-3/) (or [Arducam OV64A40 64Mpx](https://www.arducam.com/product/arducam-1-1-32-64mp-autofocus-camera-module-for-raspebrry-pi/)), DSLR and CV2 devices.
+The application is compatible with [piCamera module 3](https://www.raspberrypi.com/products/camera-module-3/), DSLR and CV2 devices.
 By default, it will try to use the best available quality:
- - If piCamera/Arducam is connected, it will be used for preview ;
+ - If piCamera is connected, it will be used for preview ;
  - If DSLR is connected, it will be used for capture ;
 
 If one of these is not available, it will use the first available one.
@@ -92,25 +92,6 @@ sudo sh -c "echo '# Camera module 3' >> /boot/firmware/config.txt"
 sudo sh -c "echo 'dtoverlay=imx708,cam0' >> /boot/firmware/config.txt"
 sudo sh -c "echo '' >> /boot/firmware/config.txt"
 
-
-# Reboot
-sudo reboot
-
-# Test
-libcamera-still --list-camera
-libcamera-still --autofocus-mode=auto -f -o test.jpg
-```
-
-### Install Arducam OV64A40 (Only if you plan to use one)
-
-```
-# Allocate more memory
-sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
-
-# Enable camera
-sudo sh -c "echo '# Arducam OV64A40' >> /boot/firmware/config.txt"
-sudo sh -c "echo 'dtoverlay=ov64a40,cam0,link-frequency=360000000' >> /boot/firmware/config.txt"
-sudo sh -c "echo '' >> /boot/firmware/config.txt"
 
 # Reboot
 sudo reboot
