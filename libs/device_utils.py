@@ -191,7 +191,7 @@ class Picamera2Camera(CaptureDevice):
         if flash_fn and not self.has_physical_flash(): flash_fn()
         im = self._instance.capture_array()
         if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
-        im = cv2.rotate(im, cv2.ROTATE_180)
+        #im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
         self._instance.switch_mode(self._preview_config)
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
