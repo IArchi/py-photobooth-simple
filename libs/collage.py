@@ -91,7 +91,7 @@ class FullpageCollage(Collage):
         cv2.imwrite(tmp_output, collage)
         return tmp_output
 
-    def assemble(self, image_paths, target_size=(2880, 4320), output_path=None):
+    def assemble(self, image_paths, target_size=(2880, 4370), output_path=None):
         # Read the original image
         img = cv2.imread(image_paths[0], cv2.IMREAD_COLOR)
 
@@ -139,7 +139,7 @@ class StripCollage(Collage):
         cv2.imwrite(tmp_output, collage)
         return tmp_output
 
-    def assemble(self, image_paths, target_size=(4320, 1440), output_path=None):
+    def assemble(self, image_paths, target_size=(4370, 1440), output_path=None):
         # Calculate margin size
         margin_height = int(target_size[0] * (self._margin_percent / 100))
         margin_width = int(target_size[1] * (self._margin_percent / 100))
