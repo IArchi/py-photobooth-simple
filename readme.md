@@ -81,7 +81,7 @@ sudo sh -c "echo 'hdmi_drive=1' >> /boot/firmware/config.txt"
 sudo sh -c "echo '' >> /boot/firmware/config.txt"
 ```
 
-### Install Raspberry Camera Module V3 (Only if you plan to use one. Hightly suggested)
+### Install Raspberry Camera Module V3 (Only if you plan to use one. Highly suggested)
 
 ```
 # Allocate more memory

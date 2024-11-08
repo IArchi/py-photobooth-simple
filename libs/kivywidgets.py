@@ -62,7 +62,6 @@ class KivyCamera(Image):
             im_height, im_width = im.shape[:2]
             if self._square:
                 difference = int((width - im_width) // 2)
-                print('diff', difference)
                 if difference > 0:
                     left_blur = blurred_image[:, :difference]
                     right_blur = blurred_image[:, im_width - difference:]
@@ -71,7 +70,6 @@ class KivyCamera(Image):
                     combined_image = im
             else: 
                 difference = int((height - im_height) // 2)
-                print('diff', difference)
                 if difference > 0:
                     top_blur = blurred_image[:difference, :]
                     bottom_blur = blurred_image[im_height - difference:, :]
@@ -124,40 +122,25 @@ class LayoutButton(ButtonBehavior, FloatLayout):
     pass
 
 Builder.load_string("""
-<ImageLabelButton>:
+<ImageRoundButton>:
     orientation: 'horizontal'
     canvas.before:
         Color:
             rgba: self.background_color
-        RoundedRectangle:
-            size: (self.size[0]+self.size[0]*0.2, self.size[1]+self.size[1]*0.2)
-            pos: (self.pos[0]-self.size[0]*0.1, self.pos[1]-self.size[1]*0.1)
-            radius: [self.border_radius, 0, 0, self.border_radius]
+        Ellipse:
+            pos: self.pos
+            size: self.size[0], self.size[0]
 
     Image:
         source: root.source
-        size_hint: None, None
-        size: root.height * 0.8, root.height
+        size: self.parent.height * 0.8, self.parent.height * 0.8
         fit_mode: 'contain'
         keep_ratio: True
-
-    ResizeLabel:
-        text: root.text
-        size_hint: None, None
-        size: root.width - root.height * 0.8, root.height
-        max_font_size: root.font_size
-        color: root.text_color
-        halign: 'center'
-        valign: 'middle'
-        text_size: self.size
+        pos_hint: {'center_x': 0.5, 'center_y': 0.7} 
 """)
-class ImageLabelButton(ButtonBehavior, BoxLayout):
+class ImageRoundButton(ButtonBehavior, FloatLayout):
     source = StringProperty('')  # Path to the image
-    text = StringProperty('')  # Text to display on the button
-    text_color = ListProperty([1, 1, 1, 1])  # Color of the text
-    font_size = NumericProperty(sp(16))
     background_color = ListProperty([0, 0, 0, 0])  # Background color
-    border_radius = NumericProperty(15)  # Border radius
 
 Builder.load_string("""
 <BorderedLabel@Label>:
