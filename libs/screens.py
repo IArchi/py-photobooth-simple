@@ -452,28 +452,30 @@ class ConfirmCaptureScreen(BackgroundScreen):
         overlay_layout.add_widget(self.preview)
 
         # Add buttons
-        self.yes_button = ImageLabelButton(
+        self.keep_button = ImageRoundButton(
             source='./assets/icons/save.png',
-            size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.8, 'y': 0.20},
+            size_hint=(0.1, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.05},
             background_color=(.4, .733, .416, 1),
-            text=self.locales['capture']['save'],
-            text_color=[1, 1, 1, 1],
-            font_size=IMAGE_BUTTON_FONT,
         )
-        self.yes_button.bind(on_release=self.yes_event)
-        overlay_layout.add_widget(self.yes_button)
-        self.no_button = ImageLabelButton(
-            source='./assets/icons/trash.png',
-            size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.8, 'y': 0.05},
+        self.keep_button.bind(on_release=self.keep_event)
+        overlay_layout.add_widget(self.keep_button)
+        self.no_button = ImageRoundButton(
+            source='./assets/icons/refresh.png',
+            size_hint=(0.1, 0.1),
+            pos_hint={'x': 0.05, 'y': 0.05},
             background_color=(.937, .325, .314, 1),
-            text=self.locales['capture']['trash'],
-            text_color=[1, 1, 1, 1],
-            font_size=IMAGE_BUTTON_FONT,
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
+        self.home_button = ImageRoundButton(
+            source='./assets/icons/home.png',
+            size_hint=(0.1, 0.1),
+            pos_hint={'x': 0.05, 'y': 0.85},
+            background_color=(0.1294, 0.5882, 0.9529, 1),
+        )
+        self.home_button.bind(on_release=self.home_event)
+        overlay_layout.add_widget(self.home_button)
 
         self.add_widget(self.layout)
 
@@ -490,7 +492,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmCaptureScreen: on_exit().')
 
-    def yes_event(self, obj):
+    def keep_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_leave)
         if self._current_shot == self.app.get_shots_to_take(self._current_format) - 1: self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
@@ -500,6 +502,11 @@ class ConfirmCaptureScreen(BackgroundScreen):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_leave)
         self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
+
+    def home_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        Clock.unschedule(self.auto_leave)
+        self.app.transition_to(ScreenMgr.WAITING)
 
     def timer_event(self, obj):
         Logger.info('ConfirmCaptureScreen: timer_event().')
@@ -593,31 +600,25 @@ class ConfirmSaveScreen(BackgroundScreen):
         # Display collage
         self.preview = Image(
             fit_mode='contain',
-            size_hint=(0.6, 0.75),
-            pos_hint={'x': 0.1, 'y': 0.05},
+            size_hint=(1, 0.75),
+            pos_hint={'x': 0, 'y': 0.05},
         )
         overlay_layout.add_widget(self.preview)
 
         # Add buttons
-        self.yes_button = ImageLabelButton(
+        self.yes_button = ImageRoundButton(
             source='./assets/icons/save.png',
-            size_hint=(0.15, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.25},
+            size_hint=(0.1, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.05},
             background_color=(.4, .733, .416, 1),
-            text=self.locales['save']['save'],
-            text_color=[1, 1, 1, 1],
-            font_size=IMAGE_BUTTON_FONT,
         )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
-        self.no_button = ImageLabelButton(
+        self.no_button = ImageRoundButton(
             source='./assets/icons/trash.png',
-            size_hint=(0.15, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.05},
+            size_hint=(0.1, 0.1),
+            pos_hint={'x': 0.05, 'y': 0.05},
             background_color=(.937, .325, .314, 1),
-            text=self.locales['save']['trash'],
-            text_color=[1, 1, 1, 1],
-            font_size=IMAGE_BUTTON_FONT,
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
@@ -692,50 +693,38 @@ class ConfirmPrintScreen(BackgroundScreen):
 
         # Add buttons
         self.buttons_layout = FloatLayout()
-        btn_once = ImageLabelButton(
+        btn_once = ImageRoundButton(
             source='./assets/icons/print-1.png',
-            size_hint=(0.2, 0.1),
+            size_hint=(0.3, 0.3),
             pos_hint={'x': 0.8, 'y': 0.33},
             background_color=(.4, .733, .416, 1),
-            text=self.locales['print']['one_copy'],
-            text_color=[1, 1, 1, 1],
-            font_size=IMAGE_BUTTON_FONT,
         )
         btn_once.bind(on_release=self.print_once)
         self.buttons_layout.add_widget(btn_once)
-        btn_twice = ImageLabelButton(
+        btn_twice = ImageRoundButton(
             source='./assets/icons/print-2.png',
-            size_hint=(0.2, 0.1),
+            size_hint=(0.3, 0.3),
             pos_hint={'x': 0.8, 'y': 0.20},
             background_color=(.4, .733, .416, 1),
-            text=self.locales['print']['two_copies'],
-            text_color=[1, 1, 1, 1],
-            font_size=IMAGE_BUTTON_FONT,
         )
         btn_twice.bind(on_release=self.print_twice)
         self.buttons_layout.add_widget(btn_twice)
 
         self.button_layout = FloatLayout()
-        btn_print = ImageLabelButton(
+        btn_print = ImageRoundButton(
             source='./assets/icons/print.png',
-            size_hint=(0.2, 0.1),
+            size_hint=(0.3, 0.3),
             pos_hint={'x': 0.8, 'y': 0.20},
             background_color=(.4, .733, .416, 1),
-            text=self.locales['print']['print'],
-            text_color=[1, 1, 1, 1],
-            font_size=IMAGE_BUTTON_FONT,
         )
         btn_print.bind(on_release=self.print_once)
         self.button_layout.add_widget(btn_print)
 
-        no_button = ImageLabelButton(
+        no_button = ImageRoundButton(
             source='./assets/icons/cancel.png',
-            size_hint=(0.2, 0.1),
+            size_hint=(0.3, 0.3),
             pos_hint={'x': 0.8, 'y': 0.05},
             background_color=(.937, .325, .314, 1),
-            text=self.locales['print']['no'],
-            text_color=[1, 1, 1, 1],
-            font_size=IMAGE_BUTTON_FONT,
         )
         no_button.bind(on_release=self.no_event)
         self.overlay_layout.add_widget(no_button)
