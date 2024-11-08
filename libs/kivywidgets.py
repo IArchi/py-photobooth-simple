@@ -123,24 +123,18 @@ class LayoutButton(ButtonBehavior, FloatLayout):
 
 Builder.load_string("""
 <ImageRoundButton>:
-    orientation: 'horizontal'
+    background_color: 0, 0, 0, 0
+    padding: (0, 0, 0, 0)
     canvas.before:
         Color:
             rgba: self.background_color
         Ellipse:
-            pos: self.pos
-            size: self.size[0], self.size[0]
-
-    Image:
-        source: root.source
-        size: self.parent.height * 0.8, self.parent.height * 0.8
-        fit_mode: 'contain'
-        keep_ratio: True
-        pos_hint: {'center_x': 0.5, 'center_y': 0.7} 
+            size: self.size[1] * 1.4, self.size[1] * 1.4
+            pos: self.center_x - (self.size[1] * 1.4) / 2, self.center_y - (self.size[1] * 1.4) / 2
 """)
-class ImageRoundButton(ButtonBehavior, FloatLayout):
-    source = StringProperty('')  # Path to the image
-    background_color = ListProperty([0, 0, 0, 0])  # Background color
+class ImageRoundButton(ButtonBehavior, AsyncImage):
+    source = StringProperty('')
+    background_color = ListProperty([0, 0, 0, 0])
 
 Builder.load_string("""
 <BorderedLabel@Label>:
