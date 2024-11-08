@@ -30,7 +30,6 @@ class ScreenMgr(ScreenManager):
     SELECT_FORMAT = 'select_format'
     ERROR = 'error'
     COUNTDOWN = 'countdown'
-    CHEESE = 'cheese'
     CONFIRM_CAPTURE = 'confirm_capture'
     PROCESSING = 'processing'
     CONFIRM_SAVE = 'confirm_save'
@@ -49,7 +48,6 @@ class ScreenMgr(ScreenManager):
             self.ERROR              : ErrorScreen(app, locales=locales, name=self.ERROR),
             self.READY              : ReadyScreen(app, locales=locales, name=self.READY),
             self.COUNTDOWN          : CountdownScreen(app, locales=locales, name=self.COUNTDOWN),
-            self.CHEESE             : CheeseScreen(app, locales=locales, name=self.CHEESE),
             self.CONFIRM_CAPTURE    : ConfirmCaptureScreen(app, locales=locales, name=self.CONFIRM_CAPTURE),
             self.PROCESSING         : ProcessingScreen(app, locales=locales, name=self.PROCESSING),
             self.CONFIRM_SAVE       : ConfirmSaveScreen(app, locales=locales, name=self.CONFIRM_SAVE),
@@ -316,7 +314,7 @@ class ReadyScreen(BackgroundScreen):
         Logger.info('ReadyScreen: timer_event().')
         self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
 
-class CountdownScreen(Screen):
+class CountdownScreen(BackgroundScreen):
     """
     +-----------------+
     |                 |
@@ -351,6 +349,9 @@ class CountdownScreen(Screen):
         layout.add_widget(self.time_remaining_label)
         self.layout.add_widget(layout)
 
+        # Declare color background
+        self.color_background = BackgroundBoxLayout(background_color=(1,1,1,1))
+        
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
@@ -359,13 +360,17 @@ class CountdownScreen(Screen):
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.camera.start(self.app.is_square_format(self._current_format))
+        self.time_remaining_label.font_size = XLARGE_FONT
         self.time_remaining_label.text = str(self.time_remaining)
         self._clock = Clock.schedule_once(self.timer_event, 1)
+        self._clock_trigger = None
         self.app.ringled.start_countdown(self.time_remaining)
 
     def on_exit(self, kwargs={}):
         Logger.info('CountdownScreen: on_exit().')
+        self.camera.opacity = 1
         Clock.unschedule(self._clock)
+        Clock.unschedule(self._clock_trigger)
         self.app.ringled.clear()
         self.camera.stop()
 
@@ -376,81 +381,35 @@ class CountdownScreen(Screen):
             self.time_remaining_label.text = str(self.time_remaining)
             Clock.schedule_once(self.timer_event, 1)
         else:
-            self.app.transition_to(ScreenMgr.CHEESE, shot=self._current_shot, format=self._current_format)
+            self.time_remaining_label.text = random.choice(self.locales['cheese']['content'])
+            
+            # Trigger shot
+            try:
+                self.layout.add_widget(self.color_background)
+                self.app.trigger_shot(self._current_shot, self._current_format)
+                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
+                Clock.schedule_once(self.timer_bg, 0.2)
+                self.time_remaining_label.font_size = LARGE_FONT
+                self.time_remaining_label.text = self.locales['cheese']['wait']
+            except:
+                return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['cheese']['error'])
 
-class CheeseScreen(Screen):
-    """
-    +-----------------+
-    |                 |
-    |     Cheese!     |
-    |                 |
-    +-----------------+
-    """
-    def __init__(self, app, locales, **kwargs):
-        Logger.info('CheeseScreen: __init__().')
-        super(CheeseScreen, self).__init__(**kwargs)
-
-        self.app = app
-        self.locales = locales
-
-        self.label = Label(
-            text=self.locales['cheese']['content'][0],
-            halign='center',
-            valign='middle',
-            font_size=LARGE_FONT
-        )
-        self.layout = BackgroundBoxLayout(
-            background_color=(0,0,0,1),
-        )
-        self.layout.add_widget(self.label)
-        self.add_widget(self.layout)
-
-        self.wait_count = 0
-        self._current_shot = 0
-        self._current_format = 0
-
-    def on_entry(self, kwargs={}):
-        Logger.info('CheeseScreen: on_entry().')
-        self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
-        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-
-        self.label.text = random.choice(self.locales['cheese']['content'])
-        self.wait_idx = -1
-        self.wait_count = 0
-        self._clock = Clock.schedule_once(self.timer_event, 1.5)
-        self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
-
-    def on_exit(self, kwargs={}):
-        Logger.info('CheeseScreen: on_exit().')
-        Clock.unschedule(self._clock)
-        Clock.unschedule(self._clock_trigger)
+    def timer_bg(self, obj):
+        self.camera.opacity = 0
+        # Remove flash background
+        self.layout.remove_widget(self.color_background)
 
     def timer_trigger(self, obj):
-        if not self.app.has_physical_flash():
-            # Make window full white
-            self.layout.background_color=(1,1,1,1)
-            self.layout.canvas.ask_update()
-
-        # Trigger shot
-        try:
-            self.app.trigger_shot(self._current_shot, self._current_format)
-        except:
-            return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['cheese']['error'])
-
-    def timer_event(self, obj):
-        Logger.info('CheeseScreen: timer_event().')
-        # Make window back to black
-        self.layout.background_color=(0,0,0,1)
-        self.layout.canvas.ask_update()
-
         if not(self.app.is_shot_completed(self._current_shot)):
-            self.label.text = self.locales['cheese']['wait']
-            self._clock = Clock.schedule_once(self.timer_event, 1)
+            # Retry after 1sec
+            self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
         elif self.app.get_shots_to_take(self._current_format) == 1:
+            # Only one photo to capture
             self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
         else:
+            # Display photo and take next shot
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
-
+            
 class ConfirmCaptureScreen(BackgroundScreen):
     """
     +-----------------+
