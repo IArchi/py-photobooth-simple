@@ -11,6 +11,7 @@ from kivy.properties import ColorProperty, StringProperty, ListProperty, Numeric
 from kivy.metrics import sp
 from kivy.logger import Logger
 import numpy as np
+import cv2
 
 # Widget to display camera
 class KivyCamera(Image):
@@ -46,9 +47,42 @@ class KivyCamera(Image):
         try:
             im = self._app.devices.get_preview(self._square)
             if im is None: return
-            image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
-            image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
+
+            width, height = self.size
+            im_height, im_width = im.shape[:2]
+
+            # Resize image to match screen
+            if im_height > height or im_width > width:
+                scale_factor = min(height / im_height, width / im_width)
+                new_size = (int(im_width * scale_factor), int(im_height * scale_factor))
+                im = cv2.resize(im, new_size)
+            
+            # Generate blur on sides
+            blurred_image = cv2.GaussianBlur(im, (15, 15), 0)
+            im_height, im_width = im.shape[:2]
+            if self._square:
+                difference = int((width - im_width) // 2)
+                print('diff', difference)
+                if difference > 0:
+                    left_blur = blurred_image[:, :difference]
+                    right_blur = blurred_image[:, im_width - difference:]
+                    combined_image = np.hstack((left_blur, im, right_blur))
+                else:
+                    combined_image = im
+            else: 
+                difference = int((height - im_height) // 2)
+                print('diff', difference)
+                if difference > 0:
+                    top_blur = blurred_image[:difference, :]
+                    bottom_blur = blurred_image[im_height - difference:, :]
+                    combined_image = np.vstack((top_blur, im, bottom_blur))
+                else:
+                    combined_image = im
+
+            image_texture = Texture.create(size=(combined_image.shape[1], combined_image.shape[0]), colorfmt='bgr')
+            image_texture.blit_buffer(combined_image.flatten(), colorfmt='bgr', bufferfmt='ubyte')
             self.texture = image_texture
+                
         except Exception as e:
             Logger.error('Cannot read camera stream.')
             Logger.error(e)
