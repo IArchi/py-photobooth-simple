@@ -11,7 +11,6 @@ from kivy.logger import Logger
 from kivy.uix.screenmanager import NoTransition
 
 from libs.config import Config
-from libs.locales import Locales
 from libs.device_utils import DeviceUtils
 from libs.screens import ScreenMgr
 from libs.ringled import RingLed
@@ -36,7 +35,6 @@ class PhotoboothApp(App):
 
         # Load configuration
         config = Config()
-        self.LOCALES = getattr(Locales, 'get_{}'.format(config.get_locales()))
         self.FULLSCREEN = config.get_fullscreen()
         self.COUNTDOWN = config.get_countdown()
         self.DCIM_DIRECTORY = config.get_dcim_directory()
@@ -66,7 +64,7 @@ class PhotoboothApp(App):
 
     def build(self):
         Logger.info('PhotoboothApp: build().')
-        self.sm = ScreenMgr(self, transition=NoTransition(), locales=self.LOCALES())
+        self.sm = ScreenMgr(self, transition=NoTransition())
         self.sm.current_screen.on_entry()
         return self.sm
 

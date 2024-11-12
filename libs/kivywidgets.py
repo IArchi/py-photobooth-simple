@@ -186,3 +186,26 @@ Builder.load_string("""
 class ShadowLabel(Label):
     decal = ListProperty([7, -7])
     tint = ListProperty([.5, .5, 1, .5])
+
+Builder.load_string('''
+<RotatingImage>:
+    canvas.before:
+        PushMatrix
+        Rotate:
+            angle: root.angle
+            axis: 0, 0, 1
+            origin: root.center
+    canvas.after:
+        PopMatrix
+''')
+class RotatingImage(AsyncImage):
+    angle = NumericProperty()
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.angle = 0
+        Clock.schedule_interval(self.update, 1/60)
+
+    def update(self, dt):
+        self.angle -= 2
+        self.angle %= 360
