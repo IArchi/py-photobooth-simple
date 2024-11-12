@@ -189,3 +189,4 @@ Application will not be usable during the copy process but will display a messag
 
 ## TODO
  - Remove all texts to rely only on icons ?
+ - Use gif icons

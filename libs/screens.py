@@ -24,7 +24,6 @@ IMAGE_BUTTON_FONT = '25sp'
 
 class ScreenMgr(ScreenManager):
     """Screen Manager for the photobooth screens."""
-    # Screen names.
     WAITING = 'waiting'
     READY = 'ready'
     SELECT_FORMAT = 'select_format'
@@ -38,23 +37,23 @@ class ScreenMgr(ScreenManager):
     SUCCESS = 'success'
     COPYING = 'copying'
 
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('ScreenMgr: __init__().')
         super(ScreenMgr, self).__init__(**kwargs)
         self.app = app
         self.pb_screens = {
-            self.WAITING            : WaitingScreen(app, locales=locales, name=self.WAITING),
-            self.SELECT_FORMAT      : SelectFormatScreen(app, locales=locales, name=self.SELECT_FORMAT),
-            self.ERROR              : ErrorScreen(app, locales=locales, name=self.ERROR),
-            self.READY              : ReadyScreen(app, locales=locales, name=self.READY),
-            self.COUNTDOWN          : CountdownScreen(app, locales=locales, name=self.COUNTDOWN),
-            self.CONFIRM_CAPTURE    : ConfirmCaptureScreen(app, locales=locales, name=self.CONFIRM_CAPTURE),
-            self.PROCESSING         : ProcessingScreen(app, locales=locales, name=self.PROCESSING),
-            self.CONFIRM_SAVE       : ConfirmSaveScreen(app, locales=locales, name=self.CONFIRM_SAVE),
-            self.CONFIRM_PRINT      : ConfirmPrintScreen(app, locales=locales, name=self.CONFIRM_PRINT),
-            self.PRINTING           : PrintingScreen(app, locales=locales, name=self.PRINTING),
-            self.SUCCESS            : SuccessScreen(app, locales=locales, name=self.SUCCESS),
-            self.COPYING            : CopyingScreen(app, locales=locales, name=self.COPYING),
+            self.WAITING            : WaitingScreen(app, name=self.WAITING),
+            self.SELECT_FORMAT      : SelectFormatScreen(app, name=self.SELECT_FORMAT),
+            self.ERROR              : ErrorScreen(app, name=self.ERROR),
+            self.READY              : ReadyScreen(app, name=self.READY),
+            self.COUNTDOWN          : CountdownScreen(app, name=self.COUNTDOWN),
+            self.CONFIRM_CAPTURE    : ConfirmCaptureScreen(app, name=self.CONFIRM_CAPTURE),
+            self.PROCESSING         : ProcessingScreen(app, name=self.PROCESSING),
+            self.CONFIRM_SAVE       : ConfirmSaveScreen(app, name=self.CONFIRM_SAVE),
+            self.CONFIRM_PRINT      : ConfirmPrintScreen(app, name=self.CONFIRM_PRINT),
+            self.PRINTING           : PrintingScreen(app, name=self.PRINTING),
+            self.SUCCESS            : SuccessScreen(app, name=self.SUCCESS),
+            self.COPYING            : CopyingScreen(app, name=self.COPYING),
         }
         for screen in self.pb_screens.values(): self.add_widget(screen)
 
@@ -81,17 +80,16 @@ class WaitingScreen(BackgroundScreen):
     |                 |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('WaitingScreen: __init__().')
         super(WaitingScreen, self).__init__(bg='./assets/backgrounds/bg_waiting.jpeg', **kwargs)
 
         self.app = app
-        self.locales = locales
 
         overlay_layout = LayoutButton()
 
         start = BorderedLabel(
-            text=self.locales['waiting']['action'],
+            text='PHOTO BOOTH',
             font_size=LARGE_FONT,
             border_color=(1,1,1,1),
             border_width=5,
@@ -110,7 +108,7 @@ class WaitingScreen(BackgroundScreen):
         overlay_layout.add_widget(icon)
 
         version = Label(
-            text=self.locales['waiting']['version'],
+            text='Version 1.0',
             font_size=TINY_FONT,
             halign='left',
             valign='middle',
@@ -146,40 +144,30 @@ class SelectFormatScreen(BackgroundScreen):
     |                 |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('SelectFormatScreen: __init__().')
         super(SelectFormatScreen, self).__init__(bg='./assets/backgrounds/bg_instructions.jpeg', **kwargs)
 
         self.app = app
-        self.locales = locales
 
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
 
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
-        title = ResizeLabel(
-            text=self.locales['select_format']['title'],
-            max_font_size=LARGE_FONT,
-            size_hint=(0.9, 0.2),
-            padding=(30,30,30,30),
-            pos_hint={'x': 0.05, 'y': 0.8},
-        )
-        overlay_layout.add_widget(title)
-
         # Add preview
         available_formats = self.app.get_layout_previews()
         self.preview_left = ImageButton(
             source=available_formats[0],
             size_hint=(0.4, 0.7),
-            pos_hint={'x': 0.05, 'y': 0.05},
+            pos_hint={'x': 0.05, 'y': 0.15},
         )
         overlay_layout.add_widget(self.preview_left)
         self.preview_left.bind(on_release=self.on_click_left)
         self.preview_right = ImageButton(
             source=available_formats[1],
-            size_hint=(0.3, 0.7),
-            pos_hint={'x': 0.65, 'y': 0.05},
+            size_hint=(0.3, 0.8),
+            pos_hint={'x': 0.65, 'y': 0.1},
         )
         overlay_layout.add_widget(self.preview_right)
         self.preview_right.bind(on_release=self.on_click_right)
@@ -189,14 +177,14 @@ class SelectFormatScreen(BackgroundScreen):
             source='./assets/icons/arrow_left.png',
             fit_mode='contain',
             size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.45, 'y': 0.2},
+            pos_hint={'x': 0.45, 'y': 0.3},
         )
         overlay_layout.add_widget(arrow_left)
         arrow_right = Image(
             source='./assets/icons/arrow_right.png',
             fit_mode='contain',
             size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.45, 'y': 0.50},
+            pos_hint={'x': 0.45, 'y': 0.70},
         )
         overlay_layout.add_widget(arrow_right)
 
@@ -229,41 +217,29 @@ class ErrorScreen(BackgroundScreen):
     |    Continue     |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('ErrorScreen: __init__().')
         super(ErrorScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
 
         overlay_layout = LayoutButton()
 
         # Display icon
-        icon = Image(
+        self.icon = AsyncImage(
             source='./assets/icons/error.png',
             fit_mode='contain',
-            size_hint=(0.2, 0.2),
-            pos_hint={'x': 0.4, 'y': 0.7},
+            size_hint=(0.3, 0.3),
+            pos_hint={'x': 0.35, 'y': 0.35},
         )
-        overlay_layout.add_widget(icon)
-
-        # Display message
-        self.label = ShadowLabel(
-            text=self.locales['error']['default'],
-            halign='center',
-            valign='top',
-            font_size=NORMAL_FONT,
-            size_hint=(0.8, 0.6),
-            pos_hint={'x': 0.1, 'y': 0.2},
-        )
-        overlay_layout.add_widget(self.label)
+        overlay_layout.add_widget(self.icon)
 
         overlay_layout.bind(on_release=self.on_click)
         self.add_widget(overlay_layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
-        if 'error' in kwargs: self.label.text = self.locales['error']['content'].format(str(kwargs.get('error')))
+        if 'error' in kwargs: self.icon.source = str(kwargs.get('error'))
 
     def on_exit(self, kwargs={}):
         Logger.info('ErrorScreen: on_exit().')
@@ -281,29 +257,26 @@ class ReadyScreen(BackgroundScreen):
     |                 |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('ReadyScreen: __init__().')
         super(ReadyScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
 
-        self.label = ShadowLabel(
-            text=self.locales['ready']['content'][0],
-            halign='center',
-            valign='middle',
-            font_size=LARGE_FONT
+        icon = AsyncImage(
+            source='./assets/icons/ready.png', # TODO : Create icon
+            size_hint=(0.4, 0.4),
+            pos_hint={'x': 0.3, 'y': 0.3},
         )
 
         self.layout = BoxLayout()
-        self.layout.add_widget(self.label)
+        self.layout.add_widget(icon)
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ReadyScreen: on_entry().')
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self.label.text = random.choice(self.locales['ready']['content'])
         self._clock = Clock.schedule_once(self.timer_event, 2)
 
     def on_exit(self, kwargs={}):
@@ -322,12 +295,11 @@ class CountdownScreen(BackgroundScreen):
     |                 |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('CountdownScreen: __init__().')
         super(CountdownScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
         self._current_shot = 0
         self._current_format = 0
 
@@ -345,18 +317,26 @@ class CountdownScreen(BackgroundScreen):
         self.layout.add_widget(self.camera)
 
         # Display countdown
-        layout = BoxLayout()
-        layout.add_widget(self.time_remaining_label)
-        self.layout.add_widget(layout)
+        self.boxlayout = BoxLayout()
+        self.boxlayout.add_widget(self.time_remaining_label)
+        self.layout.add_widget(self.boxlayout)
 
         # Declare color background
         self.color_background = BackgroundBoxLayout(background_color=(1,1,1,1))
+
+        # Display loading icon
+        self.loading = RotatingImage(
+            source='./assets/icons/loading.png',
+            size_hint=(0.4, 0.4),
+            pos_hint={'x': 0.3, 'y': 0.3},
+        )
         
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('CountdownScreen: on_entry().')
         self.time_remaining = self.app.COUNTDOWN
+        if (not self.time_remaining_label.parent): self.boxlayout.add_widget(self.time_remaining_label)
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.camera.start(self.app.is_square_format(self._current_format))
@@ -372,6 +352,7 @@ class CountdownScreen(BackgroundScreen):
         Clock.unschedule(self._clock)
         Clock.unschedule(self._clock_trigger)
         self.app.ringled.clear()
+        self.boxlayout.remove_widget(self.loading)
         self.camera.stop()
 
     def timer_event(self, obj):
@@ -381,18 +362,19 @@ class CountdownScreen(BackgroundScreen):
             self.time_remaining_label.text = str(self.time_remaining)
             Clock.schedule_once(self.timer_event, 1)
         else:
-            self.time_remaining_label.text = random.choice(self.locales['cheese']['content'])
-            
             # Trigger shot
             try:
+                # Make screen blink
                 self.layout.add_widget(self.color_background)
                 self.app.trigger_shot(self._current_shot, self._current_format)
-                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
+                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1.2)
                 Clock.schedule_once(self.timer_bg, 0.2)
-                self.time_remaining_label.font_size = LARGE_FONT
-                self.time_remaining_label.text = self.locales['cheese']['wait']
+
+                # Display loading
+                self.boxlayout.remove_widget(self.time_remaining_label)
+                self.boxlayout.add_widget(self.loading)
             except:
-                return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['cheese']['error'])
+                return self.app.transition_to(ScreenMgr.ERROR)
 
     def timer_bg(self, obj):
         self.camera.opacity = 0
@@ -413,20 +395,18 @@ class CountdownScreen(BackgroundScreen):
 class ConfirmCaptureScreen(BackgroundScreen):
     """
     +-----------------+
-    |      Keep ?     |
+    |       1/3       |
     |                 |
     | NO          YES |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('ConfirmCaptureScreen: __init__().')
         super(ConfirmCaptureScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
         self._current_shot = 0
         self._current_format = 0
-        self.time_remaining = 10
 
         # Display taken photo
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
@@ -434,26 +414,25 @@ class ConfirmCaptureScreen(BackgroundScreen):
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
-        # Add title
-        self.title = ResizeLabel(
-            text=self.locales['capture']['title'].format(1, 'n'),
+        # Add counter
+        self.icon = AsyncImage(
+            source='./assets/icons/capture_1.png', # TODO : Create icon
             size_hint=(0.8, 0.1),
             pos_hint={'x': 0.1, 'y': 0.88},
-            max_font_size=NORMAL_FONT,
         )
-        overlay_layout.add_widget(self.title)
+        overlay_layout.add_widget(self.icon)
 
         # Display capture
         self.preview = Image(
             fit_mode='contain',
             size_hint=(1, 0.80),
             pos_hint={'x': 0, 'y': 0.05},
-        )
+        ) # TODO : Add border ??
         overlay_layout.add_widget(self.preview)
 
         # Add buttons
         self.keep_button = ImageRoundButton(
-            source='./assets/icons/save.png',
+            source='./assets/icons/check.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.85, 'y': 0.05},
             background_color=(.4, .733, .416, 1),
@@ -483,8 +462,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
         Logger.info('ConfirmCaptureScreen: on_entry().')
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self.title.text=self.locales['capture']['title'].format(self._current_shot + 1, self.app.get_shots_to_take(self._current_format))
-        self.time_remaining = 10
+        self.icon.source = f'./assets/icons/capture_{(self._current_shot + 1)}.png', # TODO : Create icon (use loop with self.app.get_shots_to_take(self._current_format))
         self.preview.source = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
         self.preview.reload()
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
@@ -520,31 +498,28 @@ class ProcessingScreen(BackgroundScreen):
     |                 |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('ProcessingScreen: __init__().')
         super(ProcessingScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
         self._current_format = 0
 
-        self.label = ShadowLabel(
-            text=self.locales['processing']['content'][0],
-            halign='center',
-            valign='middle',
-            font_size=LARGE_FONT
+        # Display loading icon
+        self.loading = RotatingImage(
+            source='./assets/icons/loading.png',
+            size_hint=(0.4, 0.4),
+            pos_hint={'x': 0.3, 'y': 0.3},
         )
-        self.layout = BoxLayout()
-        self.layout.add_widget(self.label)
-        self.add_widget(self.layout)
 
-        self.wait_idx = 0
-        self.wait_count = 0
+        self.layout = BoxLayout()
+        self.layout.add_widget(self.loading)
+        self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ProcessingScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self._clock = Clock.schedule_once(self.timer_event, 1)
+        self._clock = Clock.schedule_once(self.timer_event, 3) # Fake timer to make it cleverer
         self.app.ringled.start_rainbow()
 
         # Perform collage
@@ -558,10 +533,6 @@ class ProcessingScreen(BackgroundScreen):
     def timer_event(self, obj):
         Logger.info('ProcessingScreen: timer_event().')
         if not(self.app.is_collage_completed()):
-            self.wait_count += 1
-            if self.wait_count % 3 == 0:
-                self.wait_idx = (self.wait_idx + 1) % len(self.locales['processing']['content'])
-                self.label.text = self.locales['processing']['content'][self.wait_idx]
             self._clock = Clock.schedule_once(self.timer_event, 1)
         elif self.app.has_printer():
             self.app.transition_to(ScreenMgr.CONFIRM_PRINT, format=self._current_format)
@@ -576,32 +547,22 @@ class ConfirmSaveScreen(BackgroundScreen):
     | NO          YES |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('ConfirmSaveScreen: __init__().')
         super(ConfirmSaveScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
 
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
 
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
-        # Add title
-        title = ResizeLabel(
-            text=self.locales['save']['title'],
-            size_hint=(0.9, 0.2),
-            pos_hint={'x': 0.05, 'y': 0.8},
-            max_font_size=NORMAL_FONT,
-        )
-        overlay_layout.add_widget(title)
-
         # Display collage
         self.preview = Image(
             fit_mode='contain',
-            size_hint=(1, 0.75),
-            pos_hint={'x': 0, 'y': 0.05},
+            size_hint=(1, 1),
+            pos_hint={'x': 0, 'y': 0},
         )
         overlay_layout.add_widget(self.preview)
 
@@ -661,12 +622,11 @@ class ConfirmPrintScreen(BackgroundScreen):
     | NO          YES |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('ConfirmPrintScreen: __init__().')
         super(ConfirmPrintScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
         self._current_format = 0
 
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
@@ -677,19 +637,10 @@ class ConfirmPrintScreen(BackgroundScreen):
         # Display collage
         self.preview = Image(
             fit_mode='contain',
-            size_hint=(1, 0.80),
-            pos_hint={'x': 0, 'y': 0.05},
+            size_hint=(1, 1),
+            pos_hint={'x': 0, 'y': 0},
         )
         self.overlay_layout.add_widget(self.preview)
-
-        # Add title
-        title = ResizeLabel(
-            text=self.locales['print']['title'],
-            size_hint=(0.9, 0.2),
-            pos_hint={'x': 0.05, 'y': 0.8},
-            max_font_size=NORMAL_FONT,
-        )
-        self.overlay_layout.add_widget(title)
 
         # Add buttons
         self.buttons_layout = FloatLayout()
@@ -787,26 +738,24 @@ class PrintingScreen(BackgroundScreen):
     |                 |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('PrintingScreen: __init__().')
         super(PrintingScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
         self._current_format = 0
 
-        self.status = ShadowLabel(
-            text=self.locales['printing']['content'][0],
-            halign='center',
-            valign='middle',
-            font_size=LARGE_FONT
+        # Display loading icon
+        self.loading = RotatingImage(
+            source='./assets/icons/loading.png',
+            size_hint=(0.4, 0.4),
+            pos_hint={'x': 0.3, 'y': 0.3},
         )
+        
         layout = BoxLayout()
-        layout.add_widget(self.status)
+        layout.add_widget(self.loading)
         self.add_widget(layout)
 
-        self.wait_idx = 0
-        self.wait_count = 0
         self._clock = None
         self._auto_cancel = None
 
@@ -822,7 +771,7 @@ class PrintingScreen(BackgroundScreen):
             self._clock = Clock.schedule_once(self.timer_event, 10)
             self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
         except Exception as e:
-            return self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error'])
+            return self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printing.png') # TODO : create icon
 
     def on_exit(self, kwargs={}):
         Logger.info('PrintingScreen: on_exit().')
@@ -834,10 +783,6 @@ class PrintingScreen(BackgroundScreen):
     def timer_event(self, obj):
         Logger.info('PrintingScreen: timer_event().')
         if not self.app.is_print_completed(self._print_task_id):
-            self.wait_count += 1
-            if self.wait_count % 3 == 0:
-                self.wait_idx = (self.wait_idx + 1) % len(self.locales['printing']['content'])
-                self.status.text = self.locales['printing']['content'][self.wait_idx]
             self._clock = Clock.schedule_once(self.timer_event, 1)
         else:
             if self._clock: Clock.unschedule(self._clock)
@@ -846,7 +791,7 @@ class PrintingScreen(BackgroundScreen):
 
     def timer_toolong(self, obj):
         Logger.info('PrintingScreen: timer_toolong().')
-        self.app.transition_to(ScreenMgr.ERROR, error=self.locales['printing']['error_toolong'])
+        self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printin_toolong.png') # TODO : create icon
 
 class SuccessScreen(BackgroundScreen):
     """
@@ -856,27 +801,25 @@ class SuccessScreen(BackgroundScreen):
     |                 |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('SuccessScreen: __init__().')
         super(SuccessScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
 
-        self.label = ShadowLabel(
-            text=self.locales['success']['content'][0],
-            halign='center',
-            valign='middle',
-            font_size=LARGE_FONT
+        icon = Image(
+            source='./assets/icons/clap.png', # TODO : Display gif ?
+            fit_mode='contain',
+            size_hint=(0.3, 0.3),
+            pos_hint={'x': 0.35, 'y': 0.35},
         )
 
         self.layout = BoxLayout()
-        self.layout.add_widget(self.label)
+        self.layout.add_widget(icon)
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('SuccessScreen: on_entry().')
-        self.label.text = random.choice(self.locales['success']['content'])
         self._clock = Clock.schedule_once(self.timer_event, 2)
         self.app.ringled.blink([255, 255, 255])
 
@@ -901,22 +844,22 @@ class CopyingScreen(BackgroundScreen):
     |                 |
     +-----------------+
     """
-    def __init__(self, app, locales, **kwargs):
+    def __init__(self, app, **kwargs):
         Logger.info('CopyingScreen: __init__().')
         super(CopyingScreen, self).__init__(**kwargs)
 
         self.app = app
-        self.locales = locales
         self._count = 0
 
-        self.label = ShadowLabel(
-            text=self.locales['copying']['content'],
-            halign='center',
-            valign='middle',
-            font_size=NORMAL_FONT
+        # Display loading icon
+        self.loading = RotatingImage(
+            source='./assets/icons/loading.png',
+            size_hint=(0.4, 0.4),
+            pos_hint={'x': 0.3, 'y': 0.3},
         )
+        
         self.layout = BoxLayout()
-        self.layout.add_widget(self.label)
+        self.layout.add_widget(self.loading)
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
