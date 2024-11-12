@@ -188,4 +188,4 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Buy pi camera module 3 for better quality ?
+ - Remove all texts to rely only on icons ?

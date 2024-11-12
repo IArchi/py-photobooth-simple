@@ -6,7 +6,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.graphics.texture import Texture
-from kivy.graphics import Rectangle, Color
+from kivy.core.window import Window
 from kivy.properties import ColorProperty, StringProperty, ListProperty, NumericProperty
 from kivy.metrics import sp
 from kivy.logger import Logger
@@ -52,11 +52,10 @@ class KivyCamera(Image):
             im_height, im_width = im.shape[:2]
 
             # Resize image to match screen
-            if im_height > height or im_width > width:
-                scale_factor = min(height / im_height, width / im_width)
-                new_size = (int(im_width * scale_factor), int(im_height * scale_factor))
-                im = cv2.resize(im, new_size)
-            
+            scale_factor = min(height / im_height, width / im_width)
+            new_size = (int(im_width * scale_factor), int(im_height * scale_factor))
+            im = cv2.resize(im, new_size)
+
             # Generate blur on sides
             blurred_image = cv2.GaussianBlur(im, (15, 15), 0)
             im_height, im_width = im.shape[:2]
@@ -76,7 +75,8 @@ class KivyCamera(Image):
                     combined_image = np.vstack((top_blur, im, bottom_blur))
                 else:
                     combined_image = im
-
+                    
+            # Apply as texture
             image_texture = Texture.create(size=(combined_image.shape[1], combined_image.shape[0]), colorfmt='bgr')
             image_texture.blit_buffer(combined_image.flatten(), colorfmt='bgr', bufferfmt='ubyte')
             self.texture = image_texture
