@@ -677,8 +677,8 @@ class ConfirmPrintScreen(BackgroundScreen):
         # Display collage
         self.preview = Image(
             fit_mode='contain',
-            size_hint=(0.6, 0.75),
-            pos_hint={'x': 0.1, 'y': 0.05},
+            size_hint=(1, 0.80),
+            pos_hint={'x': 0, 'y': 0.05},
         )
         self.overlay_layout.add_widget(self.preview)
 
@@ -695,16 +695,16 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.buttons_layout = FloatLayout()
         btn_once = ImageRoundButton(
             source='./assets/icons/print-1.png',
-            size_hint=(0.3, 0.3),
-            pos_hint={'x': 0.8, 'y': 0.33},
+            size_hint=(0.1, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.20},
             background_color=(.4, .733, .416, 1),
         )
         btn_once.bind(on_release=self.print_once)
         self.buttons_layout.add_widget(btn_once)
         btn_twice = ImageRoundButton(
             source='./assets/icons/print-2.png',
-            size_hint=(0.3, 0.3),
-            pos_hint={'x': 0.8, 'y': 0.20},
+            size_hint=(0.1, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.05},
             background_color=(.4, .733, .416, 1),
         )
         btn_twice.bind(on_release=self.print_twice)
@@ -713,8 +713,8 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.button_layout = FloatLayout()
         btn_print = ImageRoundButton(
             source='./assets/icons/print.png',
-            size_hint=(0.3, 0.3),
-            pos_hint={'x': 0.8, 'y': 0.20},
+            size_hint=(0.1, 0.1),
+            pos_hint={'x': 0.85, 'y': 0.05},
             background_color=(.4, .733, .416, 1),
         )
         btn_print.bind(on_release=self.print_once)
@@ -722,8 +722,8 @@ class ConfirmPrintScreen(BackgroundScreen):
 
         no_button = ImageRoundButton(
             source='./assets/icons/cancel.png',
-            size_hint=(0.3, 0.3),
-            pos_hint={'x': 0.8, 'y': 0.05},
+            size_hint=(0.1, 0.1),
+            pos_hint={'x': 0.05, 'y': 0.05},
             background_color=(.937, .325, .314, 1),
         )
         no_button.bind(on_release=self.no_event)
