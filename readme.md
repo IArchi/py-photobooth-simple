@@ -21,7 +21,7 @@ By default, it will try to use the best available quality:
 If one of these is not available, it will use the first available one.
 
 ## Compatibility
-Tested on MacOs Sonoma and RaspberryPi 5 8GB with Pi Camera module 3.
+Tested on MacOs Sonoma/Sequoia and RaspberryPi 5 8GB with Pi Camera module 3.
 
 ## Materials
 | Product                              | Links                                                                                                             |
@@ -173,7 +173,7 @@ python3 photoboothapp.py
 
 ## Customization
 You can also edit `config.ini` to change some parameters such as:
- - Selected language ;
+ - Autorestart on failure ;
  - Full screen window ;
  - Countdown before the photo is taken ;
  - Directory in which the photos and collages are stored ;
@@ -188,5 +188,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Remove all texts to rely only on icons ?
- - Use gif icons
+ - Use blurry background for capture confirm
+ - Improve all assets

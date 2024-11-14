@@ -84,3 +84,31 @@ class FileUtils:
         x_start = max(0, int(round(cx - w / (2 * zoom[0]))))
         x_end = min(int(round(cx + w / (2 * zoom[0]))), im.shape[1])
         return im[y_start:y_end, x_start:x_end, :]
+
+    @staticmethod
+    def blurry_borders(im, size):
+        width, height = size
+        im_height, im_width = im.shape[:2]
+
+        # Resize image to match screen
+        scale_factor = min(height / im_height, width / im_width)
+        new_size = (int(im_width * scale_factor), int(im_height * scale_factor))
+        im = cv2.resize(im, new_size)
+
+        # Generate blur on sides
+        blurred_image = cv2.GaussianBlur(im, (25, 25), 0)
+        im_height, im_width = im.shape[:2]
+        difference_h = int((width - im_width) // 2)
+        difference_v = int((height - im_height) // 2)
+        if difference_h > 0:
+            left_blur = blurred_image[:, :difference_h]
+            right_blur = blurred_image[:, im_width - difference_h:]
+            combined_image = np.hstack((left_blur, im, right_blur))
+        elif difference_v > 0:
+            top_blur = blurred_image[:difference_v, :]
+            bottom_blur = blurred_image[im_height - difference_v:, :]
+            combined_image = np.vstack((top_blur, im, bottom_blur))
+        else:
+            combined_image = im
+        
+        return combined_image

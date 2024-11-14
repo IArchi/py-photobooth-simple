@@ -30,11 +30,13 @@ signal.signal(signal.SIGINT, signal_handler)
 
 class PhotoboothApp(App):
     def __init__(self, **kwargs):
+        global autorestart
         Logger.info('PhotoboothApp: __init__().')
         super(PhotoboothApp, self).__init__(**kwargs)
 
         # Load configuration
         config = Config()
+        autorestart = config.get_autorestart()
         self.FULLSCREEN = config.get_fullscreen()
         self.COUNTDOWN = config.get_countdown()
         self.DCIM_DIRECTORY = config.get_dcim_directory()

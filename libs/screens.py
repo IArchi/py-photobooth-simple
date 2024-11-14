@@ -5,7 +5,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.button import Button
-from kivy.graphics import Rectangle, Color, Line
+from kivy.graphics import Rectangle, Color, Line, BorderImage
 from kivy.uix.image import Image, AsyncImage
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
@@ -263,26 +263,34 @@ class ReadyScreen(BackgroundScreen):
 
         self.app = app
 
-        icon = AsyncImage(
-            source='./assets/icons/ready.png', # TODO : Create icon
-            size_hint=(0.4, 0.4),
-            pos_hint={'x': 0.3, 'y': 0.3},
+        # Use progress bar
+        self.progress = ThickProgressBar(
+            max=100,
+            size_hint=(1, 0.1),
+            pos_hint={'x': 0, 'y': 0.45},
         )
 
         self.layout = BoxLayout()
-        self.layout.add_widget(icon)
+        self.layout.add_widget(self.progress)
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ReadyScreen: on_entry().')
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self._clock = Clock.schedule_once(self.timer_event, 2)
+        self._clock_progress = Clock.schedule_once(self.timer_progress, 0.05)
+        self.progress.value = 100/(2/0.05)
+        self._clock = Clock.schedule_once(self.timer_event, 2.1)
 
     def on_exit(self, kwargs={}):
         Logger.info('ReadyScreen: on_exit().')
         Clock.unschedule(self._clock)
+        Clock.unschedule(self._clock_progress)
 
+    def timer_progress(self, obj):
+        self.progress.value += 100/(2/0.05)
+        self._clock_progress = Clock.schedule_once(self.timer_progress, 0.05)
+        
     def timer_event(self, obj):
         Logger.info('ReadyScreen: timer_event().')
         self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
@@ -406,7 +414,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
 
         self.app = app
         self._current_shot = 0
-        self._current_format = 0
+        self._current_format = 1
 
         # Display taken photo
         self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
@@ -414,21 +422,29 @@ class ConfirmCaptureScreen(BackgroundScreen):
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
-        # Add counter
-        self.icon = AsyncImage(
-            source='./assets/icons/capture_1.png', # TODO : Create icon
-            size_hint=(0.8, 0.1),
-            pos_hint={'x': 0.1, 'y': 0.88},
-        )
-        overlay_layout.add_widget(self.icon)
-
         # Display capture
-        self.preview = Image(
+        self.preview = BlurredImage(
             fit_mode='contain',
-            size_hint=(1, 0.80),
-            pos_hint={'x': 0, 'y': 0.05},
-        ) # TODO : Add border ??
+            size_hint=(1, 1),
+            pos_hint={'x': 0, 'y': 0},
+        )
         overlay_layout.add_widget(self.preview)
+
+        # Add counter
+        self.counter_layout = BoxLayout(
+            spacing=10,
+            size_hint=(0.25, 0.1),
+            pos_hint={'x': 0.375, 'y': 0.88},
+        )
+        self.icons = []
+        for _ in range(0, self.app.get_shots_to_take(self._current_format)):
+            icon = AsyncImage(
+                source='./assets/icons/camera_shot_off.png',
+                size_hint=(1, None),
+            )
+            self.counter_layout.add_widget(icon)
+            self.icons.append(icon)
+        overlay_layout.add_widget(self.counter_layout)
 
         # Add buttons
         self.keep_button = ImageRoundButton(
@@ -462,8 +478,8 @@ class ConfirmCaptureScreen(BackgroundScreen):
         Logger.info('ConfirmCaptureScreen: on_entry().')
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self.icon.source = f'./assets/icons/capture_{(self._current_shot + 1)}.png', # TODO : Create icon (use loop with self.app.get_shots_to_take(self._current_format))
-        self.preview.source = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
+        for i in range(0, self._current_shot + 1): self.icons[i].source = './assets/icons/camera_shot_on.png'
+        self.preview.filepath = FileUtils.get_small_path(self.app.get_shot(self._current_shot)) # TODO : Add blurry borders
         self.preview.reload()
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
 
@@ -590,7 +606,7 @@ class ConfirmSaveScreen(BackgroundScreen):
         Logger.info('ConfirmSaveScreen: on_entry().')
         self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
-        self.preview.source = FileUtils.get_small_path(self.app.get_collage())
+        self.preview.source = FileUtils.get_small_path(self.app.get_collage()) # TODO : Add blurry borders
         self.preview.reload()
 
     def on_exit(self, kwargs={}):
@@ -700,7 +716,7 @@ class ConfirmPrintScreen(BackgroundScreen):
 
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
-        self.preview.source = FileUtils.get_small_path(self.app.get_collage())
+        self.preview.source = FileUtils.get_small_path(self.app.get_collage()) # TODO : Add blurry borders
         self.preview.reload()
 
     def on_exit(self, kwargs={}):
@@ -771,7 +787,7 @@ class PrintingScreen(BackgroundScreen):
             self._clock = Clock.schedule_once(self.timer_event, 10)
             self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
         except Exception as e:
-            return self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printing.png') # TODO : create icon
+            return self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printing.png')
 
     def on_exit(self, kwargs={}):
         Logger.info('PrintingScreen: on_exit().')
@@ -791,7 +807,7 @@ class PrintingScreen(BackgroundScreen):
 
     def timer_toolong(self, obj):
         Logger.info('PrintingScreen: timer_toolong().')
-        self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printin_toolong.png') # TODO : create icon
+        self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printing_toolong.png')
 
 class SuccessScreen(BackgroundScreen):
     """
@@ -808,10 +824,11 @@ class SuccessScreen(BackgroundScreen):
         self.app = app
 
         icon = Image(
-            source='./assets/icons/clap.png', # TODO : Display gif ?
+            source='./assets/icons/clap.zip', # TODO : Display gif (Use https://ezgif.com/split/ to convert gif to zip)
             fit_mode='contain',
             size_hint=(0.3, 0.3),
             pos_hint={'x': 0.35, 'y': 0.35},
+            anim_delay=0.1
         )
 
         self.layout = BoxLayout()
