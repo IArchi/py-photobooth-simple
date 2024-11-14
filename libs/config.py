@@ -5,6 +5,9 @@ class Config:
         self.config = configparser.ConfigParser()
         self.config.read('./config.ini')
 
+    def get_autorestart(self):
+        return self.config.getboolean('Global', 'AUTORESTART')
+
     def get_fullscreen(self):
         return self.config.getboolean('Global', 'FULLSCREEN')
 
