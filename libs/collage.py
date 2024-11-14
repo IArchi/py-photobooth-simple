@@ -14,7 +14,7 @@ class Collage:
         self._squared = squared
         self._margin_percent = 5
         _module_dir = os.path.dirname(os.path.abspath(__file__))
-        self._dummy = os.path.join(_module_dir, '../doc/dummy.png')
+        self._dummies = [os.path.join(_module_dir, '../doc/dummy.png'), os.path.join(_module_dir, '../doc/dummy1.png'), os.path.join(_module_dir, '../doc/dummy2.png'), os.path.join(_module_dir, '../doc/dummy3.png')]
         self._overlay = os.path.join(_module_dir, overlay)
 
     def get_photos_required(self):
@@ -83,7 +83,7 @@ class FullpageCollage(Collage):
         super(FullpageCollage, self).__init__(count=1, print_params={'PageSize':'w288h432', 'print-scaling':'fit'}, squared=False, overlay=overlay)
 
     def get_preview(self):
-        collage = self.assemble([self._dummy])
+        collage = self.assemble([self._dummies[0]])
         collage = FileUtils.resize(collage)
 
         # Dump to temp file
@@ -130,7 +130,7 @@ class StripCollage(Collage):
         super(StripCollage, self).__init__(count=3, print_params={'PageSize':'w288h432-div2', 'print-scaling':'fit'}, squared=True, overlay=overlay)
 
     def get_preview(self):
-        image_paths = [self._dummy for _ in range(self._count)]
+        image_paths = [self._dummies[i] for i in range(self._count)]
         collage = self.assemble(image_paths)
         collage = FileUtils.resize(collage)
 
