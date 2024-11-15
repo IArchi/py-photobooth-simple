@@ -139,8 +139,8 @@ Builder.load_string("""
         Color:
             rgba: self.background_color
         Ellipse:
-            size: self.size[1] * 1.4, self.size[1] * 1.4
-            pos: self.center_x - (self.size[1] * 1.4) / 2, self.center_y - (self.size[1] * 1.4) / 2
+            size: (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4, self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4)
+            pos: (self.center_x - (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4) / 2, self.center_y - (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4) / 2)
 """)
 class ImageRoundButton(ButtonBehavior, AsyncImage):
     source = StringProperty('')
