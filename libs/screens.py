@@ -479,7 +479,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         for i in range(0, self._current_shot + 1): self.icons[i].source = './assets/icons/camera_shot_on.png'
-        self.preview.filepath = FileUtils.get_small_path(self.app.get_shot(self._current_shot)) # TODO : Add blurry borders
+        self.preview.filepath = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
         self.preview.reload()
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
 
@@ -575,7 +575,7 @@ class ConfirmSaveScreen(BackgroundScreen):
         self.layout.add_widget(overlay_layout)
 
         # Display collage
-        self.preview = Image(
+        self.preview = BlurredImage(
             fit_mode='contain',
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
@@ -606,7 +606,7 @@ class ConfirmSaveScreen(BackgroundScreen):
         Logger.info('ConfirmSaveScreen: on_entry().')
         self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
-        self.preview.source = FileUtils.get_small_path(self.app.get_collage()) # TODO : Add blurry borders
+        self.preview.filepath = FileUtils.get_small_path(self.app.get_collage())
         self.preview.reload()
 
     def on_exit(self, kwargs={}):
@@ -651,7 +651,7 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.layout.add_widget(self.overlay_layout)
 
         # Display collage
-        self.preview = Image(
+        self.preview = BlurredImage(
             fit_mode='contain',
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
@@ -716,7 +716,7 @@ class ConfirmPrintScreen(BackgroundScreen):
 
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
-        self.preview.source = FileUtils.get_small_path(self.app.get_collage()) # TODO : Add blurry borders
+        self.preview.filepath = FileUtils.get_small_path(self.app.get_collage())
         self.preview.reload()
 
     def on_exit(self, kwargs={}):

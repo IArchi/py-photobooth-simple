@@ -188,5 +188,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Use blurry background for capture confirm
  - Improve all assets
+ - Fix round buttons

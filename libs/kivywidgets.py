@@ -65,7 +65,7 @@ class KivyCamera(Image):
         if not self._stop:
             self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)
 
-class BlurredImage(AsyncImage):
+class BlurredImage(Image):
     filepath = StringProperty('')
 
     def __init__(self, **kwargs):
@@ -88,8 +88,8 @@ class BlurredImage(AsyncImage):
     def reload(self):
         try:
             im = cv2.imread(self.filepath)
-            if im is None:
-                return
+            if im is None: return
+            im = cv2.flip(im, 0)
             im = FileUtils.blurry_borders(im, self.size)
             image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
             image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
@@ -97,7 +97,6 @@ class BlurredImage(AsyncImage):
         except Exception as e:
             Logger.error(f'Cannot open image {self.filepath}.')
             Logger.error(e)
-        super().reload()
 
 Builder.load_string(
 """
@@ -228,14 +227,14 @@ Builder.load_string('''
         Color:
             rgba: 1, 1, 1, 0
         Rectangle:
-            pos: self.x, self.center_y - 3
-            size: self.width, 6
+            pos: self.x, self.center_y - dp(3)
+            size: self.width, dp(6)
 
         Color:
             rgba: 1, 1, 1, 1  # Couleur de la barre de progression (blanc)
         Rectangle:
-            pos: self.x, self.center_y - 3
-            size: self.width * (self.value / float(self.max)) if self.max else 0, 6
+            pos: self.x, self.center_y - dp(3)
+            size: self.width * (self.value / float(self.max)) if self.max else 0, dp(6)
 ''')
 class ThickProgressBar(ProgressBar):
     pass
