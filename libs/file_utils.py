@@ -96,17 +96,20 @@ class FileUtils:
         im = cv2.resize(im, new_size)
 
         # Generate blur on sides
-        blurred_image = cv2.GaussianBlur(im, (25, 25), 0)
+        blurred_image = cv2.GaussianBlur(im, (101, 101), 0)
         im_height, im_width = im.shape[:2]
         difference_h = int((width - im_width) // 2)
         difference_v = int((height - im_height) // 2)
         if difference_h > 0:
+            print(difference_h, blurred_image.shape[0])
             left_blur = blurred_image[:, :difference_h]
-            right_blur = blurred_image[:, im_width - difference_h:]
+            right_blur = blurred_image[:, max(0, im_width - difference_h):]
             combined_image = np.hstack((left_blur, im, right_blur))
         elif difference_v > 0:
+            print(difference_v, blurred_image.shape[1])
             top_blur = blurred_image[:difference_v, :]
-            bottom_blur = blurred_image[im_height - difference_v:, :]
+            print('top', top_blur.shape)
+            bottom_blur = blurred_image[max(0, im_height - difference_v):, :]
             combined_image = np.vstack((top_blur, im, bottom_blur))
         else:
             combined_image = im
