@@ -869,14 +869,14 @@ class CopyingScreen(BackgroundScreen):
         self._count = 0
 
         # Display loading icon
-        self.loading = RotatingImage(
-            source='./assets/icons/loading.png',
+        loading = Image(
+            source='./assets/icons/usb.png',
             size_hint=(0.4, 0.4),
             pos_hint={'x': 0.3, 'y': 0.3},
         )
         
         self.layout = BoxLayout()
-        self.layout.add_widget(self.loading)
+        self.layout.add_widget(loading)
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
