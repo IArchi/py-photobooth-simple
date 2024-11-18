@@ -190,3 +190,15 @@ Application will not be usable during the copy process but will display a messag
 ## TODO
  - Improve all assets
  - Use awesomefont ?
+
+    fa_icon = Label(
+            size_hint=(0.15, 0.25),
+            pos_hint={'x': 0.42, 'y': 0.2},
+            font_name='./assets/fonts/fontello.ttf',
+            text='\uf1d8', # paper-plane
+            font_size=LARGE_FONT,
+        )
+        overlay_layout.add_widget(fa_icon)
+
+
+ - Gradient progress bar ?
