@@ -17,10 +17,11 @@ from libs.file_utils import FileUtils
 
 # Widget to display camera
 class KivyCamera(Image):
-    def __init__(self, app, fps=30, **kwargs):
+    def __init__(self, app, fps=30, blur=False, **kwargs):
         super(KivyCamera, self).__init__(**kwargs)
         self._app = app
         self._fps = fps
+        self._blur = blur
         self._stop = False
         self.create_empty_texture()
 
@@ -51,7 +52,8 @@ class KivyCamera(Image):
             if im is None: return
 
             # Generate blurry borders
-            im = FileUtils.blurry_borders(im, self.size)
+            if self._blur:
+                im = FileUtils.blurry_borders(im, self.size)
                     
             # Apply as texture
             image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
@@ -68,10 +70,11 @@ class KivyCamera(Image):
 class BlurredImage(Image):
     filepath = StringProperty('')
 
-    def __init__(self, **kwargs):
+    def __init__(self, blur=False, **kwargs):
         super(BlurredImage, self).__init__(**kwargs)
+        self._blur = blur
         self.bind(size=self.update_texture)
-        self.create_empty_texture()
+        if blur: self.create_empty_texture()
 
     def create_empty_texture(self):
         width, height = self.size
@@ -86,17 +89,20 @@ class BlurredImage(Image):
             self.reload()
 
     def reload(self):
-        try:
-            im = cv2.imread(self.filepath)
-            if im is None: return
-            im = cv2.flip(im, 0)
-            im = FileUtils.blurry_borders(im, self.size)
-            image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
-            image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
-            self.texture = image_texture
-        except Exception as e:
-            Logger.error(f'Cannot open image {self.filepath}.')
-            Logger.error(e)
+        if self._blur:
+            try:
+                im = cv2.imread(self.filepath)
+                if im is None: return
+                im = cv2.flip(im, 0)
+                im = FileUtils.blurry_borders(im, self.size)
+                image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
+                image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
+                self.texture = image_texture
+            except Exception as e:
+                Logger.error(f'Cannot open image {self.filepath}.')
+                Logger.error(e)
+        else:
+            self.source = self.filepath
 
 Builder.load_string(
 """
@@ -220,7 +226,6 @@ class RotatingImage(AsyncImage):
         self.angle -= 2
         self.angle %= 360
 
-
 Builder.load_string('''
 <ThickProgressBar@ProgressBar>:
     canvas:
@@ -231,10 +236,10 @@ Builder.load_string('''
             size: self.width, dp(6)
 
         Color:
-            rgba: 1, 1, 1, 1  # Couleur de la barre de progression (blanc)
+            rgba: self.color
         Rectangle:
             pos: self.x, self.center_y - dp(3)
             size: self.width * (self.value / float(self.max)) if self.max else 0, dp(6)
 ''')
 class ThickProgressBar(ProgressBar):
-    pass
+    color = ColorProperty()

@@ -21,6 +21,18 @@ NORMAL_FONT = '50sp'
 SMALL_FONT = '30sp'
 TINY_FONT = '15sp'
 IMAGE_BUTTON_FONT = '25sp'
+BORDER_THINKNESS = 10
+BLUR_CAMERA = True
+BLUR_IMAGES = True
+BLUR_COLLAGE = False
+
+BACKGROUND_COLOR = (0.149, 0.286, 0.361, 1) # #26495c # OK
+BORDER_COLOR = (0.769, 0.639, 0.353, 1) # c4a35a # OK
+PROGRESS_COLOR = (0.898, 0.898, 0.898, 1) # e5e5e5 # OK
+CONFIRM_COLOR = (0.325, 0.541, 0.392, 1) # 538a64 # OK
+CANCEL_COLOR = (0.545, 0.282, 0.275, 1) # 8b4846 # OK
+
+HOME_COLOR = (0.325, 0.286, 0.412, 1) # 534969
 
 class ScreenMgr(ScreenManager):
     """Screen Manager for the photobooth screens."""
@@ -71,6 +83,26 @@ class BackgroundScreen(Screen):
 
     def on_size(self, *args):
         self.background_image.size = self.size
+
+class ColorScreen(Screen):
+    def __init__(self, **kwargs):
+        super(ColorScreen, self).__init__(**kwargs)
+        with self.canvas.before:
+            # Border
+            Color(*BORDER_COLOR)
+            self.border_rect = Rectangle(pos=self.pos, size=self.size)
+
+            # Background
+            Color(*BACKGROUND_COLOR)
+            self.background_rect = Rectangle(pos=(self.x + BORDER_THINKNESS, self.y + BORDER_THINKNESS), size=(self.width - BORDER_THINKNESS*2, self.height - BORDER_THINKNESS*2))
+
+    def on_pos(self, *args):
+        self.border_rect.pos = self.pos
+        self.background_rect.pos = (self.x + BORDER_THINKNESS, self.y + BORDER_THINKNESS)
+
+    def on_size(self, *args):
+        self.border_rect.size = self.size
+        self.background_rect.size = (self.width - BORDER_THINKNESS*2, self.height - BORDER_THINKNESS*2)
 
 class WaitingScreen(BackgroundScreen):
     """
@@ -135,7 +167,7 @@ class WaitingScreen(BackgroundScreen):
         Logger.info('WaitingScreen: on_click().')
         self.app.transition_to(ScreenMgr.SELECT_FORMAT)
 
-class SelectFormatScreen(BackgroundScreen):
+class SelectFormatScreen(ColorScreen):
     """
     +-----------------+
     |  Select format  |
@@ -146,11 +178,11 @@ class SelectFormatScreen(BackgroundScreen):
     """
     def __init__(self, app, **kwargs):
         Logger.info('SelectFormatScreen: __init__().')
-        super(SelectFormatScreen, self).__init__(bg='./assets/backgrounds/bg_instructions.jpeg', **kwargs)
-
+        #super(SelectFormatScreen, self).__init__(bg='./assets/backgrounds/bg_instructions.jpeg', **kwargs)
+        super(SelectFormatScreen, self).__init__(**kwargs)
         self.app = app
 
-        self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
+        self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
 
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
@@ -210,7 +242,7 @@ class SelectFormatScreen(BackgroundScreen):
         Logger.info('SelectFormatScreen: on_click_right().')
         self.app.transition_to(ScreenMgr.READY, shot=0, format=1)
 
-class ErrorScreen(BackgroundScreen):
+class ErrorScreen(ColorScreen):
     """
     +-----------------+
     |  Error occured  |
@@ -249,7 +281,7 @@ class ErrorScreen(BackgroundScreen):
         Logger.info('ErrorScreen: on_click().')
         self.app.transition_to(ScreenMgr.WAITING)
 
-class ReadyScreen(BackgroundScreen):
+class ReadyScreen(ColorScreen):
     """
     +-----------------+
     |                 |
@@ -265,12 +297,13 @@ class ReadyScreen(BackgroundScreen):
 
         # Use progress bar
         self.progress = ThickProgressBar(
+            color=PROGRESS_COLOR,
             max=100,
             size_hint=(1, 0.1),
             pos_hint={'x': 0, 'y': 0.45},
         )
 
-        self.layout = BoxLayout()
+        self.layout = BoxLayout(padding=BORDER_THINKNESS)
         self.layout.add_widget(self.progress)
         self.add_widget(self.layout)
 
@@ -295,7 +328,7 @@ class ReadyScreen(BackgroundScreen):
         Logger.info('ReadyScreen: timer_event().')
         self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
 
-class CountdownScreen(BackgroundScreen):
+class CountdownScreen(ColorScreen):
     """
     +-----------------+
     |                 |
@@ -320,8 +353,8 @@ class CountdownScreen(BackgroundScreen):
         )
 
         # Display camera preview
-        self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
-        self.camera = KivyCamera(app=self.app, fps=30, fit_mode='contain')
+        self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
+        self.camera = KivyCamera(app=self.app, fps=30, blur=BLUR_CAMERA, fit_mode='contain')
         self.layout.add_widget(self.camera)
 
         # Display countdown
@@ -400,7 +433,7 @@ class CountdownScreen(BackgroundScreen):
             # Display photo and take next shot
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
             
-class ConfirmCaptureScreen(BackgroundScreen):
+class ConfirmCaptureScreen(ColorScreen):
     """
     +-----------------+
     |       1/3       |
@@ -417,13 +450,14 @@ class ConfirmCaptureScreen(BackgroundScreen):
         self._current_format = 1
 
         # Display taken photo
-        self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
+        self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
 
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
         # Display capture
         self.preview = BlurredImage(
+            blur=BLUR_IMAGES,
             fit_mode='contain',
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
@@ -451,7 +485,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
             source='./assets/icons/check.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.85, 'y': 0.05},
-            background_color=(.4, .733, .416, 1),
+            background_color=CONFIRM_COLOR, 
         )
         self.keep_button.bind(on_release=self.keep_event)
         overlay_layout.add_widget(self.keep_button)
@@ -459,7 +493,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
             source='./assets/icons/refresh.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.05, 'y': 0.05},
-            background_color=(.937, .325, .314, 1),
+            background_color=CANCEL_COLOR,
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
@@ -467,7 +501,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
             source='./assets/icons/home.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.05, 'y': 0.85},
-            background_color=(0.1294, 0.5882, 0.9529, 1),
+            background_color=HOME_COLOR,
         )
         self.home_button.bind(on_release=self.home_event)
         overlay_layout.add_widget(self.home_button)
@@ -506,7 +540,7 @@ class ConfirmCaptureScreen(BackgroundScreen):
         Logger.info('ConfirmCaptureScreen: timer_event().')
         self.app.transition_to(ScreenMgr.WAITING)
 
-class ProcessingScreen(BackgroundScreen):
+class ProcessingScreen(ColorScreen):
     """
     +-----------------+
     |                 |
@@ -528,7 +562,7 @@ class ProcessingScreen(BackgroundScreen):
             pos_hint={'x': 0.3, 'y': 0.3},
         )
 
-        self.layout = BoxLayout()
+        self.layout = BoxLayout(padding=BORDER_THINKNESS)
         self.layout.add_widget(self.loading)
         self.add_widget(self.layout)
 
@@ -555,7 +589,7 @@ class ProcessingScreen(BackgroundScreen):
         else:
             self.app.transition_to(ScreenMgr.CONFIRM_SAVE)
 
-class ConfirmSaveScreen(BackgroundScreen):
+class ConfirmSaveScreen(ColorScreen):
     """
     +-----------------+
     |      Save ?     |
@@ -569,13 +603,14 @@ class ConfirmSaveScreen(BackgroundScreen):
 
         self.app = app
 
-        self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
+        self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
 
         overlay_layout = FloatLayout()
         self.layout.add_widget(overlay_layout)
 
         # Display collage
         self.preview = BlurredImage(
+            blur=BLUR_COLLAGE,
             fit_mode='contain',
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
@@ -587,7 +622,7 @@ class ConfirmSaveScreen(BackgroundScreen):
             source='./assets/icons/save.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.85, 'y': 0.05},
-            background_color=(.4, .733, .416, 1),
+            background_color=CONFIRM_COLOR
         )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
@@ -595,7 +630,7 @@ class ConfirmSaveScreen(BackgroundScreen):
             source='./assets/icons/trash.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.05, 'y': 0.05},
-            background_color=(.937, .325, .314, 1),
+            background_color=CANCEL_COLOR
         )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
@@ -630,7 +665,7 @@ class ConfirmSaveScreen(BackgroundScreen):
         self.app.save_collage()
         self.app.transition_to(ScreenMgr.WAITING)
 
-class ConfirmPrintScreen(BackgroundScreen):
+class ConfirmPrintScreen(ColorScreen):
     """
     +-----------------+
     |      Print ?    |
@@ -645,13 +680,14 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.app = app
         self._current_format = 0
 
-        self.layout = AnchorLayout(anchor_x='center', anchor_y='top')
+        self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
 
         self.overlay_layout = FloatLayout()
         self.layout.add_widget(self.overlay_layout)
 
         # Display collage
         self.preview = BlurredImage(
+            blur=BLUR_COLLAGE,
             fit_mode='contain',
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
@@ -664,7 +700,7 @@ class ConfirmPrintScreen(BackgroundScreen):
             source='./assets/icons/print-1.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.85, 'y': 0.20},
-            background_color=(.4, .733, .416, 1),
+            background_color=CONFIRM_COLOR
         )
         btn_once.bind(on_release=self.print_once)
         self.buttons_layout.add_widget(btn_once)
@@ -672,7 +708,7 @@ class ConfirmPrintScreen(BackgroundScreen):
             source='./assets/icons/print-2.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.85, 'y': 0.05},
-            background_color=(.4, .733, .416, 1),
+            background_color=CONFIRM_COLOR
         )
         btn_twice.bind(on_release=self.print_twice)
         self.buttons_layout.add_widget(btn_twice)
@@ -682,7 +718,7 @@ class ConfirmPrintScreen(BackgroundScreen):
             source='./assets/icons/print.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.85, 'y': 0.05},
-            background_color=(.4, .733, .416, 1),
+            background_color=CONFIRM_COLOR
         )
         btn_print.bind(on_release=self.print_once)
         self.button_layout.add_widget(btn_print)
@@ -691,7 +727,7 @@ class ConfirmPrintScreen(BackgroundScreen):
             source='./assets/icons/cancel.png',
             size_hint=(0.1, 0.1),
             pos_hint={'x': 0.05, 'y': 0.05},
-            background_color=(.937, .325, .314, 1),
+            background_color=CANCEL_COLOR
         )
         no_button.bind(on_release=self.no_event)
         self.overlay_layout.add_widget(no_button)
@@ -746,7 +782,7 @@ class ConfirmPrintScreen(BackgroundScreen):
         self.app.save_collage()
         self.app.transition_to(ScreenMgr.WAITING)
 
-class PrintingScreen(BackgroundScreen):
+class PrintingScreen(ColorScreen):
     """
     +-----------------+
     |                 |
@@ -768,7 +804,7 @@ class PrintingScreen(BackgroundScreen):
             pos_hint={'x': 0.3, 'y': 0.3},
         )
         
-        layout = BoxLayout()
+        layout = BoxLayout(padding=BORDER_THINKNESS)
         layout.add_widget(self.loading)
         self.add_widget(layout)
 
@@ -809,7 +845,7 @@ class PrintingScreen(BackgroundScreen):
         Logger.info('PrintingScreen: timer_toolong().')
         self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printing_toolong.png')
 
-class SuccessScreen(BackgroundScreen):
+class SuccessScreen(ColorScreen):
     """
     +-----------------+
     |                 |
@@ -831,7 +867,7 @@ class SuccessScreen(BackgroundScreen):
             anim_delay=0.1
         )
 
-        self.layout = BoxLayout()
+        self.layout = BoxLayout(padding=BORDER_THINKNESS)
         self.layout.add_widget(icon)
         self.add_widget(self.layout)
 
@@ -853,7 +889,7 @@ class SuccessScreen(BackgroundScreen):
         Logger.info('SuccessScreen: timer_event().')
         self.app.transition_to(ScreenMgr.WAITING)
 
-class CopyingScreen(BackgroundScreen):
+class CopyingScreen(ColorScreen):
     """
     +-----------------+
     |                 |
@@ -875,7 +911,7 @@ class CopyingScreen(BackgroundScreen):
             pos_hint={'x': 0.3, 'y': 0.3},
         )
         
-        self.layout = BoxLayout()
+        self.layout = BoxLayout(padding=BORDER_THINKNESS)
         self.layout.add_widget(loading)
         self.add_widget(self.layout)
 

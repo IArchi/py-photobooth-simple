@@ -189,3 +189,4 @@ Application will not be usable during the copy process but will display a messag
 
 ## TODO
  - Improve all assets
+ - Use awesomefont ?
