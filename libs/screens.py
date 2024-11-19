@@ -33,27 +33,25 @@ PROGRESS_COLOR = hex_to_rgba('#e5e5e5')
 CONFIRM_COLOR = hex_to_rgba('#538a64')
 CANCEL_COLOR = hex_to_rgba('#8b4846')
 HOME_COLOR = hex_to_rgba('#534969')
+BADGE_COLOR = hex_to_rgba('#8b4846') # TODO
 
 # Icons
 USE_FONT_ICONS = True
-ICON_TTF = './assets/fonts/fontello.ttf'
-ICON_TOUCH = '\uea37'
-ICON_ARROW_LEFT = '\uea37'
-ICON_ARROW_RIGHT = '\uea37'
-ICON_ERROR = '\uea37'
-ICON_ERROR_PRINTING = '\uea37'
-ICON_ERROR_PRINTING_TOOLONG = '\uea37'
-ICON_LOADING = '\uea37'
-ICON_SHOT_OFF = '\uea37'
-ICON_SHOT_ON = '\uea37'
-ICON_CONFIRM = '\uea37'
-ICON_CANCEL = '\uea37'
-ICON_HOME = '\uea37'
-ICON_PRINT = '\uea37'
-ICON_PRINT_1 = '\uea37'
-ICON_PRINT_2 = '\uea37'
-ICON_SUCCESS = '\uea37'
-ICON_USB = '\uea37'
+ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font and https://hugeicons.com/icons?style=Stroke&type=Rounded
+ICON_TOUCH = '\u4896'
+ICON_CHOOSE = '\u3b77'
+ICON_ERROR = '\u3b03'
+ICON_ERROR_PRINTING = '\u458d'
+ICON_ERROR_PRINTING_TOOLONG = '\u458d'
+ICON_LOADING = '\u45ec'
+ICON_SHOT_TO_TAKE = '\u3d3e'
+ICON_SHOT_TAKEN = '\u3da7'
+ICON_CONFIRM = '\u4908'
+ICON_CANCEL = '\u3d42'
+ICON_HOME = '\u4161'
+ICON_PRINT = '\u458e'
+ICON_SUCCESS = '\u3bba' # TODO : Firecrackers
+ICON_USB = '\u49ba'
 
 class ScreenMgr(ScreenManager):
     """Screen Manager for the photobooth screens."""
@@ -154,7 +152,7 @@ class WaitingScreen(BackgroundScreen):
 
         if USE_FONT_ICONS:
             icon = ResizeLabel(
-                size_hint=(0.15, 0.25),
+                size_hint=(0.15, 0.30),
                 pos_hint={'x': 0.42, 'y': 0.02},
                 font_name=ICON_TTF,
                 text=ICON_TOUCH,
@@ -236,13 +234,14 @@ class SelectFormatScreen(ColorScreen):
 
         # Add arrows
         if USE_FONT_ICONS:
-            arrow_left = ResizeLabel(
-                size_hint=(0.2, 0.1),
-                pos_hint={'x': 0.45, 'y': 0.3},
+            icon = ResizeLabel(
+                size_hint=(0.2, 0.2),
+                pos_hint={'x': 0.45, 'y': 0.4},
                 font_name=ICON_TTF,
-                text=ICON_ARROW_LEFT,
+                text=ICON_CHOOSE,
                 max_font_size=XLARGE_FONT,
             )
+            overlay_layout.add_widget(icon)
         else:
             arrow_left = Image(
                 source='./assets/icons/arrow_left.png',
@@ -250,23 +249,14 @@ class SelectFormatScreen(ColorScreen):
                 size_hint=(0.2, 0.1),
                 pos_hint={'x': 0.45, 'y': 0.3},
             )
-        overlay_layout.add_widget(arrow_left)
-        if USE_FONT_ICONS:
-            arrow_right = ResizeLabel(
-                size_hint=(0.2, 0.1),
-                pos_hint={'x': 0.45, 'y': 0.70},
-                font_name=ICON_TTF,
-                text=ICON_ARROW_RIGHT,
-                max_font_size=XLARGE_FONT,
-            )
-        else:
+            overlay_layout.add_widget(arrow_left)
             arrow_right = Image(
                 source='./assets/icons/arrow_right.png',
                 fit_mode='contain',
                 size_hint=(0.2, 0.1),
                 pos_hint={'x': 0.45, 'y': 0.70},
             )
-        overlay_layout.add_widget(arrow_right)
+            overlay_layout.add_widget(arrow_right)
 
         self.add_widget(self.layout)
 
@@ -537,21 +527,19 @@ class ConfirmCaptureScreen(ColorScreen):
         self.counter_layout = BoxLayout(
             spacing=10,
             size_hint=(0.25, 0.1),
-            pos_hint={'x': 0.375, 'y': 0.88},
+            pos_hint={'x': 0.375, 'y':0.85},
         )
         self.icons = []
         for _ in range(0, self.app.get_shots_to_take(self._current_format)):
             if USE_FONT_ICONS:
                 icon = ResizeLabel(
-                    size_hint=(1, None),
                     font_name=ICON_TTF,
-                    text=ICON_SHOT_OFF,
+                    text=ICON_SHOT_TO_TAKE,
                     max_font_size=LARGE_FONT,
                 )
             else:
                 icon = AsyncImage(
                     source='./assets/icons/camera_shot_off.png',
-                    size_hint=(1, None),
                 )
             self.counter_layout.add_widget(icon)
             self.icons.append(icon)
@@ -569,7 +557,7 @@ class ConfirmCaptureScreen(ColorScreen):
             )
         else:
             self.keep_button = ImageRoundButton(
-                source='./assets/icons/check.png', #TODO
+                source='./assets/icons/check.png',
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.85, 'y': 0.05},
                 background_color=CONFIRM_COLOR, 
@@ -588,7 +576,7 @@ class ConfirmCaptureScreen(ColorScreen):
             )
         else:
             self.no_button = ImageRoundButton(
-                source='./assets/icons/refresh.png', #TODO
+                source='./assets/icons/refresh.png',
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.05, 'y': 0.05},
                 background_color=CANCEL_COLOR,
@@ -607,7 +595,7 @@ class ConfirmCaptureScreen(ColorScreen):
             )
         else:
             self.home_button = ImageRoundButton(
-                source='./assets/icons/home.png', #TODO
+                source='./assets/icons/home.png',
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.05, 'y': 0.85},
                 background_color=HOME_COLOR,
@@ -623,7 +611,7 @@ class ConfirmCaptureScreen(ColorScreen):
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         for i in range(0, self._current_shot + 1):
             if USE_FONT_ICONS:
-                self.icons[i].text = ICON_SHOT_ON
+                self.icons[i].text = ICON_SHOT_TAKEN
             else:
                 self.icons[i].source = './assets/icons/camera_shot_on.png'
         self.preview.filepath = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
@@ -751,10 +739,10 @@ class ConfirmSaveScreen(ColorScreen):
             )
         else:
             self.yes_button = ImageRoundButton(
-                source='./assets/icons/save.png', #TODO
+                source='./assets/icons/save.png',
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.85, 'y': 0.05},
-                background_color=CONFIRM_COLOR
+                background_color=CONFIRM_COLOR,
             )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
@@ -770,10 +758,10 @@ class ConfirmSaveScreen(ColorScreen):
             )
         else:
             self.no_button = ImageRoundButton(
-                source='./assets/icons/trash.png', # TODO
+                source='./assets/icons/trash.png',
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.05, 'y': 0.05},
-                background_color=CANCEL_COLOR
+                background_color=CANCEL_COLOR,
             )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
@@ -842,7 +830,7 @@ class ConfirmPrintScreen(ColorScreen):
         if USE_FONT_ICONS:
             btn_once = LabelRoundButton(
                 font_name=ICON_TTF,
-                text=ICON_PRINT_1,
+                text=ICON_PRINT,
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.85, 'y': 0.20},
                 background_color=CONFIRM_COLOR,
@@ -850,7 +838,7 @@ class ConfirmPrintScreen(ColorScreen):
             )
         else:
             btn_once = ImageRoundButton(
-                source='./assets/icons/print-1.png', #TODO
+                source='./assets/icons/print-1.png',
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.85, 'y': 0.20},
                 background_color=CONFIRM_COLOR
@@ -859,23 +847,38 @@ class ConfirmPrintScreen(ColorScreen):
         self.buttons_layout.add_widget(btn_once)
 
         if USE_FONT_ICONS:
-            btn_twice = LabelRoundButton(
-                font_name=ICON_TTF,
-                text=ICON_PRINT_2,
+            badge_layout = FloatLayout(
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.85, 'y': 0.05},
+            )
+            btn_twice = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_PRINT,
+                size_hint=(1, 1),
+                pos_hint={'center_x': 0.5, 'center_y': 0.5},
                 background_color=CONFIRM_COLOR,
                 max_font_size=LARGE_FONT,
             )
+            badge_icon = LabelRoundButton(
+                text='2',
+                bold=True,
+                size_hint=(0.4, 0.4),
+                pos_hint={'right': 1, 'top': 1},
+                background_color=BADGE_COLOR,
+                max_font_size=LARGE_FONT,
+            )
+            badge_layout.add_widget(btn_twice)
+            badge_layout.add_widget(badge_icon)
+            self.buttons_layout.add_widget(badge_layout)
         else:
             btn_twice = ImageRoundButton(
-                source='./assets/icons/print-2.png',#TODO
+                source='./assets/icons/print-2.png',
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.85, 'y': 0.05},
                 background_color=CONFIRM_COLOR
             )
+            self.buttons_layout.add_widget(btn_twice)
         btn_twice.bind(on_release=self.print_twice)
-        self.buttons_layout.add_widget(btn_twice)
 
         self.button_layout = FloatLayout()
         if USE_FONT_ICONS:
@@ -883,13 +886,13 @@ class ConfirmPrintScreen(ColorScreen):
                 font_name=ICON_TTF,
                 text=ICON_PRINT,
                 size_hint=(0.1, 0.1),
-                pos_hint={'x': 0.85, 'y': 0.05},
+                pos_hint={'x': 0.85, 'y': 0.05}, # TODO : Button vertical position is not correct
                 background_color=CONFIRM_COLOR,
                 max_font_size=LARGE_FONT,
             )
         else:
             btn_print = ImageRoundButton(
-                source='./assets/icons/print.png',#TODO
+                source='./assets/icons/print.png',
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.85, 'y': 0.05},
                 background_color=CONFIRM_COLOR
@@ -908,7 +911,7 @@ class ConfirmPrintScreen(ColorScreen):
             )
         else:
             no_button = ImageRoundButton(
-                source='./assets/icons/cancel.png',#TODO
+                source='./assets/icons/cancel.png',
                 size_hint=(0.1, 0.1),
                 pos_hint={'x': 0.05, 'y': 0.05},
                 background_color=CANCEL_COLOR

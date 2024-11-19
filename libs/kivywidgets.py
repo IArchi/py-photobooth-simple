@@ -162,6 +162,8 @@ class ResizeLabel(Label):
 
 Builder.load_string("""
 <LabelRoundButton>:
+    size_hint_x: None
+    width: self.height
     background_color: 0, 0, 0, 0
     padding: (0, 0, 0, 0)
     canvas.before:
@@ -173,10 +175,10 @@ Builder.load_string("""
 """)
 class LabelRoundButton(ButtonBehavior, ResizeLabel):
     text = StringProperty('')
-    font_name = StringProperty('')
+    font_name = StringProperty('Roboto')
     background_color = ListProperty([0, 0, 0, 0])
     max_font_size = NumericProperty(sp(16))
-
+    
     def __init__(self, **kwargs):
         max_font_size = kwargs.pop('max_font_size', None)
         super(LabelRoundButton, self).__init__(**kwargs)
