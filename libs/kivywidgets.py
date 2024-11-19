@@ -152,6 +152,36 @@ class ImageRoundButton(ButtonBehavior, AsyncImage):
     source = StringProperty('')
     background_color = ListProperty([0, 0, 0, 0])
 
+class ResizeLabel(Label):
+    max_font_size = NumericProperty(sp(16))
+
+    def on_size(self, *args):
+        font_size = self.width / len(self.text) * 1.5
+        self.font_size = min(self.size[1] if font_size > self.size[1] else font_size, self.max_font_size)
+
+Builder.load_string("""
+<LabelRoundButton>:
+    background_color: 0, 0, 0, 0
+    padding: (0, 0, 0, 0)
+    canvas.before:
+        Color:
+            rgba: self.background_color
+        Ellipse:
+            size: (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4, self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4)
+            pos: (self.center_x - (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4) / 2, self.center_y - (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4) / 2)
+""")
+class LabelRoundButton(ButtonBehavior, ResizeLabel):
+    text = StringProperty('')
+    font_name = StringProperty('')
+    background_color = ListProperty([0, 0, 0, 0])
+    max_font_size = NumericProperty(sp(16))
+
+    def __init__(self, **kwargs):
+        max_font_size = kwargs.pop('max_font_size', None)
+        super(LabelRoundButton, self).__init__(**kwargs)
+        if max_font_size is not None:
+            self.max_font_size = max_font_size
+
 Builder.load_string("""
 <BorderedLabel@Label>:
     color : 1,1,1,1
@@ -174,13 +204,6 @@ class BorderedLabel(Label):
 
     def on_size(self, *args):
         self.font_size = self.width / len(self.text) * 1.5
-
-class ResizeLabel(Label):
-    max_font_size = NumericProperty(sp(16))
-
-    def on_size(self, *args):
-        font_size = self.width / len(self.text) * 1.5
-        self.font_size = min(self.size[1] if font_size > self.size[1] else font_size, self.max_font_size)
 
 Builder.load_string("""
 <ShadowLabel>:
@@ -225,6 +248,35 @@ class RotatingImage(AsyncImage):
     def update(self, dt):
         self.angle -= 2
         self.angle %= 360
+
+Builder.load_string('''
+<RotatingLabel>:
+    canvas.before:
+        PushMatrix
+        Rotate:
+            angle: root.angle
+            axis: 0, 0, 1
+            origin: root.center
+    canvas.after:
+        PopMatrix
+''')
+class RotatingLabel(ResizeLabel):
+    angle = NumericProperty()
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.angle = 0
+        Clock.schedule_interval(self.update, 1/60)
+
+    def update(self, dt):
+        self.angle -= 2
+        self.angle %= 360
+
+class ResizeLabel(Label):
+    max_font_size = NumericProperty(sp(16))
+    def on_size(self, *args):
+        font_size = self.width / len(self.text) * 1.5
+        self.font_size = min(self.size[1] if font_size > self.size[1] else font_size, self.max_font_size)
 
 Builder.load_string('''
 <ThickProgressBar@ProgressBar>:
