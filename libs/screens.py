@@ -20,19 +20,41 @@ LARGE_FONT = '60sp'
 NORMAL_FONT = '50sp'
 SMALL_FONT = '30sp'
 TINY_FONT = '15sp'
-IMAGE_BUTTON_FONT = '25sp'
-BORDER_THINKNESS = 10
+
+# Add or not blurry borders to make images match the size of the window
 BLUR_CAMERA = True
 BLUR_IMAGES = True
 BLUR_COLLAGE = False
 
-BACKGROUND_COLOR = (0.149, 0.286, 0.361, 1) # #26495c # OK
-BORDER_COLOR = (0.769, 0.639, 0.353, 1) # c4a35a # OK
-PROGRESS_COLOR = (0.898, 0.898, 0.898, 1) # e5e5e5 # OK
-CONFIRM_COLOR = (0.325, 0.541, 0.392, 1) # 538a64 # OK
-CANCEL_COLOR = (0.545, 0.282, 0.275, 1) # 8b4846 # OK
-
+# Colors
+BACKGROUND_COLOR = (0.149, 0.286, 0.361, 1) # #26495c
+BORDER_COLOR = (0.769, 0.639, 0.353, 1) # c4a35a
+BORDER_THINKNESS = 10
+PROGRESS_COLOR = (0.898, 0.898, 0.898, 1) # e5e5e5
+CONFIRM_COLOR = (0.325, 0.541, 0.392, 1) # 538a64
+CANCEL_COLOR = (0.545, 0.282, 0.275, 1) # 8b4846
 HOME_COLOR = (0.325, 0.286, 0.412, 1) # 534969
+
+# Icons
+USE_FONT_ICONS = True
+ICON_TTF = './assets/fonts/fontello.ttf'
+ICON_TOUCH = '\uea37'
+ICON_ARROW_LEFT = '\uea37'
+ICON_ARROW_RIGHT = '\uea37'
+ICON_ERROR = '\uea37'
+ICON_ERROR_PRINTING = '\uea37'
+ICON_ERROR_PRINTING_TOOLONG = '\uea37'
+ICON_LOADING = '\uea37'
+ICON_SHOT_OFF = '\uea37'
+ICON_SHOT_ON = '\uea37'
+ICON_CONFIRM = '\uea37'
+ICON_CANCEL = '\uea37'
+ICON_HOME = '\uea37'
+ICON_PRINT = '\uea37'
+ICON_PRINT_1 = '\uea37'
+ICON_PRINT_2 = '\uea37'
+ICON_SUCCESS = '\uea37'
+ICON_USB = '\uea37'
 
 class ScreenMgr(ScreenManager):
     """Screen Manager for the photobooth screens."""
@@ -131,12 +153,21 @@ class WaitingScreen(BackgroundScreen):
         )
         overlay_layout.add_widget(start)
 
-        icon = Image(
-            source='./assets/icons/touch.png',
-            fit_mode='contain',
-            size_hint=(0.15, 0.25),
-            pos_hint={'x': 0.42, 'y': 0.02},
-        )
+        if USE_FONT_ICONS:
+            icon = ResizeLabel(
+                size_hint=(0.15, 0.25),
+                pos_hint={'x': 0.42, 'y': 0.02},
+                font_name=ICON_TTF,
+                text=ICON_TOUCH,
+                max_font_size=XLARGE_FONT,
+            )
+        else:
+            icon = Image(
+                source='./assets/icons/touch.png',
+                fit_mode='contain',
+                size_hint=(0.15, 0.25),
+                pos_hint={'x': 0.42, 'y': 0.02},
+            )
         overlay_layout.add_widget(icon)
 
         version = Label(
@@ -205,19 +236,37 @@ class SelectFormatScreen(ColorScreen):
         self.preview_right.bind(on_release=self.on_click_right)
 
         # Add arrows
-        arrow_left = Image(
-            source='./assets/icons/arrow_left.png',
-            fit_mode='contain',
-            size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.45, 'y': 0.3},
-        )
+        if USE_FONT_ICONS:
+            arrow_left = ResizeLabel(
+                size_hint=(0.2, 0.1),
+                pos_hint={'x': 0.45, 'y': 0.3},
+                font_name=ICON_TTF,
+                text=ICON_ARROW_LEFT,
+                max_font_size=XLARGE_FONT,
+            )
+        else:
+            arrow_left = Image(
+                source='./assets/icons/arrow_left.png',
+                fit_mode='contain',
+                size_hint=(0.2, 0.1),
+                pos_hint={'x': 0.45, 'y': 0.3},
+            )
         overlay_layout.add_widget(arrow_left)
-        arrow_right = Image(
-            source='./assets/icons/arrow_right.png',
-            fit_mode='contain',
-            size_hint=(0.2, 0.1),
-            pos_hint={'x': 0.45, 'y': 0.70},
-        )
+        if USE_FONT_ICONS:
+            arrow_right = ResizeLabel(
+                size_hint=(0.2, 0.1),
+                pos_hint={'x': 0.45, 'y': 0.70},
+                font_name=ICON_TTF,
+                text=ICON_ARROW_RIGHT,
+                max_font_size=XLARGE_FONT,
+            )
+        else:
+            arrow_right = Image(
+                source='./assets/icons/arrow_right.png',
+                fit_mode='contain',
+                size_hint=(0.2, 0.1),
+                pos_hint={'x': 0.45, 'y': 0.70},
+            )
         overlay_layout.add_widget(arrow_right)
 
         self.add_widget(self.layout)
@@ -258,12 +307,21 @@ class ErrorScreen(ColorScreen):
         overlay_layout = LayoutButton()
 
         # Display icon
-        self.icon = AsyncImage(
-            source='./assets/icons/error.png',
-            fit_mode='contain',
-            size_hint=(0.3, 0.3),
-            pos_hint={'x': 0.35, 'y': 0.35},
-        )
+        if USE_FONT_ICONS:
+            self.icon = ResizeLabel(
+                size_hint=(0.3, 0.3),
+                pos_hint={'x': 0.35, 'y': 0.35},
+                font_name=ICON_TTF,
+                text=ICON_ERROR,
+                max_font_size=XLARGE_FONT,
+            )
+        else:
+            self.icon = AsyncImage(
+                source='./assets/icons/error.png',
+                fit_mode='contain',
+                size_hint=(0.3, 0.3),
+                pos_hint={'x': 0.35, 'y': 0.35},
+            )
         overlay_layout.add_widget(self.icon)
 
         overlay_layout.bind(on_release=self.on_click)
@@ -271,7 +329,11 @@ class ErrorScreen(ColorScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
-        if 'error' in kwargs: self.icon.source = str(kwargs.get('error'))
+        if 'error' in kwargs:
+            if USE_FONT_ICONS:
+                self.icon.text = str(kwargs.get('error'))
+            else:
+                self.icon.source = str(kwargs.get('error'))
 
     def on_exit(self, kwargs={}):
         Logger.info('ErrorScreen: on_exit().')
@@ -366,11 +428,20 @@ class CountdownScreen(ColorScreen):
         self.color_background = BackgroundBoxLayout(background_color=(1,1,1,1))
 
         # Display loading icon
-        self.loading = RotatingImage(
-            source='./assets/icons/loading.png',
-            size_hint=(0.4, 0.4),
-            pos_hint={'x': 0.3, 'y': 0.3},
-        )
+        if USE_FONT_ICONS:
+            self.loading = RotatingLabel(
+                size_hint=(0.4, 0.4),
+                pos_hint={'x': 0.3, 'y': 0.3},
+                font_name=ICON_TTF,
+                text=ICON_LOADING,
+                max_font_size=XLARGE_FONT,
+            )
+        else:
+            self.loading = RotatingImage(
+                source='./assets/icons/loading.png',
+                size_hint=(0.4, 0.4),
+                pos_hint={'x': 0.3, 'y': 0.3},
+            )
         
         self.add_widget(self.layout)
 
@@ -381,7 +452,6 @@ class CountdownScreen(ColorScreen):
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.camera.start(self.app.is_square_format(self._current_format))
-        self.time_remaining_label.font_size = XLARGE_FONT
         self.time_remaining_label.text = str(self.time_remaining)
         self._clock = Clock.schedule_once(self.timer_event, 1)
         self._clock_trigger = None
@@ -472,37 +542,77 @@ class ConfirmCaptureScreen(ColorScreen):
         )
         self.icons = []
         for _ in range(0, self.app.get_shots_to_take(self._current_format)):
-            icon = AsyncImage(
-                source='./assets/icons/camera_shot_off.png',
-                size_hint=(1, None),
-            )
+            if USE_FONT_ICONS:
+                icon = ResizeLabel(
+                    size_hint=(1, None),
+                    font_name=ICON_TTF,
+                    text=ICON_SHOT_OFF,
+                    max_font_size=LARGE_FONT,
+                )
+            else:
+                icon = AsyncImage(
+                    source='./assets/icons/camera_shot_off.png',
+                    size_hint=(1, None),
+                )
             self.counter_layout.add_widget(icon)
             self.icons.append(icon)
         overlay_layout.add_widget(self.counter_layout)
 
         # Add buttons
-        self.keep_button = ImageRoundButton(
-            source='./assets/icons/check.png',
-            size_hint=(0.1, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.05},
-            background_color=CONFIRM_COLOR, 
-        )
+        if USE_FONT_ICONS:
+            self.keep_button = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_CONFIRM,
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.05},
+                background_color=CONFIRM_COLOR, 
+                max_font_size=LARGE_FONT,
+            )
+        else:
+            self.keep_button = ImageRoundButton(
+                source='./assets/icons/check.png', #TODO
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.05},
+                background_color=CONFIRM_COLOR, 
+            )
         self.keep_button.bind(on_release=self.keep_event)
         overlay_layout.add_widget(self.keep_button)
-        self.no_button = ImageRoundButton(
-            source='./assets/icons/refresh.png',
-            size_hint=(0.1, 0.1),
-            pos_hint={'x': 0.05, 'y': 0.05},
-            background_color=CANCEL_COLOR,
-        )
+
+        if USE_FONT_ICONS:
+            self.no_button = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_CANCEL,
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.05, 'y': 0.05},
+                background_color=CANCEL_COLOR,
+                max_font_size=LARGE_FONT,
+            )
+        else:
+            self.no_button = ImageRoundButton(
+                source='./assets/icons/refresh.png', #TODO
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.05, 'y': 0.05},
+                background_color=CANCEL_COLOR,
+            )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
-        self.home_button = ImageRoundButton(
-            source='./assets/icons/home.png',
-            size_hint=(0.1, 0.1),
-            pos_hint={'x': 0.05, 'y': 0.85},
-            background_color=HOME_COLOR,
-        )
+
+        if USE_FONT_ICONS:
+            self.home_button = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_HOME,
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.05, 'y': 0.85},
+                background_color=HOME_COLOR,
+                max_font_size=LARGE_FONT,
+            )
+        else:
+            self.home_button = ImageRoundButton(
+                source='./assets/icons/home.png', #TODO
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.05, 'y': 0.85},
+                background_color=HOME_COLOR,
+            )
         self.home_button.bind(on_release=self.home_event)
         overlay_layout.add_widget(self.home_button)
 
@@ -512,7 +622,11 @@ class ConfirmCaptureScreen(ColorScreen):
         Logger.info('ConfirmCaptureScreen: on_entry().')
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        for i in range(0, self._current_shot + 1): self.icons[i].source = './assets/icons/camera_shot_on.png'
+        for i in range(0, self._current_shot + 1):
+            if USE_FONT_ICONS:
+                self.icons[i].text = ICON_SHOT_ON
+            else:
+                self.icons[i].source = './assets/icons/camera_shot_on.png'
         self.preview.filepath = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
         self.preview.reload()
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
@@ -556,11 +670,20 @@ class ProcessingScreen(ColorScreen):
         self._current_format = 0
 
         # Display loading icon
-        self.loading = RotatingImage(
-            source='./assets/icons/loading.png',
-            size_hint=(0.4, 0.4),
-            pos_hint={'x': 0.3, 'y': 0.3},
-        )
+        if USE_FONT_ICONS:
+            self.loading = RotatingLabel(
+                size_hint=(0.4, 0.4),
+                pos_hint={'x': 0.3, 'y': 0.3},
+                font_name=ICON_TTF,
+                text=ICON_LOADING,
+                max_font_size=XLARGE_FONT,
+            )
+        else:
+            self.loading = RotatingImage(
+                source='./assets/icons/loading.png',
+                size_hint=(0.4, 0.4),
+                pos_hint={'x': 0.3, 'y': 0.3},
+            )
 
         self.layout = BoxLayout(padding=BORDER_THINKNESS)
         self.layout.add_widget(self.loading)
@@ -618,20 +741,41 @@ class ConfirmSaveScreen(ColorScreen):
         overlay_layout.add_widget(self.preview)
 
         # Add buttons
-        self.yes_button = ImageRoundButton(
-            source='./assets/icons/save.png',
-            size_hint=(0.1, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.05},
-            background_color=CONFIRM_COLOR
-        )
+        if USE_FONT_ICONS:
+            self.yes_button = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_CONFIRM,
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.05},
+                background_color=CONFIRM_COLOR,
+                max_font_size=LARGE_FONT,
+            )
+        else:
+            self.yes_button = ImageRoundButton(
+                source='./assets/icons/save.png', #TODO
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.05},
+                background_color=CONFIRM_COLOR
+            )
         self.yes_button.bind(on_release=self.yes_event)
         overlay_layout.add_widget(self.yes_button)
-        self.no_button = ImageRoundButton(
-            source='./assets/icons/trash.png',
-            size_hint=(0.1, 0.1),
-            pos_hint={'x': 0.05, 'y': 0.05},
-            background_color=CANCEL_COLOR
-        )
+
+        if USE_FONT_ICONS:
+            self.no_button = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_CANCEL,
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.05, 'y': 0.05},
+                background_color=CANCEL_COLOR,
+                max_font_size=LARGE_FONT,
+            )
+        else:
+            self.no_button = ImageRoundButton(
+                source='./assets/icons/trash.png', # TODO
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.05, 'y': 0.05},
+                background_color=CANCEL_COLOR
+            )
         self.no_button.bind(on_release=self.no_event)
         overlay_layout.add_widget(self.no_button)
 
@@ -696,39 +840,80 @@ class ConfirmPrintScreen(ColorScreen):
 
         # Add buttons
         self.buttons_layout = FloatLayout()
-        btn_once = ImageRoundButton(
-            source='./assets/icons/print-1.png',
-            size_hint=(0.1, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.20},
-            background_color=CONFIRM_COLOR
-        )
+        if USE_FONT_ICONS:
+            btn_once = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_PRINT_1,
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.20},
+                background_color=CONFIRM_COLOR,
+                max_font_size=LARGE_FONT,
+            )
+        else:
+            btn_once = ImageRoundButton(
+                source='./assets/icons/print-1.png', #TODO
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.20},
+                background_color=CONFIRM_COLOR
+            )
         btn_once.bind(on_release=self.print_once)
         self.buttons_layout.add_widget(btn_once)
-        btn_twice = ImageRoundButton(
-            source='./assets/icons/print-2.png',
-            size_hint=(0.1, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.05},
-            background_color=CONFIRM_COLOR
-        )
+
+        if USE_FONT_ICONS:
+            btn_twice = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_PRINT_2,
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.05},
+                background_color=CONFIRM_COLOR,
+                max_font_size=LARGE_FONT,
+            )
+        else:
+            btn_twice = ImageRoundButton(
+                source='./assets/icons/print-2.png',#TODO
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.05},
+                background_color=CONFIRM_COLOR
+            )
         btn_twice.bind(on_release=self.print_twice)
         self.buttons_layout.add_widget(btn_twice)
 
         self.button_layout = FloatLayout()
-        btn_print = ImageRoundButton(
-            source='./assets/icons/print.png',
-            size_hint=(0.1, 0.1),
-            pos_hint={'x': 0.85, 'y': 0.05},
-            background_color=CONFIRM_COLOR
-        )
+        if USE_FONT_ICONS:
+            btn_print = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_PRINT,
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.05},
+                background_color=CONFIRM_COLOR,
+                max_font_size=LARGE_FONT,
+            )
+        else:
+            btn_print = ImageRoundButton(
+                source='./assets/icons/print.png',#TODO
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.85, 'y': 0.05},
+                background_color=CONFIRM_COLOR
+            )
         btn_print.bind(on_release=self.print_once)
         self.button_layout.add_widget(btn_print)
 
-        no_button = ImageRoundButton(
-            source='./assets/icons/cancel.png',
-            size_hint=(0.1, 0.1),
-            pos_hint={'x': 0.05, 'y': 0.05},
-            background_color=CANCEL_COLOR
-        )
+        if USE_FONT_ICONS:
+            no_button = LabelRoundButton(
+                font_name=ICON_TTF,
+                text=ICON_CANCEL,
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.05, 'y': 0.05},
+                background_color=CANCEL_COLOR,
+                max_font_size=LARGE_FONT,
+            )
+        else:
+            no_button = ImageRoundButton(
+                source='./assets/icons/cancel.png',#TODO
+                size_hint=(0.1, 0.1),
+                pos_hint={'x': 0.05, 'y': 0.05},
+                background_color=CANCEL_COLOR
+            )
         no_button.bind(on_release=self.no_event)
         self.overlay_layout.add_widget(no_button)
 
@@ -798,11 +983,20 @@ class PrintingScreen(ColorScreen):
         self._current_format = 0
 
         # Display loading icon
-        self.loading = RotatingImage(
-            source='./assets/icons/loading.png',
-            size_hint=(0.4, 0.4),
-            pos_hint={'x': 0.3, 'y': 0.3},
-        )
+        if USE_FONT_ICONS:
+            self.loading = RotatingLabel(
+                size_hint=(0.4, 0.4),
+                pos_hint={'x': 0.3, 'y': 0.3},
+                font_name=ICON_TTF,
+                text=ICON_LOADING,
+                max_font_size=XLARGE_FONT,
+            )
+        else:
+            self.loading = RotatingImage(
+                source='./assets/icons/loading.png',
+                size_hint=(0.4, 0.4),
+                pos_hint={'x': 0.3, 'y': 0.3},
+            )
         
         layout = BoxLayout(padding=BORDER_THINKNESS)
         layout.add_widget(self.loading)
@@ -823,7 +1017,10 @@ class PrintingScreen(ColorScreen):
             self._clock = Clock.schedule_once(self.timer_event, 10)
             self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
         except Exception as e:
-            return self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printing.png')
+            if USE_FONT_ICONS:
+                return self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING)
+            else:
+                return self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printing.png')
 
     def on_exit(self, kwargs={}):
         Logger.info('PrintingScreen: on_exit().')
@@ -843,7 +1040,10 @@ class PrintingScreen(ColorScreen):
 
     def timer_toolong(self, obj):
         Logger.info('PrintingScreen: timer_toolong().')
-        self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printing_toolong.png')
+        if USE_FONT_ICONS:
+            return self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING_TOOLONG)
+        else:
+            self.app.transition_to(ScreenMgr.ERROR, error='./assets/icons/error_printing_toolong.png')
 
 class SuccessScreen(ColorScreen):
     """
@@ -859,13 +1059,22 @@ class SuccessScreen(ColorScreen):
 
         self.app = app
 
-        icon = Image(
-            source='./assets/icons/clap.zip', # TODO : Display gif (Use https://ezgif.com/split/ to convert gif to zip)
-            fit_mode='contain',
-            size_hint=(0.3, 0.3),
-            pos_hint={'x': 0.35, 'y': 0.35},
-            anim_delay=0.1
-        )
+        if USE_FONT_ICONS:
+            icon = ResizeLabel(
+                size_hint=(0.3, 0.3),
+                pos_hint={'x': 0.35, 'y': 0.35},
+                font_name=ICON_TTF,
+                text=ICON_SUCCESS,
+                max_font_size=XLARGE_FONT,
+            )
+        else:
+            icon = Image(
+                source='./assets/icons/clap.zip', # TODO : Display gif (Use https://ezgif.com/split/ to convert gif to zip)
+                fit_mode='contain',
+                size_hint=(0.3, 0.3),
+                pos_hint={'x': 0.35, 'y': 0.35},
+                anim_delay=0.1
+            )
 
         self.layout = BoxLayout(padding=BORDER_THINKNESS)
         self.layout.add_widget(icon)
@@ -905,11 +1114,20 @@ class CopyingScreen(ColorScreen):
         self._count = 0
 
         # Display loading icon
-        loading = Image(
-            source='./assets/icons/usb.png',
-            size_hint=(0.4, 0.4),
-            pos_hint={'x': 0.3, 'y': 0.3},
-        )
+        if USE_FONT_ICONS:
+            loading = ResizeLabel(
+                size_hint=(0.4, 0.4),
+                pos_hint={'x': 0.3, 'y': 0.3},
+                font_name=ICON_TTF,
+                text=ICON_USB,
+                max_font_size=XLARGE_FONT,
+            )
+        else:
+            loading = Image(
+                source='./assets/icons/usb.png',
+                size_hint=(0.4, 0.4),
+                pos_hint={'x': 0.3, 'y': 0.3},
+            )
         
         self.layout = BoxLayout(padding=BORDER_THINKNESS)
         self.layout.add_widget(loading)
