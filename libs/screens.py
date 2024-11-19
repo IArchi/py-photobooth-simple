@@ -4,8 +4,7 @@ from kivy.logger import Logger
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.anchorlayout import AnchorLayout
-from kivy.uix.button import Button
-from kivy.graphics import Rectangle, Color, Line, BorderImage
+from kivy.graphics import Rectangle, Color
 from kivy.uix.image import Image, AsyncImage
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
@@ -27,13 +26,13 @@ BLUR_IMAGES = True
 BLUR_COLLAGE = False
 
 # Colors
-BACKGROUND_COLOR = (0.149, 0.286, 0.361, 1) # #26495c
-BORDER_COLOR = (0.769, 0.639, 0.353, 1) # c4a35a
+BACKGROUND_COLOR = hex_to_rgba('#26495c')
+BORDER_COLOR = hex_to_rgba('#c4a35a')
 BORDER_THINKNESS = 10
-PROGRESS_COLOR = (0.898, 0.898, 0.898, 1) # e5e5e5
-CONFIRM_COLOR = (0.325, 0.541, 0.392, 1) # 538a64
-CANCEL_COLOR = (0.545, 0.282, 0.275, 1) # 8b4846
-HOME_COLOR = (0.325, 0.286, 0.412, 1) # 534969
+PROGRESS_COLOR = hex_to_rgba('#e5e5e5')
+CONFIRM_COLOR = hex_to_rgba('#538a64')
+CANCEL_COLOR = hex_to_rgba('#8b4846')
+HOME_COLOR = hex_to_rgba('#534969')
 
 # Icons
 USE_FONT_ICONS = True

@@ -13,6 +13,7 @@ from kivy.logger import Logger
 import numpy as np
 import cv2
 
+
 from libs.file_utils import FileUtils
 
 # Widget to display camera
@@ -295,3 +296,15 @@ Builder.load_string('''
 ''')
 class ThickProgressBar(ProgressBar):
     color = ColorProperty()
+
+def hex_to_rgba(hex_color):
+    # Enlève le caractère '#' si présent
+    hex_color = hex_color.lstrip('#')
+    
+    # Convertit les valeurs hexadécimales en décimales
+    r = int(hex_color[0:2], 16) / 255.0
+    g = int(hex_color[2:4], 16) / 255.0
+    b = int(hex_color[4:6], 16) / 255.0
+    
+    # Retourne le tuple avec alpha à 1
+    return (r, g, b, 1.0)
