@@ -188,6 +188,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Gradient progress bar ?
- - Better success screen
- - position of print button (too low)
+ - Bug: icons print twice
+ - Round buttons: set max size
