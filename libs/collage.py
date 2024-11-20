@@ -14,7 +14,7 @@ class Collage:
         self._squared = squared
         self._margin_percent = 5
         _module_dir = os.path.dirname(os.path.abspath(__file__))
-        self._dummies = [os.path.join(_module_dir, '../doc/dummy0.png'), os.path.join(_module_dir, '../doc/dummy1.png'), os.path.join(_module_dir, '../doc/dummy2.png'), os.path.join(_module_dir, '../doc/dummy3.png')]
+        self._dummies = [os.path.join(_module_dir, '../assets/icons/dummy0.png'), os.path.join(_module_dir, '../assets/icons/dummy1.png'), os.path.join(_module_dir, '../assets/icons/dummy2.png'), os.path.join(_module_dir, '../assets/icons/dummy3.png')]
         self._overlay = os.path.join(_module_dir, overlay)
 
     def get_photos_required(self):
