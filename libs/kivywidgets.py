@@ -55,12 +55,12 @@ class KivyCamera(Image):
             # Generate blurry borders
             if self._blur:
                 im = FileUtils.blurry_borders(im, self.size)
-                    
+
             # Apply as texture
             image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
             image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
             self.texture = image_texture
-                
+
         except Exception as e:
             Logger.error('Cannot read camera stream.')
             Logger.error(e)
@@ -163,7 +163,7 @@ class ResizeLabel(Label):
 Builder.load_string("""
 <SquareFloatLayout>:
     size_hint: None, None
-    size: max(self.parent.size) * self.size_square if self.parent else 150, max(self.parent.size) * self.size_square if self.parent else 150
+    size: min(self.parent.size) * self.size_square if self.parent else 150, min(self.parent.size) * self.size_square if self.parent else 150
     background_color: 0, 0, 0, 0
 
     canvas:
@@ -193,7 +193,7 @@ class LabelRoundButton(ButtonBehavior, ResizeLabel):
     font_name = StringProperty('Roboto')
     background_color = ListProperty([0, 0, 0, 0])
     max_font_size = NumericProperty(sp(16))
-    
+
     def __init__(self, **kwargs):
         max_font_size = kwargs.pop('max_font_size', None)
         super(LabelRoundButton, self).__init__(**kwargs)
@@ -257,7 +257,7 @@ Builder.load_string('''
 ''')
 class RotatingImage(AsyncImage):
     angle = NumericProperty()
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.angle = 0
@@ -280,7 +280,7 @@ Builder.load_string('''
 ''')
 class RotatingLabel(ResizeLabel):
     angle = NumericProperty()
-    
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.angle = 0
@@ -317,20 +317,19 @@ class ThickProgressBar(ProgressBar):
 def hex_to_rgba(hex_color):
     # Enlève le caractère '#' si présent
     hex_color = hex_color.lstrip('#')
-    
+
     # Convertit les valeurs hexadécimales en décimales
     r = int(hex_color[0:2], 16) / 255.0
     g = int(hex_color[2:4], 16) / 255.0
     b = int(hex_color[4:6], 16) / 255.0
-    
+
     # Retourne le tuple avec alpha à 1
     return (r, g, b, 1.0)
 
-def make_icon_button(icon, size, pos_hint, font='Roboto', font_size=10, bgcolor=(1,1,1,1), badge=None, badge_font_size=10, badge_color=(1,0,0,1), on_release=None):
+def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=10, bgcolor=(1,1,1,1), badge=None, badge_font_size=10, badge_color=(1,0,0,1), on_release=None):
     parent = SquareFloatLayout(
         size_square=size,
         pos_hint=pos_hint,
-        background_color=(0, 1,0,1),
     )
     ic = LabelRoundButton(
         font_name=font,

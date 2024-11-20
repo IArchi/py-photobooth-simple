@@ -188,5 +188,5 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Bug: icons print twice
- - Round buttons: set max size
+ - Bug: confirm capture icons are smaller than save ones
+ - Round buttons: set min/max size

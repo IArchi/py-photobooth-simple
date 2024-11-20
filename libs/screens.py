@@ -341,7 +341,7 @@ class ReadyScreen(ColorScreen):
     def timer_progress(self, obj):
         self.progress.value += 100/(2/0.05)
         self._clock_progress = Clock.schedule_once(self.timer_progress, 0.05)
-        
+
     def timer_event(self, obj):
         Logger.info('ReadyScreen: timer_event().')
         self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
@@ -402,7 +402,7 @@ class CountdownScreen(ColorScreen):
             max_font_size=NORMAL_FONT,
         )
         self.loading_layout.add_widget(loading)
-        
+
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
@@ -462,7 +462,7 @@ class CountdownScreen(ColorScreen):
         else:
             # Display photo and take next shot
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
-            
+
 class ConfirmCaptureScreen(ColorScreen):
     """
     +-----------------+
@@ -494,7 +494,8 @@ class ConfirmCaptureScreen(ColorScreen):
 
         # Add counter
         self.counter_layout = BoxLayout(
-            spacing=10,
+            orientation='horizontal',
+            spacing=20,
             size_hint=(0.25, 0.1),
             pos_hint={'x': 0.375, 'y':0.85},
         )
@@ -511,7 +512,7 @@ class ConfirmCaptureScreen(ColorScreen):
 
         # Confirm button
         btn_confirm = make_icon_button(ICON_CONFIRM,
-                             size=0.1,
+                             size=0.15,
                              pos_hint={'right': 0.95, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
@@ -667,27 +668,45 @@ class ConfirmSaveScreen(ColorScreen):
         )
         overlay_layout.add_widget(self.preview)
 
+        # Stack all left elements into a box layout
+        self.left_layout = BoxLayout(
+                                orientation='vertical',
+                                size_hint=(0.1, 0.95),
+                                pos_hint={'x': 0.05, 'y': 0.05},
+                                spacing=10,
+                                )
+        overlay_layout.add_widget(self.left_layout)
+
+        # Stack all right elements into a box layout
+        self.right_layout = BoxLayout(
+                                orientation='vertical',
+                                size_hint=(0.1, 0.95),
+                                pos_hint={'right': 0.95, 'y': 0.05},
+                                spacing=20,
+                                )
+        overlay_layout.add_widget(self.right_layout)
+
         # Confirm button
         btn_yes = make_icon_button(ICON_CONFIRM,
-                             size=0.1,
-                             pos_hint={'right': 0.95, 'y': 0.05},
+                             size=1,
+                             #pos_hint={'right': 0.95, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CONFIRM_COLOR,
                              on_release=self.yes_event
                              )
-        overlay_layout.add_widget(btn_yes)
+        self.right_layout.add_widget(btn_yes)
 
         # Cancel button
         btn_cancel = make_icon_button(ICON_CANCEL,
-                             size=0.1,
-                             pos_hint={'x': 0.05, 'y': 0.05},
+                             size=1,
+                             #pos_hint={'x': 0.05, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CANCEL_COLOR,
                              on_release=self.no_event,
                              )
-        overlay_layout.add_widget(btn_cancel)
+        self.left_layout.add_widget(btn_cancel)
 
         self.add_widget(self.layout)
 
@@ -748,10 +767,28 @@ class ConfirmPrintScreen(ColorScreen):
         )
         self.overlay_layout.add_widget(self.preview)
 
+        # Stack all left elements into a box layout
+        self.left_layout = BoxLayout(
+                                orientation='vertical',
+                                size_hint=(0.1, 0.95),
+                                pos_hint={'x': 0.05, 'y': 0.05},
+                                spacing=10,
+                                )
+        self.overlay_layout.add_widget(self.left_layout)
+
+        # Stack all right elements into a box layout
+        self.right_layout = BoxLayout(
+                                orientation='vertical',
+                                size_hint=(0.1, 0.95),
+                                pos_hint={'right': 0.95, 'y': 0.05},
+                                spacing=20,
+                                )
+        self.overlay_layout.add_widget(self.right_layout)
+
         # Print once button
         self.btn_once = make_icon_button(ICON_PRINT,
-                             size=0.1,
-                             pos_hint={'right': 0.95, 'y': 0.2},
+                             size=1,
+                             #pos_hint={'right': 0.95, 'y': 0.2},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CONFIRM_COLOR,
@@ -760,12 +797,12 @@ class ConfirmPrintScreen(ColorScreen):
                              badge_color=BADGE_COLOR,
                              on_release=self.print_once,
                              )
-        self.overlay_layout.add_widget(self.btn_once)
+        self.right_layout.add_widget(self.btn_once)
 
         # Print twice button
         self.btn_twice = make_icon_button(ICON_PRINT,
-                             size=0.1,
-                             pos_hint={'right': 0.95, 'y': 0.05},
+                             size=1,
+                             #pos_hint={'right': 0.95, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CONFIRM_COLOR,
@@ -774,46 +811,46 @@ class ConfirmPrintScreen(ColorScreen):
                              badge_color=BADGE_COLOR,
                              on_release=self.print_twice,
                              )
-        self.overlay_layout.add_widget(self.btn_twice)
+        self.right_layout.add_widget(self.btn_twice)
 
         # Print button
         self.btn_print = make_icon_button(ICON_PRINT,
-                             size=0.1,
-                             pos_hint={'right': 0.95, 'y': 0.05},
+                             size=1,
+                             #pos_hint={'right': 0.95, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CONFIRM_COLOR,
                              on_release=self.print_once,
                              )
-        self.overlay_layout.add_widget(self.btn_print)
+        self.right_layout.add_widget(self.btn_print)
 
         # Cancel button
         btn_cancel = make_icon_button(ICON_CANCEL,
-                             size=0.1,
-                             pos_hint={'x': 0.05, 'y': 0.05},
+                             size=1,
+                             #pos_hint={'x': 0.05, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CANCEL_COLOR,
                              on_release=self.no_event,
                              )
-        self.overlay_layout.add_widget(btn_cancel)
+        self.left_layout.add_widget(btn_cancel)
 
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self.overlay_layout.remove_widget(self.btn_once)
-        self.overlay_layout.remove_widget(self.btn_twice)
-        self.overlay_layout.remove_widget(self.btn_print)
+        self.right_layout.remove_widget(self.btn_once)
+        self.right_layout.remove_widget(self.btn_twice)
+        self.right_layout.remove_widget(self.btn_print)
 
         # Full page collage
         if self._current_format == 0:
-            self.overlay_layout.add_widget(self.btn_once)
-            self.overlay_layout.add_widget(self.btn_twice)
+            self.right_layout.add_widget(self.btn_once)
+            self.right_layout.add_widget(self.btn_twice)
         # Strip collage
         elif self._current_format == 1:
-            self.overlay_layout.add_widget(self.btn_print)
+            self.right_layout.add_widget(self.btn_print)
         else:
             self.app.transition_to(ScreenMgr.ERROR)
             return
