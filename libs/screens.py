@@ -38,7 +38,8 @@ BADGE_COLOR = hex_to_rgba('#8b4846')
 # Icons
 ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font and https://hugeicons.com/icons?style=Stroke&type=Rounded
 ICON_TOUCH = '\u3d3e'
-ICON_CHOOSE = '\u4896'
+ICON_CHOOSE1 = '\u3b8e'
+ICON_CHOOSE2 = '\u3b90'
 ICON_ERROR = '\u3b03'
 ICON_ERROR_PRINTING = '\u458d'
 ICON_ERROR_PRINTING_TOOLONG = '\u458d'
@@ -222,20 +223,31 @@ class SelectFormatScreen(ColorScreen):
         self.preview_right = ImageButton(
             source=available_formats[1],
             size_hint=(0.3, 0.8),
-            pos_hint={'x': 0.65, 'y': 0.1},
+            pos_hint={'right': 0.95, 'y': 0.1},
         )
         overlay_layout.add_widget(self.preview_right)
         self.preview_right.bind(on_release=self.on_click_right)
 
         # Add select icon
-        icon = ResizeLabel(
-            size_hint=(0.2, 0.2),
-            pos_hint={'x': 0.45, 'y': 0.4},
+        icons_layout = BoxLayout(
+            orientation='horizontal',
+            spacing=20,
+            size_hint=(0.25, 0.4),
+            pos_hint={'x': 0.45, 'y':0.2},
+        )
+        overlay_layout.add_widget(icons_layout)
+        icon_left = ResizeLabel(
             font_name=ICON_TTF,
-            text=ICON_CHOOSE,
+            text=ICON_CHOOSE1,
             max_font_size=XLARGE_FONT,
         )
-        overlay_layout.add_widget(icon)
+        icons_layout.add_widget(icon_left)
+        icon_right = ResizeLabel(
+            font_name=ICON_TTF,
+            text=ICON_CHOOSE2,
+            max_font_size=XLARGE_FONT,
+        )
+        icons_layout.add_widget(icon_right)
 
         self.add_widget(self.layout)
 
