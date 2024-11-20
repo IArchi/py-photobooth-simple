@@ -90,20 +90,18 @@ class BlurredImage(Image):
             self.reload()
 
     def reload(self):
-        if self._blur:
-            try:
-                im = cv2.imread(self.filepath)
-                if im is None: return
-                im = cv2.flip(im, 0)
-                im = FileUtils.blurry_borders(im, self.size)
-                image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
-                image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
-                self.texture = image_texture
-            except Exception as e:
-                Logger.error(f'Cannot open image {self.filepath}.')
-                Logger.error(e)
-        else:
-            self.source = self.filepath
+        try:
+            im = cv2.imread(self.filepath)
+            if im is None: return
+            im = cv2.flip(im, 0)
+            if self._blur: im = FileUtils.blurry_borders(im, self.size)
+            image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
+            image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
+            self.texture = image_texture
+        except Exception as e:
+            Logger.error(f'Cannot open image {self.filepath}.')
+            Logger.error(e)
+            super().reload()
 
 Builder.load_string(
 """

@@ -37,8 +37,8 @@ BADGE_COLOR = hex_to_rgba('#8b4846')
 
 # Icons
 ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font and https://hugeicons.com/icons?style=Stroke&type=Rounded
-ICON_TOUCH = '\u4896'
-ICON_CHOOSE = '\u3b77'
+ICON_TOUCH = '\u3d3e'
+ICON_CHOOSE = '\u4896'
 ICON_ERROR = '\u3b03'
 ICON_ERROR_PRINTING = '\u458d'
 ICON_ERROR_PRINTING_TOOLONG = '\u458d'
@@ -51,7 +51,7 @@ ICON_CANCEL = '\u3d42'
 ICON_HOME = '\u4161'
 ICON_PRINT = '\u458e'
 ICON_SUCCESS = '\u4903'
-ICON_SUCCESS2 = '\u3d7e'
+ICON_SUCCESS2 = '\u4304'
 ICON_USB = '\u49ba'
 
 class ScreenMgr(ScreenManager):
@@ -153,8 +153,8 @@ class WaitingScreen(BackgroundScreen):
 
         # Touch icon
         icon = ResizeLabel(
-            size_hint=(0.15, 0.30),
-            pos_hint={'x': 0.42, 'y': 0.02},
+            size_hint=(0.15, 0.2),
+            pos_hint={'x': 0.42, 'y': 0.1},
             font_name=ICON_TTF,
             text=ICON_TOUCH,
             max_font_size=XLARGE_FONT,
@@ -510,38 +510,56 @@ class ConfirmCaptureScreen(ColorScreen):
             self.icons.append(icon)
         self.overlay_layout.add_widget(self.counter_layout)
 
+        # Stack all left elements into a box layout
+        self.left_layout = BoxLayout(
+                                orientation='vertical',
+                                size_hint=(0.1, 0.95),
+                                pos_hint={'x': 0.05, 'y': 0.05},
+                                spacing=10,
+                                )
+        self.overlay_layout.add_widget(self.left_layout)
+
+        # Stack all right elements into a box layout
+        self.right_layout = BoxLayout(
+                                orientation='vertical',
+                                size_hint=(0.1, 0.95),
+                                pos_hint={'right': 0.95, 'y': 0.05},
+                                spacing=20,
+                                )
+        self.overlay_layout.add_widget(self.right_layout)
+
         # Confirm button
         btn_confirm = make_icon_button(ICON_CONFIRM,
-                             size=0.15,
-                             pos_hint={'right': 0.95, 'y': 0.05},
+                             size=1,
+                             #pos_hint={'right': 0.95, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CONFIRM_COLOR,
                              on_release=self.keep_event,
                              )
-        self.overlay_layout.add_widget(btn_confirm)
-
-        # Cancel button
-        btn_cancel = make_icon_button(ICON_CANCEL,
-                             size=0.1,
-                             pos_hint={'x': 0.05, 'y': 0.05},
-                             font=ICON_TTF,
-                             font_size=LARGE_FONT,
-                             bgcolor=CANCEL_COLOR,
-                             on_release=self.no_event
-                             )
-        self.overlay_layout.add_widget(btn_cancel)
+        self.right_layout.add_widget(btn_confirm)
 
         # Home button
         btn_home = make_icon_button(ICON_HOME,
-                             size=0.1,
-                             pos_hint={'x': 0.05, 'top': 0.95},
+                             size=1,
+                             pos_hint={'top': 0.95},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=HOME_COLOR,
                              on_release=self.home_event
                              )
-        self.overlay_layout.add_widget(btn_home)
+        self.left_layout.add_widget(btn_home)
+
+        # Cancel button
+        btn_cancel = make_icon_button(ICON_CANCEL,
+                             size=1,
+                             #pos_hint={'x': 0.05, 'y': 0.05},
+                             font=ICON_TTF,
+                             font_size=LARGE_FONT,
+                             bgcolor=CANCEL_COLOR,
+                             on_release=self.no_event
+                             )
+        self.left_layout.add_widget(btn_cancel)
 
         self.add_widget(self.layout)
 
