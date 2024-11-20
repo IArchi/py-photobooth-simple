@@ -146,8 +146,8 @@ Builder.load_string("""
         Color:
             rgba: self.background_color
         Ellipse:
-            size: (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4, self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4)
-            pos: (self.center_x - (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4) / 2, self.center_y - (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4) / 2)
+            size: min(self.size) * 1.4, min(self.size) * 1.4
+            pos: (self.center_x - (min(self.size) * 1.4) / 2, self.center_y - (min(self.size) * 1.4) / 2)
 """)
 class ImageRoundButton(ButtonBehavior, AsyncImage):
     source = StringProperty('')
@@ -161,17 +161,32 @@ class ResizeLabel(Label):
         self.font_size = min(self.size[1] if font_size > self.size[1] else font_size, self.max_font_size)
 
 Builder.load_string("""
-<LabelRoundButton>:
-    size_hint_x: None
-    width: self.height
+<SquareFloatLayout>:
+    size_hint: None, None
+    size: max(self.parent.size) * self.size_square if self.parent else 150, max(self.parent.size) * self.size_square if self.parent else 150
     background_color: 0, 0, 0, 0
-    padding: (0, 0, 0, 0)
+
+    canvas:
+        Color:
+            rgba: self.background_color
+        Rectangle:
+            pos: self.pos
+            size: self.size
+""")
+class SquareFloatLayout(FloatLayout):
+    size_square = NumericProperty(100)
+    background_color = ColorProperty()
+
+Builder.load_string("""
+<LabelRoundButton>:
+    background_color: 0, 0, 0, 0
+    padding: (0.2, 0.2, 0.2, 0.2)
     canvas.before:
         Color:
             rgba: self.background_color
         Ellipse:
-            size: (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4, self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4)
-            pos: (self.center_x - (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4) / 2, self.center_y - (self.size[1] * 1.4 if self.parent and self.parent.size[0] > self.parent.size[1] else self.size[0] * 1.4) / 2)
+            size: self.size
+            pos: self.pos
 """)
 class LabelRoundButton(ButtonBehavior, ResizeLabel):
     text = StringProperty('')
@@ -310,3 +325,31 @@ def hex_to_rgba(hex_color):
     
     # Retourne le tuple avec alpha à 1
     return (r, g, b, 1.0)
+
+def make_icon_button(icon, size, pos_hint, font='Roboto', font_size=10, bgcolor=(1,1,1,1), badge=None, badge_font_size=10, badge_color=(1,0,0,1), on_release=None):
+    parent = SquareFloatLayout(
+        size_square=size,
+        pos_hint=pos_hint,
+        background_color=(0, 1,0,1),
+    )
+    ic = LabelRoundButton(
+        font_name=font,
+        text=icon,
+        size_hint=(1, 1),
+        pos_hint={'center_x': 0.5, 'center_y': 0.5},
+        background_color=bgcolor,
+        max_font_size=font_size,
+    )
+    parent.add_widget(ic)
+    if badge:
+        bg = LabelRoundButton(
+            text=badge,
+            bold=True,
+            size_hint=(0.4, 0.4),
+            pos_hint={'right': 1, 'top': 1},
+            background_color=badge_color,
+            max_font_size=badge_font_size,
+        )
+        parent.add_widget(bg)
+    ic.bind(on_release=on_release)
+    return parent
