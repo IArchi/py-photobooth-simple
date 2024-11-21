@@ -38,8 +38,7 @@ BADGE_COLOR = hex_to_rgba('#8b4846')
 # Icons
 ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font and https://hugeicons.com/icons?style=Stroke&type=Rounded
 ICON_TOUCH = '\u3d3e'
-ICON_CHOOSE1 = '\u3b8e'
-ICON_CHOOSE2 = '\u3b90'
+ICON_CHOOSE = '\u3de5'
 ICON_ERROR = '\u3b03'
 ICON_ERROR_PRINTING = '\u458d'
 ICON_ERROR_PRINTING_TOOLONG = '\u458d'
@@ -213,41 +212,62 @@ class SelectFormatScreen(ColorScreen):
 
         # Add previews
         available_formats = self.app.get_layout_previews()
+
+        # Stack all left elements into a box layout
+        left_layout = BoxLayout(
+                                orientation='vertical',
+                                size_hint=(0.6, 0.9),
+                                pos_hint={'x': 0.05, 'y': 0.05},
+                                spacing=10,
+                                )
+        overlay_layout.add_widget(left_layout)
+
+        # Stack all right elements into a box layout
+        right_layout = BoxLayout(
+                                orientation='vertical',
+                                size_hint=(0.4, 0.9),
+                                pos_hint={'right': 0.95, 'y': 0.05},
+                                spacing=10,
+                                )
+        overlay_layout.add_widget(right_layout)
+
+        # Left preview
         self.preview_left = ImageButton(
             source=available_formats[0],
-            size_hint=(0.4, 0.7),
-            pos_hint={'x': 0.05, 'y': 0.15},
+            #size_hint=(1, 0.7),
+            #pos_hint={'x': 0.05, 'y': 0.15},
+            fit_mode='contain',
         )
-        overlay_layout.add_widget(self.preview_left)
         self.preview_left.bind(on_release=self.on_click_left)
-        self.preview_right = ImageButton(
-            source=available_formats[1],
-            size_hint=(0.3, 0.8),
-            pos_hint={'right': 0.95, 'y': 0.1},
-        )
-        overlay_layout.add_widget(self.preview_right)
-        self.preview_right.bind(on_release=self.on_click_right)
+        left_layout.add_widget(self.preview_left)
 
-        # Add select icon
-        icons_layout = BoxLayout(
-            orientation='horizontal',
-            spacing=20,
-            size_hint=(0.25, 0.4),
-            pos_hint={'x': 0.45, 'y':0.2},
-        )
-        overlay_layout.add_widget(icons_layout)
+        # Select left format
         icon_left = ResizeLabel(
             font_name=ICON_TTF,
-            text=ICON_CHOOSE1,
-            max_font_size=XLARGE_FONT,
+            text=ICON_CHOOSE,
+            max_font_size=LARGE_FONT,
         )
-        icons_layout.add_widget(icon_left)
+        #icon_left.bind(on_touch_down=self.on_click_left)
+        left_layout.add_widget(icon_left)
+
+        # Right preview
+        self.preview_right = ImageButton(
+            source=available_formats[1],
+            #size_hint=(1, 0.7),
+            #pos_hint={'x': 0.05, 'y': 0.15},
+            fit_mode='contain',
+        )
+        self.preview_right.bind(on_release=self.on_click_right)
+        right_layout.add_widget(self.preview_right)
+
+        # Select right format
         icon_right = ResizeLabel(
             font_name=ICON_TTF,
-            text=ICON_CHOOSE2,
-            max_font_size=XLARGE_FONT,
+            text=ICON_CHOOSE,
+            max_font_size=LARGE_FONT,
         )
-        icons_layout.add_widget(icon_right)
+        #icon_right.bind(on_touch_down=self.on_click_right)
+        right_layout.add_widget(icon_right)
 
         self.add_widget(self.layout)
 
