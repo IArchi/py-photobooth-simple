@@ -118,18 +118,6 @@ Builder.load_string(
 class BackgroundBoxLayout(BoxLayout):
     background_color = ColorProperty()
 
-Builder.load_string("""
-<ImageButton@Image>:
-    background_color: 0, 0, 0, 0
-    padding: (0, 0, 0, 0)
-    canvas.before:
-        Color:
-            rgba: self.background_color
-        RoundedRectangle:
-            size: (self.size[0]+self.size[0]*0.2, self.size[1]+self.size[1]*0.2)
-            pos: (self.pos[0]-self.size[0]*0.1, self.pos[1]-self.size[1]*0.1)
-            radius: [15, 0, 0, 15]
-""")
 class ImageButton(ButtonBehavior, AsyncImage):
     pass
 

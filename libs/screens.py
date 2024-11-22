@@ -28,7 +28,7 @@ BLUR_COLLAGE = False
 # Colors
 BACKGROUND_COLOR = hex_to_rgba('#26495c')
 BORDER_COLOR = hex_to_rgba('#c4a35a')
-BORDER_THINKNESS = 10
+BORDER_THINKNESS = (Window.dpi / 160) * 10
 PROGRESS_COLOR = hex_to_rgba('#e5e5e5')
 CONFIRM_COLOR = hex_to_rgba('#538a64')
 CANCEL_COLOR = hex_to_rgba('#8b4846')
@@ -201,14 +201,12 @@ class SelectFormatScreen(ColorScreen):
     """
     def __init__(self, app, **kwargs):
         Logger.info('SelectFormatScreen: __init__().')
-        #super(SelectFormatScreen, self).__init__(bg='./assets/backgrounds/bg_instructions.jpeg', **kwargs)
         super(SelectFormatScreen, self).__init__(**kwargs)
         self.app = app
 
         self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
-
-        overlay_layout = FloatLayout()
-        self.layout.add_widget(overlay_layout)
+        sub_layout = FloatLayout()
+        self.layout.add_widget(sub_layout)
 
         # Add previews
         available_formats = self.app.get_layout_previews()
@@ -216,26 +214,26 @@ class SelectFormatScreen(ColorScreen):
         # Stack all left elements into a box layout
         left_layout = BoxLayout(
                                 orientation='vertical',
-                                size_hint=(0.6, 0.9),
+                                size_hint=(0.5, 0.9),
                                 pos_hint={'x': 0.05, 'y': 0.05},
-                                spacing=10,
+                                spacing=20,
                                 )
-        overlay_layout.add_widget(left_layout)
+        sub_layout.add_widget(left_layout)
 
         # Stack all right elements into a box layout
         right_layout = BoxLayout(
                                 orientation='vertical',
                                 size_hint=(0.4, 0.9),
                                 pos_hint={'right': 0.95, 'y': 0.05},
-                                spacing=10,
+                                spacing=20,
                                 )
-        overlay_layout.add_widget(right_layout)
+        sub_layout.add_widget(right_layout)
 
         # Left preview
         self.preview_left = ImageButton(
             source=available_formats[0],
             #size_hint=(1, 0.7),
-            #pos_hint={'x': 0.05, 'y': 0.15},
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
             fit_mode='contain',
         )
         self.preview_left.bind(on_release=self.on_click_left)
@@ -243,6 +241,7 @@ class SelectFormatScreen(ColorScreen):
 
         # Select left format
         icon_left = ResizeLabel(
+            size_hint=(1, 0.1),
             font_name=ICON_TTF,
             text=ICON_CHOOSE,
             max_font_size=LARGE_FONT,
@@ -254,7 +253,7 @@ class SelectFormatScreen(ColorScreen):
         self.preview_right = ImageButton(
             source=available_formats[1],
             #size_hint=(1, 0.7),
-            #pos_hint={'x': 0.05, 'y': 0.15},
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
             fit_mode='contain',
         )
         self.preview_right.bind(on_release=self.on_click_right)
@@ -262,6 +261,7 @@ class SelectFormatScreen(ColorScreen):
 
         # Select right format
         icon_right = ResizeLabel(
+            size_hint=(1, 0.1),
             font_name=ICON_TTF,
             text=ICON_CHOOSE,
             max_font_size=LARGE_FONT,
