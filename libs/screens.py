@@ -41,7 +41,10 @@ ICON_TOUCH = '\u3d3e'
 ICON_CHOOSE = '\u3de5'
 ICON_ERROR = '\u3b03'
 ICON_ERROR_PRINTING = '\u458d'
-ICON_ERROR_PRINTING_TOOLONG = '\u458d'
+ICON_ERROR_TOOLONG = '\u4916'
+ICON_ERROR_DISCONNECTED = '\u3e63'
+ICON_ERROR_TRIGGER = '\u3d39'
+ICON_ERROR_UNKNOWN = '\u413a'
 ICON_LOADING = '\u45ec'
 ICON_PROCESSING = '\u3ad2'
 ICON_SHOT_TO_TAKE = '\u47f2'
@@ -304,24 +307,34 @@ class ErrorScreen(ColorScreen):
 
         self.app = app
 
-        overlay_layout = LayoutButton()
+        layout = BoxLayout(orientation='vertical')
 
-        # Display icon
+        # Display error icon
         self.icon = ResizeLabel(
-            size_hint=(0.3, 0.3),
-            pos_hint={'x': 0.35, 'y': 0.35},
+            size_hint=(0.4, 0.4),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
             font_name=ICON_TTF,
             text=ICON_ERROR,
             max_font_size=XLARGE_FONT,
         )
-        overlay_layout.add_widget(self.icon)
+        layout.add_widget(self.icon)
 
-        overlay_layout.bind(on_release=self.on_click)
-        self.add_widget(overlay_layout)
+        # Display second icon
+        self.icon2 = ResizeLabel(
+            size_hint=(0.1, 0.1),
+            pos_hint={'center_x': 0.5, 'y': 0.3},
+            font_name=ICON_TTF,
+            text=ICON_LOADING,
+            max_font_size=NORMAL_FONT,
+        )
+        layout.add_widget(self.icon2)
+
+        self.add_widget(layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
         if 'error' in kwargs: self.icon.text = str(kwargs.get('error'))
+        if 'error2' in kwargs: self.icon2.text = str(kwargs.get('error2'))
 
     def on_exit(self, kwargs={}):
         Logger.info('ErrorScreen: on_exit().')
@@ -477,7 +490,7 @@ class CountdownScreen(ColorScreen):
                 self.boxlayout.remove_widget(self.time_remaining_label)
                 self.boxlayout.add_widget(self.loading_layout)
             except:
-                return self.app.transition_to(ScreenMgr.ERROR)
+                return self.app.transition_to(ScreenMgr.ERROR, error2=ICON_ERROR_TRIGGER)
 
     def timer_bg(self, obj):
         self.camera.opacity = 0
@@ -902,7 +915,7 @@ class ConfirmPrintScreen(ColorScreen):
         elif self._current_format == 1:
             self.right_layout.add_widget(self.btn_print)
         else:
-            self.app.transition_to(ScreenMgr.ERROR)
+            self.app.transition_to(ScreenMgr.ERROR, error2=ICON_ERROR_UNKNOWN)
             return
 
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
@@ -990,7 +1003,7 @@ class PrintingScreen(ColorScreen):
             self._clock = Clock.schedule_once(self.timer_event, 10)
             self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
         except Exception as e:
-            return self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING)
+            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING, error2=ICON_ERROR_DISCONNECTED)
 
     def on_exit(self, kwargs={}):
         Logger.info('PrintingScreen: on_exit().')
@@ -1010,7 +1023,7 @@ class PrintingScreen(ColorScreen):
 
     def timer_toolong(self, obj):
         Logger.info('PrintingScreen: timer_toolong().')
-        return self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING_TOOLONG)
+        return self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING, error2=ICON_ERROR_TOOLONG)
 
 class SuccessScreen(ColorScreen):
     """
