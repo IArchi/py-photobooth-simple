@@ -95,4 +95,6 @@ class UsbTransfer:
             if s.is_dir():
                 self.copy_without_overwrite(s, d)
             else:
-                if not d.exists(): shutil.copy2(s, d)
+                if not d.exists():
+                    self._app.sm.current_screen.on_update({'label' : item.name})
+                    shutil.copy2(s, d)

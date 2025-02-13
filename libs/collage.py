@@ -127,6 +127,7 @@ class FullpageCollage(Collage):
 
 class StripCollage(Collage):
     def __init__(self, overlay=None):
+        # TODO : 5x15 !
         super(StripCollage, self).__init__(count=3, print_params={'PageSize':'w288h432-div2', 'print-scaling':'fit'}, squared=True, overlay=overlay)
 
     def get_preview(self):

@@ -38,7 +38,8 @@ BADGE_COLOR = hex_to_rgba('#8b4846')
 # Icons
 ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font and https://hugeicons.com/icons?style=Stroke&type=Rounded
 ICON_TOUCH = '\u3d3e'
-ICON_CHOOSE = '\u3de5'
+ICON_CHOOSE_LEFT = '\u3de5'
+ICON_CHOOSE_RIGHT = '\u3de5'
 ICON_ERROR = '\u3b03'
 ICON_ERROR_PRINTING = '\u458d'
 ICON_ERROR_TOOLONG = '\u4916'
@@ -107,6 +108,9 @@ class BackgroundScreen(Screen):
     def on_size(self, *args):
         self.background_image.size = self.size
 
+    def on_update(self, kwargs={}):
+        pass
+
 class ColorScreen(Screen):
     def __init__(self, **kwargs):
         super(ColorScreen, self).__init__(**kwargs)
@@ -126,6 +130,9 @@ class ColorScreen(Screen):
     def on_size(self, *args):
         self.border_rect.size = self.size
         self.background_rect.size = (self.width - BORDER_THINKNESS*2, self.height - BORDER_THINKNESS*2)
+
+    def on_update(self, kwargs={}):
+        pass
 
 class WaitingScreen(BackgroundScreen):
     """
@@ -246,7 +253,7 @@ class SelectFormatScreen(ColorScreen):
         icon_left = ResizeLabel(
             size_hint=(1, 0.1),
             font_name=ICON_TTF,
-            text=ICON_CHOOSE,
+            text=ICON_CHOOSE_LEFT,
             max_font_size=LARGE_FONT,
         )
         #icon_left.bind(on_touch_down=self.on_click_left)
@@ -266,7 +273,7 @@ class SelectFormatScreen(ColorScreen):
         icon_right = ResizeLabel(
             size_hint=(1, 0.1),
             font_name=ICON_TTF,
-            text=ICON_CHOOSE,
+            text=ICON_CHOOSE_RIGHT,
             max_font_size=LARGE_FONT,
         )
         #icon_right.bind(on_touch_down=self.on_click_right)
@@ -1107,6 +1114,22 @@ class CopyingScreen(ColorScreen):
             max_font_size=XLARGE_FONT,
         )
         layout.add_widget(icon)
+        info = ResizeLabel(
+            size_hint=(0.9, 0.1),
+            pos_hint={'center_x': 0.5, 'center_y': 0.6},
+            text='Do not disconnect your USB dongle before this screen disapears !',
+            max_font_size=LARGE_FONT,
+        )
+        layout.add_widget(info)
+
+        # Display progress
+        self.progress = ResizeLabel(
+            size_hint=(0.9, 0.2),
+            pos_hint={'center_x': 0.5, 'center_y': 0.35},
+            text='-',
+            max_font_size=LARGE_FONT,
+        )
+        layout.add_widget(self.progress)
 
         # Display loading spinner
         loading = RotatingLabel(
@@ -1127,3 +1150,7 @@ class CopyingScreen(ColorScreen):
     def on_exit(self, kwargs={}):
         Logger.info('CopyingScreen: on_exit().')
         self.app.ringled.clear()
+
+    def on_update(self, kwargs={}):
+        if not 'label' in kwargs: return
+        self.progress.text = f"Copying {kwargs.get('label')}"
