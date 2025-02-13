@@ -4,6 +4,7 @@ import os
 import sys
 import signal
 import threading
+import traceback
 from datetime import datetime
 from kivy.app import App
 from kivy.clock import Clock
@@ -179,4 +180,5 @@ if __name__ == '__main__':
             break # stop the loop if the app completes sucessfully
         except Exception as e:
             print("Application errored out!", e)
+            print(traceback.format_exc())
             print("Retrying ... ")

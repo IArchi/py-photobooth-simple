@@ -188,4 +188,6 @@ Application will not be usable during the copy process but will display a messag
 **USB dongle must be formated to FAT-32.**
 
 ## TODO
- - Choose : two arrows on the bottom : arrow-up-left-02 and arrow-up-right-02
+ - Fix size difference between theorical DNP paper size and reality
+ - Try to print the 4 photos in two separated strips
+ - Make printer wireless
