@@ -10,7 +10,7 @@ It relies on a state machine to display screens.
 ## Screens
 ![Waiting screen](doc/waiting.png)
 ![Select format](doc/select_format.png)
-![Print screen](doc/print.png)
+![Capture screen](doc/capture.png)
 
 ## Cameras
 The application is compatible with [piCamera module 3](https://www.raspberrypi.com/products/camera-module-3/), DSLR and CV2 devices.
