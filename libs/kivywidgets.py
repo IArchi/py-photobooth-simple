@@ -312,6 +312,49 @@ def hex_to_rgba(hex_color):
     # Retourne le tuple avec alpha à 1
     return (r, g, b, 1.0)
 
+Builder.load_string('''
+<CircularProgressCounter>:
+    canvas.before:
+        # Cercle de fond semi-transparent
+        Color:
+            rgba: 0, 0, 0, 0.5
+        Ellipse:
+            pos: self.center_x - self.circle_size/2, self.center_y - self.circle_size/2
+            size: self.circle_size, self.circle_size
+        
+        # Arc de progression
+        Color:
+            rgba: root.progress_color
+        Line:
+            circle: (self.center_x, self.center_y, self.circle_size/2, 90, 90 - (360 * root.progress))
+            width: root.line_width
+            cap: 'round'
+''')
+class CircularProgressCounter(FloatLayout):
+    progress = NumericProperty(0)  # 0 à 1
+    progress_color = ColorProperty([1, 1, 1, 1])
+    circle_size = NumericProperty(300)
+    line_width = NumericProperty(8)
+    
+    def __init__(self, **kwargs):
+        super(CircularProgressCounter, self).__init__(**kwargs)
+        self.label = ShadowLabel(
+            text='',
+            halign='center',
+            valign='middle',
+            font_size='120sp',
+            size_hint=(1, 1),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+        )
+        self.add_widget(self.label)
+    
+    def set_text(self, text):
+        self.label.text = str(text)
+    
+    def set_progress(self, value):
+        """Set progress from 0 to 1"""
+        self.progress = max(0, min(1, value))
+
 def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=10, bgcolor=(1,1,1,1), badge=None, badge_font_size=10, badge_color=(1,0,0,1), on_release=None):
     parent = SquareFloatLayout(
         size_square=size,
