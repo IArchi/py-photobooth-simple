@@ -65,8 +65,16 @@ class camera():
         self._ptr = ctypes.c_void_p()
         check(gp.gp_camera_new(PTR(self._ptr)))
         self._init()
+        # Réutilisation du même cameraFile pour le preview (performance)
+        self._preview_file = None
 
     def __del__(self):
+        # Libérer le preview file si nécessaire
+        if self._preview_file:
+            try:
+                self._preview_file.unref()
+            except:
+                pass
         check(gp.gp_camera_exit(self._ptr))
         check(gp.gp_camera_free(self._ptr))
 
@@ -114,23 +122,19 @@ class camera():
             return cfile
 
     def capture_preview(self, destpath=None):
+        if self._preview_file is None: self._preview_file = cameraFile()
+        else: self._preview_file.clean()
+        
         # Trigger capture
-        path = CameraFilePath()
-        cfile = cameraFile()
-        ans = 0
-        for _ in range(1 + RETRIES):
-            ans = gp.gp_camera_capture_preview(self._ptr, cfile._ptr, context)
-            if ans == 0: break
+        ans = gp.gp_camera_capture_preview(self._ptr, self._preview_file._ptr, context)
         check(ans)
 
         # Save to file
         if destpath:
-            cfile.save(destpath.encode('ascii'))
-            cfile.unref()
-            cfile.clean()
+            self._preview_file.save(destpath.encode('ascii'))
             return None
         else:
-            return cfile
+            return self._preview_file
 
     def trigger_capture(self):
         check(gp.gp_camera_trigger_capture(self._ptr, context))
