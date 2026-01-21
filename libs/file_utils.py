@@ -37,6 +37,19 @@ class FileUtils:
 
     @staticmethod
     def resize_and_crop(image, target_size):
+        """
+        Resize and crop an image to exactly match the target size.
+        
+        Args:
+            image: Input image (numpy array)
+            target_size: Tuple (height, width) - exact target dimensions
+            
+        Returns:
+            Image with exactly the target dimensions
+        """
+        if target_size[0] is None and target_size[1] is None:
+            return image
+            
         # Calculate aspect ratios
         aspect_ratio_image = image.shape[1] / image.shape[0]
 
@@ -49,24 +62,39 @@ class FileUtils:
             new_height = target_size[0]
             new_width = int(new_height * aspect_ratio_image)
         else:
-            aspect_ratio_target = target_size[1] / target_size[0]
+            # Both dimensions specified - we need to crop to exact size
+            target_height, target_width = target_size
+            aspect_ratio_target = target_width / target_height
+            
             if aspect_ratio_image > aspect_ratio_target:
                 # Image is wider than the target: fit height, crop width
-                new_height = target_size[0]
+                new_height = target_height
                 new_width = int(new_height * aspect_ratio_image)
             else:
                 # Image is taller than the target: fit width, crop height
-                new_width = target_size[1]
+                new_width = target_width
                 new_height = int(new_width / aspect_ratio_image)
 
         # Resize image to the new size
         resized_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
-        # Center crop to the target size if both dimensions are provided
+        # Center crop to the exact target size if both dimensions are provided
         if target_size[0] is not None and target_size[1] is not None:
-            crop_x = (new_width - target_size[1]) // 2
-            crop_y = (new_height - target_size[0]) // 2
-            cropped_image = resized_image[crop_y:crop_y + target_size[0], crop_x:crop_x + target_size[1]]
+            target_height, target_width = target_size
+            crop_y = max(0, (new_height - target_height) // 2)
+            crop_x = max(0, (new_width - target_width) // 2)
+            
+            # Ensure we don't go out of bounds
+            end_y = min(crop_y + target_height, resized_image.shape[0])
+            end_x = min(crop_x + target_width, resized_image.shape[1])
+            
+            cropped_image = resized_image[crop_y:end_y, crop_x:end_x]
+            
+            # Final safety check: ensure exact dimensions
+            # If dimensions don't match exactly (due to rounding), resize to exact size
+            if cropped_image.shape[0] != target_height or cropped_image.shape[1] != target_width:
+                cropped_image = cv2.resize(cropped_image, (target_width, target_height), interpolation=cv2.INTER_AREA)
+            
             return cropped_image
         else:
             return resized_image

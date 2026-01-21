@@ -15,7 +15,7 @@ from libs.config import Config
 from libs.device_utils import DeviceUtils
 from libs.screens import ScreenMgr
 from libs.ringled import RingLed
-from libs.collage import *
+from libs.template_collage import load_templates
 from libs.usb_transfer import UsbTransfer
 
 RINGLED = RingLed(num_pixels=12)
@@ -52,7 +52,14 @@ class PhotoboothApp(App):
         self.processes = []
         self.ringled = RINGLED
         self.devices = DeviceUtils(printer_name=self.PRINTER, zoom=self.CALIBRATION)
-        self.print_formats = [FullpageCollage(overlay='../overlays/fullpage{}.png'.format(self.OVERLAY_INDEX)), StripCollage(overlay='../overlays/strip{}.png'.format(self.OVERLAY_INDEX))]
+        
+        # Load templates from JSON files
+        self.print_formats = load_templates('templates')
+        
+        # Check if templates were loaded
+        if len(self.print_formats) == 0:
+            Logger.error('No templates found in templates/ directory!')
+            raise Exception('No templates found. Please ensure template JSON files exist in the templates/ directory.')
 
         # Create required directories
         self.tmp_directory = os.path.join(self.DCIM_DIRECTORY, 'tmp')
@@ -103,12 +110,14 @@ class PhotoboothApp(App):
     def get_layout_previews(self, format=0):
         return [f.get_preview() for f in self.print_formats]
 
-    def is_square_format(self, format_idx):
-        return self.print_formats[format_idx].is_squared()
+    def get_format_aspect_ratio(self, format_idx):
+        """Get the aspect ratio (width/height) for the given format."""
+        return self.print_formats[format_idx].get_aspect_ratio()
 
     def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
-        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), self.print_formats[format_idx].is_squared(), self.ringled.flash))
+        aspect_ratio = self.get_format_aspect_ratio(format_idx)
+        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), aspect_ratio, self.ringled.flash))
         t.start()
         self.processes = [t]
 
@@ -120,7 +129,8 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_collage().')
         photos = []
         for i in range(0, self.get_shots_to_take(format)): photos.append(self.get_shot(i))
-        t = threading.Thread(target=self.print_formats[format].assemble, kwargs={'output_path':self.get_collage(), 'image_paths':photos})
+        # Pass for_print=True to enable horizontal duplication for strip formats
+        t = threading.Thread(target=self.print_formats[format].assemble, kwargs={'output_path':self.get_collage(), 'image_paths':photos, 'for_print':True})
         t.start()
         self.processes = [t]
 

@@ -1,0 +1,23 @@
+{
+  "name": "Full Page",
+  "description": "Single photo full page format",
+  "page": {
+    "width": 1800,
+    "height": 1200
+  },
+  "photos": [
+    {
+      "x": 90,
+      "y": 60,
+      "width": 1620,
+      "height": 1080
+    }
+  ],
+  "background": null,
+  "foreground": "../overlays/fullpage0.png",
+  "print_params": {
+    "PageSize": "w288h432",
+    "print-scaling": "fit"
+  },
+  "margin_percent": 5
+}

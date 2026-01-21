@@ -1,0 +1,36 @@
+{
+  "name": "Photo Strip",
+  "description": "Three photos strip format",
+  "page": {
+    "width": 600,
+    "height": 1800
+  },
+  "photos": [
+    {
+      "x": 30,
+      "y": 90,
+      "width": 540,
+      "height": 540
+    },
+    {
+      "x": 30,
+      "y": 630,
+      "width": 540,
+      "height": 540
+    },
+    {
+      "x": 30,
+      "y": 1170,
+      "width": 540,
+      "height": 540
+    }
+  ],
+  "background": null,
+  "foreground": "../overlays/strip0.png",
+  "print_params": {
+    "PageSize": "w288h432-div2",
+    "print-scaling": "fit"
+  },
+  "margin_percent": 5,
+  "duplicate_horizontal": true
+}

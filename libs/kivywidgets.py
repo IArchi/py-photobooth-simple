@@ -26,9 +26,9 @@ class KivyCamera(Image):
         self._stop = False
         self.create_empty_texture()
 
-    def start(self, square=False):
+    def start(self, aspect_ratio=None):
         self._stop = False
-        self._square = square
+        self._aspect_ratio = aspect_ratio
         self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)
 
     def stop(self):
@@ -49,7 +49,7 @@ class KivyCamera(Image):
 
     def _update(self, args):
         try:
-            im = self._app.devices.get_preview(self._square)
+            im = self._app.devices.get_preview(self._aspect_ratio)
             if im is None: return
 
             # Generate blurry borders
@@ -210,6 +210,63 @@ class BorderedLabel(Label):
         self.font_size = self.width / len(self.text) * 1.5
 
 Builder.load_string("""
+<BreezyBorderedLabel@Label>:
+    color : 1,1,1,1
+    border_color: (0,0,0,1)
+    border_width: .1
+    breeze_width: 0
+    breeze_alpha: 0
+    canvas.before:
+        Color:
+            rgba: self.border_color
+        Line:
+            width: self.border_width
+            rectangle: (self.pos[0], self.pos[1], self.size[0], self.size[1])
+        Color:
+            rgba: self.border_color[0], self.border_color[1], self.border_color[2], self.breeze_alpha
+        Line:
+            width: self.border_width * 4
+            rectangle: (self.pos[0] - self.breeze_width - self.border_width, self.pos[1] - self.breeze_width - self.border_width, self.size[0] + 2 * (self.breeze_width + self.border_width), self.size[1] + 2 * (self.breeze_width + self.border_width))
+""")
+class BreezyBorderedLabel(Label):
+    border_color = ColorProperty([0, 0, 0, 1])
+    border_width = NumericProperty(0.1)
+    breeze_width = NumericProperty(0)
+    breeze_alpha = NumericProperty(0)
+    
+    def __init__(self, **kwargs):
+        super(BreezyBorderedLabel, self).__init__(**kwargs)
+        self._animation_event = None
+        self.start_breeze()
+
+    def on_size(self, *args):
+        self.font_size = self.width / len(self.text) * 1.5
+    
+    def start_breeze(self):
+        if self._animation_event is None:
+            self._animation_event = Clock.schedule_interval(self._update_breeze, 1/60.0)
+    
+    def stop_breeze(self):
+        if self._animation_event is not None:
+            Clock.unschedule(self._animation_event)
+            self._animation_event = None
+            self.breeze_width = 0
+            self.breeze_alpha = 0
+    
+    def _update_breeze(self, dt):
+        max_width = 100
+        min_alpha = 0.4
+        speed = 30
+        
+        self.breeze_width += speed * dt
+        
+        if self.breeze_width >= max_width:
+            self.breeze_width = 0
+        
+        progress = self.breeze_width / max_width
+        self.breeze_alpha = min_alpha * (1 - progress)
+
+Builder.load_string("""
 <ShadowLabel>:
     canvas.before:
         Color:
@@ -326,7 +383,7 @@ Builder.load_string('''
         Color:
             rgba: root.progress_color
         Line:
-            circle: (self.center_x, self.center_y, self.circle_size/2, 90, 90 - (360 * root.progress))
+            circle: (self.center_x, self.center_y, self.circle_size/2, 0, - (360 * root.progress))
             width: root.line_width
             cap: 'round'
 ''')

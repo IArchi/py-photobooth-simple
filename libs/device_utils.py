@@ -31,29 +31,47 @@ except:
 class CaptureDevice:
     _instance = None
 
-    def get_preview(self, square=False):
+    def get_preview(self, aspect_ratio=None):
         pass
 
-    def capture(self, output_name, square=False, flash_fn=None):
+    def capture(self, output_name, aspect_ratio=None, flash_fn=None):
         pass
 
     def has_physical_flash(self):
         return False
 
-    def _crop_to_square(self, image):
+    def _crop_to_aspect_ratio(self, image, aspect_ratio):
+        """
+        Crop image to match the target aspect ratio (width/height).
+        
+        Args:
+            image: Input image
+            aspect_ratio: Target aspect ratio (width/height). 
+                         1.0 for square, >1.0 for landscape, <1.0 for portrait
+        
+        Returns:
+            Cropped image
+        """
+        if aspect_ratio is None:
+            return image
+            
         height, width, _ = image.shape
-
-        # Determine the size of the square
-        size = min(width, height)
-
-        # Calculate the coordinates for the crop
-        left = (width - size) // 2
-        top = (height - size) // 2
-        right = left + size
-        bottom = top + size
-
-        # Crop the image
-        return image[top:bottom, left:right]
+        current_ratio = width / height
+        
+        if abs(current_ratio - aspect_ratio) < 0.01:
+            # Already at target ratio
+            return image
+        
+        if current_ratio > aspect_ratio:
+            # Current image is wider, crop width
+            new_width = int(height * aspect_ratio)
+            left = (width - new_width) // 2
+            return image[:, left:left + new_width]
+        else:
+            # Current image is taller, crop height
+            new_height = int(width / aspect_ratio)
+            top = (height - new_height) // 2
+            return image[top:top + new_height, :]
 
     def cv2_imshow(self, im, size=None):
         if size: im = im.reshape((size[1], size[0], 3))
@@ -83,22 +101,22 @@ class Cv2Camera(CaptureDevice):
                         break
         if not self._instance: raise Exception('Cannot find any CV2 camera or CV2 is not installed.')
 
-    def get_preview(self, square=False, zoom=None):
+    def get_preview(self, aspect_ratio=None, zoom=None):
         ret, buf = self._instance.read()
         if not ret: return None
         im = cv2.flip(buf, 0)
         im = cv2.flip(im, 1)
-        if square: im = self._crop_to_square(im)
+        im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
 
-    def capture(self, output_name, square=False, zoom=None, flash_fn=None):
+    def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
         if flash_fn and not self.has_physical_flash(): flash_fn()
         ret, im = self._instance.read()
         if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
         if not ret: return
         #im = cv2.flip(im, 0)
-        if square: im = self._crop_to_square(im)
+        im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
         # Dump to file
@@ -138,16 +156,16 @@ class Gphoto2Camera(CaptureDevice):
     def has_physical_flash(self):
         return True
 
-    def get_preview(self, square=False, zoom=None):
+    def get_preview(self, aspect_ratio=None, zoom=None):
         cfile = self._instance.capture_preview()
         buf = np.frombuffer(cfile.get_data(auto_clean=False), dtype=np.uint8)
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         im = cv2.rotate(im, cv2.ROTATE_180)
-        if square: im = self._crop_to_square(im)
+        im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
 
-    def capture(self, output_name, square=False, zoom=None, flash_fn=None):
+    def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
         # Capture photo
         if flash_fn and not self.has_physical_flash(): flash_fn()
         cfile = self._instance.capture_image()
@@ -157,7 +175,7 @@ class Gphoto2Camera(CaptureDevice):
         buf = np.frombuffer(cfile.get_data(), dtype=np.uint8)
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         #im = cv2.rotate(im, cv2.ROTATE_180)
-        if square: im = self._crop_to_square(im)
+        im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
         # Dump to file
@@ -179,20 +197,20 @@ class Picamera2Camera(CaptureDevice):
             self._instance.start()
         if not self._instance: raise Exception('Cannot find any Picamera2 or picamera2 is not installed.')
 
-    def get_preview(self, square=False, zoom=None):
+    def get_preview(self, aspect_ratio=None, zoom=None):
         im = self._instance.capture_array()
         im = cv2.rotate(im, cv2.ROTATE_180)
-        if square: im = self._crop_to_square(im)
+        im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
 
-    def capture(self, output_name, square=False, zoom=None, flash_fn=None):
+    def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
         self._instance.switch_mode(self._still_config)
         if flash_fn and not self.has_physical_flash(): flash_fn()
         im = self._instance.capture_array()
         if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
         #im = cv2.rotate(im, cv2.ROTATE_180)
-        if square: im = self._crop_to_square(im)
+        im = self._crop_to_aspect_ratio(im, aspect_ratio)
         self._instance.switch_mode(self._preview_config)
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
@@ -294,11 +312,11 @@ class DeviceUtils:
     def has_physical_flash(self):
         return self._capture.has_physical_flash()
 
-    def get_preview(self, square=False):
-        return self._preview.get_preview(square=square, zoom=self._zoom)
+    def get_preview(self, aspect_ratio=None):
+        return self._preview.get_preview(aspect_ratio=aspect_ratio, zoom=self._zoom)
 
-    def capture(self, output_name, square=False, flash_fn=None):
-        return self._capture.capture(output_name, square, self._zoom, flash_fn)
+    def capture(self, output_name, aspect_ratio=None, flash_fn=None):
+        return self._capture.capture(output_name, aspect_ratio, self._zoom, flash_fn)
 
     def has_printer(self):
         if self._printer is None: return False
