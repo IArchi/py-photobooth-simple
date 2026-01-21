@@ -24,6 +24,3 @@ class Config:
     def get_calibration(self):
         calibration = self.config.get('Picture', 'CALIBRATION')
         return eval(calibration) if calibration != 'None' else None
-    
-    def get_overlay(self):
-        return self.config.getint('Picture', 'OVERLAY')

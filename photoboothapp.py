@@ -43,7 +43,6 @@ class PhotoboothApp(App):
         self.DCIM_DIRECTORY = config.get_dcim_directory()
         self.PRINTER = config.get_printer()
         self.CALIBRATION = config.get_calibration()
-        self.OVERLAY_INDEX = config.get_overlay()
 
         # Assign local variables
         self.sm = None
