@@ -38,8 +38,6 @@ BADGE_COLOR = hex_to_rgba('#8b4846')
 # Icons
 ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font and https://hugeicons.com/icons?style=Stroke&type=Rounded
 ICON_TOUCH = '\u3d3e'
-ICON_CHOOSE_LEFT = '\u3de5'
-ICON_CHOOSE_RIGHT = '\u3de5'
 ICON_ERROR = '\u3b03'
 ICON_ERROR_PRINTING = '\u458d'
 ICON_ERROR_TOOLONG = '\u4916'
@@ -57,6 +55,8 @@ ICON_PRINT = '\u458e'
 ICON_SUCCESS = '\u4903'
 ICON_SUCCESS2 = '\u4304'
 ICON_USB = '\u49ba'
+ICON_TRIGGER = '\u3d3e'
+
 
 class ScreenMgr(ScreenManager):
     """Screen Manager for the photobooth screens."""
@@ -149,7 +149,7 @@ class WaitingScreen(BackgroundScreen):
 
         overlay_layout = LayoutButton()
 
-        start = BorderedLabel(
+        start = BreezyBorderedLabel(
             text='PHOTO BOOTH',
             font_size=LARGE_FONT,
             border_color=(1,1,1,1),
@@ -159,6 +159,7 @@ class WaitingScreen(BackgroundScreen):
             pos_hint={'x': 0.15, 'y': 0.4},
         )
         overlay_layout.add_widget(start)
+        self.start_label = start
 
         # Touch icon
         icon = ResizeLabel(
@@ -172,7 +173,7 @@ class WaitingScreen(BackgroundScreen):
 
         # Version
         version = Label(
-            text='Version 1.0',
+            text='Version 1.1',
             font_size=TINY_FONT,
             halign='left',
             valign='middle',
@@ -203,9 +204,9 @@ class SelectFormatScreen(ColorScreen):
     """
     +-----------------+
     |  Select format  |
-    |                 |
-    |                 |
-    |                 |
+    | Choose your fmt |
+    |  [card] [card]  |
+    |  [card] [card]  |
     +-----------------+
     """
     def __init__(self, app, **kwargs):
@@ -213,92 +214,174 @@ class SelectFormatScreen(ColorScreen):
         super(SelectFormatScreen, self).__init__(**kwargs)
         self.app = app
 
-        self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
-        sub_layout = FloatLayout()
-        self.layout.add_widget(sub_layout)
-
-        # Add previews
-        available_formats = self.app.get_layout_previews()
-
-        # Stack all left elements into a box layout
-        left_layout = BoxLayout(
-                                orientation='vertical',
-                                size_hint=(0.5, 0.9),
-                                pos_hint={'x': 0.05, 'y': 0.05},
-                                spacing=20,
-                                )
-        sub_layout.add_widget(left_layout)
-
-        # Stack all right elements into a box layout
-        right_layout = BoxLayout(
-                                orientation='vertical',
-                                size_hint=(0.4, 0.9),
-                                pos_hint={'right': 0.95, 'y': 0.05},
-                                spacing=20,
-                                )
-        sub_layout.add_widget(right_layout)
-
-        # Left preview
-        self.preview_left = ImageButton(
-            source=available_formats[0],
-            #size_hint=(1, 0.7),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5},
-            fit_mode='contain',
+        # Format cards container (scrollable if needed)
+        from kivy.uix.gridlayout import GridLayout
+        from kivy.uix.scrollview import ScrollView
+        
+        scroll_view = ScrollView(
+            size_hint=(1, 1),
+            do_scroll_x=False,
+            do_scroll_y=True,
         )
-        self.preview_left.bind(on_release=self.on_click_left)
-        left_layout.add_widget(self.preview_left)
+        
+        # Grid for format cards (centered)
+        self.cards_grid = GridLayout(
+            cols=3,
+            spacing=30,
+            padding=20,
+            size_hint=(None, None),
+            row_default_height=600,
+            row_force_default=True,
+        )
+        self.cards_grid.bind(minimum_height=self.cards_grid.setter('height'))
+        self.cards_grid.bind(minimum_width=self.cards_grid.setter('width'))
+        
+        # Center the grid within the scroll view
+        grid_container = AnchorLayout(
+            anchor_x='center',
+            anchor_y='center',
+        )
+        grid_container.add_widget(self.cards_grid)
+        scroll_view.add_widget(grid_container)
 
-        # Select left format
-        icon_left = ResizeLabel(
+        # Build format cards
+        self.format_cards = []
+        max_cards = min(3, len(self.app.print_formats))
+        for format_idx in range(max_cards):
+            card = self._create_format_card(format_idx)
+            self.cards_grid.add_widget(card)
+            self.format_cards.append(card)
+
+        self.add_widget(scroll_view)
+
+    def _create_format_card(self, format_idx):
+        """Create a card for a specific format."""
+        format_template = self.app.print_formats[format_idx]
+        preview_path = format_template.get_preview()
+        
+        # Create clickable card combining ButtonBehavior and BoxLayout
+        from kivy.uix.behaviors import ButtonBehavior
+        from kivy.graphics import RoundedRectangle
+        
+        class ClickableCard(ButtonBehavior, BoxLayout):
+            pass
+        
+        card = ClickableCard(
+            orientation='vertical',
+            size_hint=(None, None),
+            size=(400, 600),
+            padding=20,
+            spacing=10,
+        )
+        
+        # Draw rounded card background using canvas
+        with card.canvas.before:
+            Color(*hex_to_rgba('#3d4f5c'))
+            card_bg = RoundedRectangle(
+                pos=card.pos,
+                size=card.size,
+                radius=[20,]
+            )
+        
+        # Bind to update background when card size/pos changes
+        def update_card_bg(instance, value):
+            card_bg.pos = instance.pos
+            card_bg.size = instance.size
+        card.bind(pos=update_card_bg, size=update_card_bg)
+        
+        # Preview container with rounded corners and image
+        preview_container = AnchorLayout(
+            size_hint=(1, 0.75),
+            anchor_x='center',
+            anchor_y='center',
+            padding=20,
+        )
+        
+        # Draw rounded preview background
+        with preview_container.canvas.before:
+            Color(*hex_to_rgba('#4a5c6a'))
+            preview_bg = RoundedRectangle(
+                pos=preview_container.pos,
+                size=preview_container.size,
+                radius=[15,]
+            )
+        
+        # Bind to update preview background
+        def update_preview_bg(instance, value):
+            preview_bg.pos = instance.pos
+            preview_bg.size = instance.size
+        preview_container.bind(pos=update_preview_bg, size=update_preview_bg)
+        
+        preview_image = Image(
+            source=preview_path,
+            size_hint=(None, None),
+            allow_stretch=True,
+            keep_ratio=True,
+        )
+        
+        # Update image size to fit within container
+        def update_image_size(instance, *args):
+            if preview_container.width <= 40 or preview_container.height <= 40:
+                return
+            max_width = preview_container.width - 40
+            max_height = preview_container.height - 40
+            preview_image.size = (max_width, max_height)
+        
+        preview_container.bind(size=update_image_size)
+        preview_image.bind(texture=update_image_size)
+        
+        preview_container.add_widget(preview_image)
+        card.add_widget(preview_container)
+        
+        # Format name
+        name_label = Label(
+            text=format_template.get_name(),
+            size_hint=(1, 0.15),
+            font_size=SMALL_FONT,
+            halign='center',
+            valign='middle',
+            bold=True,
+        )
+        name_label.bind(size=name_label.setter('text_size'))
+        card.add_widget(name_label)
+        
+        # Number of photos
+        num_photos = format_template.get_photos_required()
+        photos_label = ResizeLabel(
+            text=f"{num_photos} photo{'s' if num_photos > 1 else ''}",
             size_hint=(1, 0.1),
-            font_name=ICON_TTF,
-            text=ICON_CHOOSE_LEFT,
-            max_font_size=LARGE_FONT,
+            max_font_size=TINY_FONT,
+            halign='center',
+            valign='middle',
         )
-        #icon_left.bind(on_touch_down=self.on_click_left)
-        left_layout.add_widget(icon_left)
-
-        # Right preview
-        self.preview_right = ImageButton(
-            source=available_formats[1],
-            #size_hint=(1, 0.7),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5},
-            fit_mode='contain',
-        )
-        self.preview_right.bind(on_release=self.on_click_right)
-        right_layout.add_widget(self.preview_right)
-
-        # Select right format
-        icon_right = ResizeLabel(
-            size_hint=(1, 0.1),
-            font_name=ICON_TTF,
-            text=ICON_CHOOSE_RIGHT,
-            max_font_size=LARGE_FONT,
-        )
-        #icon_right.bind(on_touch_down=self.on_click_right)
-        right_layout.add_widget(icon_right)
-
-        self.add_widget(self.layout)
-
+        card.add_widget(photos_label)
+        
+        # Bind click event
+        card.format_idx = format_idx
+        card.bind(on_release=self.on_format_selected)
+        
+        return card
+    
     def on_entry(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_entry().')
-        self.preview_left.reload()
-        self.preview_right.reload()
+        # Reload all previews
+        for card in self.format_cards:
+            # Find the Image widget in the card and reload it
+            for child in card.walk():
+                if isinstance(child, Image):
+                    child.reload()
+                    break
         self.app.ringled.start_rainbow()
 
     def on_exit(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_exit().')
         self.app.ringled.clear()
 
-    def on_click_left(self, obj):
+    def on_format_selected(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('SelectFormatScreen: on_click_left().')
-        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=0)
-
-    def on_click_right(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('SelectFormatScreen: on_click_right().')
-        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=1)
+        format_idx = obj.format_idx
+        Logger.info(f'SelectFormatScreen: on_format_selected({format_idx}).')
+        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=format_idx)
 
 class ErrorScreen(ColorScreen):
     """
@@ -423,16 +506,15 @@ class CountdownScreen(ColorScreen):
             on_release=self.home_event
         )
 
-        # Trigger/Cancel button - center bottom with text
-        self.btn_trigger = RoundedButton(
-            text='Prendre une photo',
-            font_size=SMALL_FONT,
-            size_hint=(None, None),
-            size=(600, 120),
+        # Trigger/Cancel button - center bottom as round icon button
+        self.btn_trigger = make_icon_button(ICON_TRIGGER,
+            size=0.14,
             pos_hint={'center_x': 0.5, 'y': 0.05},
-            background_color=CONFIRM_COLOR,
+            font=ICON_TTF,
+            font_size=LARGE_FONT,
+            bgcolor=CONFIRM_COLOR,
+            on_release=self.trigger_event
         )
-        self.btn_trigger.bind(on_release=self.trigger_event)
 
         self.add_widget(self.layout)
 
@@ -443,11 +525,15 @@ class CountdownScreen(ColorScreen):
         self._timer_active = False
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self.camera.start(self.app.is_square_format(self._current_format))
+        aspect_ratio = self.app.get_format_aspect_ratio(self._current_format)
+        self.camera.start(aspect_ratio)
         
-        # Reset button states
-        self.btn_trigger.text = 'Prendre une photo'
-        self.btn_trigger.background_color = CONFIRM_COLOR
+        # Reset button icon and color (access child button from parent layout)
+        for child in self.btn_trigger.children:
+            if isinstance(child, LabelRoundButton):
+                child.text = ICON_TRIGGER
+                child.background_color = CONFIRM_COLOR
+                break
         
         # Show home button and trigger button, hide circular counter
         if not self.btn_home.parent:
@@ -559,9 +645,12 @@ class CountdownScreen(ColorScreen):
         if not self.circular_counter.parent:
             self.overlay_layout.add_widget(self.circular_counter)
         
-        # Update button appearance
-        self.btn_trigger.text = 'Annuler la prise'
-        self.btn_trigger.background_color = CANCEL_COLOR
+        # Update button icon and color (access child button from parent layout)
+        for child in self.btn_trigger.children:
+            if isinstance(child, LabelRoundButton):
+                child.text = ICON_CANCEL
+                child.background_color = CANCEL_COLOR
+                break
         
         # Reset timer
         self.time_remaining = self.app.COUNTDOWN
@@ -593,9 +682,12 @@ class CountdownScreen(ColorScreen):
         if not self.btn_home.parent:
             self.overlay_layout.add_widget(self.btn_home)
         
-        # Update button appearance
-        self.btn_trigger.text = 'Prendre une photo'
-        self.btn_trigger.background_color = CONFIRM_COLOR
+        # Update button icon and color (access child button from parent layout)
+        for child in self.btn_trigger.children:
+            if isinstance(child, LabelRoundButton):
+                child.text = ICON_TRIGGER
+                child.background_color = CONFIRM_COLOR
+                break
         
         # Clear LED
         self.app.ringled.clear()
@@ -652,56 +744,38 @@ class ConfirmCaptureScreen(ColorScreen):
             self.icons.append(icon)
         self.overlay_layout.add_widget(self.counter_layout)
 
-        # Stack all left elements into a box layout
-        self.left_layout = BoxLayout(
-                                orientation='vertical',
-                                size_hint=(0.1, 0.95),
-                                pos_hint={'x': 0.05, 'y': 0.05},
-                                spacing=10,
-                                )
-        self.overlay_layout.add_widget(self.left_layout)
-
-        # Stack all right elements into a box layout
-        self.right_layout = BoxLayout(
-                                orientation='vertical',
-                                size_hint=(0.1, 0.95),
-                                pos_hint={'right': 0.95, 'y': 0.05},
-                                spacing=20,
-                                )
-        self.overlay_layout.add_widget(self.right_layout)
-
-        # Confirm button
-        btn_confirm = make_icon_button(ICON_CONFIRM,
-                             size=1,
-                             #pos_hint={'right': 0.95, 'y': 0.05},
-                             font=ICON_TTF,
-                             font_size=LARGE_FONT,
-                             bgcolor=CONFIRM_COLOR,
-                             on_release=self.keep_event,
-                             )
-        self.right_layout.add_widget(btn_confirm)
-
-        # Home button
+        # Home button - top left
         btn_home = make_icon_button(ICON_HOME,
-                             size=1,
-                             pos_hint={'top': 0.95},
+                             size=0.10,
+                             pos_hint={'x': 0.05, 'top': 0.95},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=HOME_COLOR,
                              on_release=self.home_event
                              )
-        self.left_layout.add_widget(btn_home)
+        self.overlay_layout.add_widget(btn_home)
 
-        # Cancel button
+        # Cancel button - bottom left
         btn_cancel = make_icon_button(ICON_CANCEL,
-                             size=1,
-                             #pos_hint={'x': 0.05, 'y': 0.05},
+                             size=0.10,
+                             pos_hint={'x': 0.05, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CANCEL_COLOR,
                              on_release=self.no_event
                              )
-        self.left_layout.add_widget(btn_cancel)
+        self.overlay_layout.add_widget(btn_cancel)
+
+        # Confirm button - bottom right
+        btn_confirm = make_icon_button(ICON_CONFIRM,
+                             size=0.10,
+                             pos_hint={'right': 0.95, 'y': 0.05},
+                             font=ICON_TTF,
+                             font_size=LARGE_FONT,
+                             bgcolor=CONFIRM_COLOR,
+                             on_release=self.keep_event,
+                             )
+        self.overlay_layout.add_widget(btn_confirm)
 
         self.add_widget(self.layout)
 
