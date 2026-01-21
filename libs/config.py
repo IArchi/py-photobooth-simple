@@ -11,6 +11,9 @@ class Config:
     def get_fullscreen(self):
         return self.config.getboolean('Global', 'FULLSCREEN')
 
+    def get_share(self):
+        return self.config.getboolean('Global', 'SHARE')
+
     def get_countdown(self):
         return self.config.getint('Picture', 'COUNTDOWN')
 

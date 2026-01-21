@@ -962,19 +962,20 @@ class ConfirmSaveScreen(ColorScreen):
                              )
         overlay_layout.add_widget(btn_home)
 
-        # Share button - center bottom (with icon and text)
-        btn_share = make_icon_text_button(
-                             icon=ICON_SHARE,
-                             text='SHARE',
-                             size_hint=(0.25, 0.09),
-                             pos_hint={'center_x': 0.5, 'y': 0.05},
-                             icon_font=ICON_TTF,
-                             icon_font_size=SMALL_FONT,
-                             text_font_size=SMALL_FONT,
-                             bgcolor=SHARE_COLOR,
-                             on_release=self.share_event,
-                             )
-        overlay_layout.add_widget(btn_share)
+        # Share button - center bottom (with icon and text) - only if SHARE is enabled
+        if self.app.SHARE:
+            btn_share = make_icon_text_button(
+                                 icon=ICON_SHARE,
+                                 text='SHARE',
+                                 size_hint=(0.25, 0.09),
+                                 pos_hint={'center_x': 0.5, 'y': 0.05},
+                                 icon_font=ICON_TTF,
+                                 icon_font_size=SMALL_FONT,
+                                 text_font_size=SMALL_FONT,
+                                 bgcolor=SHARE_COLOR,
+                                 on_release=self.share_event,
+                                 )
+            overlay_layout.add_widget(btn_share)
 
         self.add_widget(self.layout)
 
@@ -1058,11 +1059,13 @@ class ConfirmPrintScreen(ColorScreen):
         self.overlay_layout.add_widget(btn_home)
 
         # Print button - center bottom (with icon and text)
+        # Adjust position based on SHARE setting
+        print_y_pos = 0.05 if not self.app.SHARE else 0.15
         self.btn_print = make_icon_text_button(
                              icon=ICON_PRINT,
                              text='PRINT',
                              size_hint=(0.25, 0.09),
-                             pos_hint={'center_x': 0.5, 'y': 0.15},
+                             pos_hint={'center_x': 0.5, 'y': print_y_pos},
                              icon_font=ICON_TTF,
                              icon_font_size=SMALL_FONT,
                              text_font_size=SMALL_FONT,
@@ -1071,19 +1074,20 @@ class ConfirmPrintScreen(ColorScreen):
                              )
         self.overlay_layout.add_widget(self.btn_print)
 
-        # Share button - below Print (with icon and text)
-        btn_share = make_icon_text_button(
-                             icon=ICON_SHARE,
-                             text='SHARE',
-                             size_hint=(0.25, 0.09),
-                             pos_hint={'center_x': 0.5, 'y': 0.05},
-                             icon_font=ICON_TTF,
-                             icon_font_size=SMALL_FONT,
-                             text_font_size=SMALL_FONT,
-                             bgcolor=SHARE_COLOR,
-                             on_release=self.share_event,
-                             )
-        self.overlay_layout.add_widget(btn_share)
+        # Share button - below Print (with icon and text) - only if SHARE is enabled
+        if self.app.SHARE:
+            btn_share = make_icon_text_button(
+                                 icon=ICON_SHARE,
+                                 text='SHARE',
+                                 size_hint=(0.25, 0.09),
+                                 pos_hint={'center_x': 0.5, 'y': 0.05},
+                                 icon_font=ICON_TTF,
+                                 icon_font_size=SMALL_FONT,
+                                 text_font_size=SMALL_FONT,
+                                 bgcolor=SHARE_COLOR,
+                                 on_release=self.share_event,
+                                 )
+            self.overlay_layout.add_widget(btn_share)
 
         self.add_widget(self.layout)
 
@@ -1243,7 +1247,7 @@ class SuccessScreen(ColorScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('SuccessScreen: on_entry().')
-        self._clock = Clock.schedule_once(self.timer_event, 2)
+        self._clock = Clock.schedule_once(self.timer_event, 1)
         self.app.ringled.blink([255, 255, 255])
 
     def on_exit(self, kwargs={}):
