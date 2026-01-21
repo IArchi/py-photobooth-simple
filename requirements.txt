@@ -3,3 +3,5 @@ kivy
 lxml
 opencv-contrib-python
 psutil
+flask
+qrcode[pil]

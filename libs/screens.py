@@ -34,6 +34,7 @@ CONFIRM_COLOR = hex_to_rgba('#538a64')
 CANCEL_COLOR = hex_to_rgba('#8b4846')
 HOME_COLOR = hex_to_rgba('#534969')
 BADGE_COLOR = hex_to_rgba('#8b4846')
+SHARE_COLOR = hex_to_rgba('#667eea')
 
 # Icons
 ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font and https://hugeicons.com/icons?style=Stroke&type=Rounded
@@ -56,6 +57,8 @@ ICON_SUCCESS = '\u4903'
 ICON_SUCCESS2 = '\u4304'
 ICON_USB = '\u49ba'
 ICON_TRIGGER = '\u3d3e'
+ICON_QRCODE = '\u45f4'
+ICON_SHARE = '\u46d4'
 
 
 class ScreenMgr(ScreenManager):
@@ -209,6 +212,12 @@ class SelectFormatScreen(ColorScreen):
     |  [card] [card]  |
     +-----------------+
     """
+    # Minimum and maximum card dimensions
+    MIN_CARD_WIDTH = 300
+    MIN_CARD_HEIGHT = 450
+    MAX_CARD_WIDTH = 500
+    MAX_CARD_HEIGHT = 800
+    
     def __init__(self, app, **kwargs):
         Logger.info('SelectFormatScreen: __init__().')
         super(SelectFormatScreen, self).__init__(**kwargs)
@@ -230,8 +239,6 @@ class SelectFormatScreen(ColorScreen):
             spacing=30,
             padding=20,
             size_hint=(None, None),
-            row_default_height=600,
-            row_force_default=True,
         )
         self.cards_grid.bind(minimum_height=self.cards_grid.setter('height'))
         self.cards_grid.bind(minimum_width=self.cards_grid.setter('width'))
@@ -253,6 +260,47 @@ class SelectFormatScreen(ColorScreen):
             self.format_cards.append(card)
 
         self.add_widget(scroll_view)
+        
+        # Bind to window resize events
+        Window.bind(on_resize=self._on_window_resize)
+        
+        # Initial card size calculation
+        self._update_card_sizes()
+
+    def _calculate_card_size(self):
+        """Calculate card size based on window dimensions while maintaining minimum and maximum sizes."""
+        # Available width considering padding, spacing, and 3 columns
+        available_width = Window.width - (2 * 20) - (2 * 30) - (2 * BORDER_THINKNESS)
+        card_width = max(self.MIN_CARD_WIDTH, min(self.MAX_CARD_WIDTH, available_width / 3))
+        
+        # Card height proportional to width (1.5 aspect ratio) but respecting minimum and maximum
+        card_height = max(self.MIN_CARD_HEIGHT, min(self.MAX_CARD_HEIGHT, card_width * 1.5))
+        
+        # Also check against window height to avoid cards that are too tall
+        max_card_height = Window.height - (2 * 20) - (2 * BORDER_THINKNESS) - 100
+        card_height = min(card_height, max_card_height)
+        
+        # Ensure aspect ratio is maintained even with max height constraint
+        if card_height == max_card_height:
+            card_width = min(card_width, card_height / 1.5)
+        
+        return (card_width, card_height)
+    
+    def _update_card_sizes(self):
+        """Update all card sizes based on current window size."""
+        card_width, card_height = self._calculate_card_size()
+        
+        # Update grid row height
+        self.cards_grid.row_default_height = card_height
+        self.cards_grid.row_force_default = True
+        
+        # Update each card's size
+        for card in self.format_cards:
+            card.size = (card_width, card_height)
+    
+    def _on_window_resize(self, instance, width, height):
+        """Handle window resize events."""
+        self._update_card_sizes()
 
     def _create_format_card(self, format_idx):
         """Create a card for a specific format."""
@@ -266,10 +314,11 @@ class SelectFormatScreen(ColorScreen):
         class ClickableCard(ButtonBehavior, BoxLayout):
             pass
         
+        # Initial size will be updated by _update_card_sizes
         card = ClickableCard(
             orientation='vertical',
             size_hint=(None, None),
-            size=(400, 600),
+            size=(self.MIN_CARD_WIDTH, self.MIN_CARD_HEIGHT),
             padding=20,
             spacing=10,
         )
@@ -746,7 +795,7 @@ class ConfirmCaptureScreen(ColorScreen):
 
         # Home button - top left
         btn_home = make_icon_button(ICON_HOME,
-                             size=0.10,
+                             size=0.14,
                              pos_hint={'x': 0.05, 'top': 0.95},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
@@ -757,7 +806,7 @@ class ConfirmCaptureScreen(ColorScreen):
 
         # Cancel button - bottom left
         btn_cancel = make_icon_button(ICON_CANCEL,
-                             size=0.10,
+                             size=0.14,
                              pos_hint={'x': 0.05, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
@@ -768,7 +817,7 @@ class ConfirmCaptureScreen(ColorScreen):
 
         # Confirm button - bottom right
         btn_confirm = make_icon_button(ICON_CONFIRM,
-                             size=0.10,
+                             size=0.14,
                              pos_hint={'right': 0.95, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
@@ -877,9 +926,9 @@ class ProcessingScreen(ColorScreen):
 class ConfirmSaveScreen(ColorScreen):
     """
     +-----------------+
-    |      Save ?     |
-    |                 |
-    | NO          YES |
+    |      Saved      |
+    |             YES |
+    |           SHARE |
     +-----------------+
     """
     def __init__(self, app, **kwargs):
@@ -902,45 +951,30 @@ class ConfirmSaveScreen(ColorScreen):
         )
         overlay_layout.add_widget(self.preview)
 
-        # Stack all left elements into a box layout
-        self.left_layout = BoxLayout(
-                                orientation='vertical',
-                                size_hint=(0.1, 0.95),
-                                pos_hint={'x': 0.05, 'y': 0.05},
-                                spacing=10,
-                                )
-        overlay_layout.add_widget(self.left_layout)
-
-        # Stack all right elements into a box layout
-        self.right_layout = BoxLayout(
-                                orientation='vertical',
-                                size_hint=(0.1, 0.95),
-                                pos_hint={'right': 0.95, 'y': 0.05},
-                                spacing=20,
-                                )
-        overlay_layout.add_widget(self.right_layout)
-
-        # Confirm button
-        btn_yes = make_icon_button(ICON_CONFIRM,
-                             size=1,
-                             #pos_hint={'right': 0.95, 'y': 0.05},
+        # Home button - top left
+        btn_home = make_icon_button(ICON_HOME,
+                             size=0.14,
+                             pos_hint={'x': 0.05, 'top': 0.95},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
-                             bgcolor=CONFIRM_COLOR,
+                             bgcolor=HOME_COLOR,
                              on_release=self.yes_event
                              )
-        self.right_layout.add_widget(btn_yes)
+        overlay_layout.add_widget(btn_home)
 
-        # Cancel button
-        btn_cancel = make_icon_button(ICON_CANCEL,
-                             size=1,
-                             #pos_hint={'x': 0.05, 'y': 0.05},
-                             font=ICON_TTF,
-                             font_size=LARGE_FONT,
-                             bgcolor=CANCEL_COLOR,
-                             on_release=self.no_event,
+        # Share button - center bottom (with icon and text)
+        btn_share = make_icon_text_button(
+                             icon=ICON_SHARE,
+                             text='SHARE',
+                             size_hint=(0.25, 0.09),
+                             pos_hint={'center_x': 0.5, 'y': 0.05},
+                             icon_font=ICON_TTF,
+                             icon_font_size=SMALL_FONT,
+                             text_font_size=SMALL_FONT,
+                             bgcolor=SHARE_COLOR,
+                             on_release=self.share_event,
                              )
-        self.left_layout.add_widget(btn_cancel)
+        overlay_layout.add_widget(btn_share)
 
         self.add_widget(self.layout)
 
@@ -950,6 +984,7 @@ class ConfirmSaveScreen(ColorScreen):
         self.app.ringled.start_rainbow()
         self.preview.filepath = FileUtils.get_small_path(self.app.get_collage())
         self.preview.reload()
+        self.app.save_collage()
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmSaveScreen: on_exit().')
@@ -958,7 +993,6 @@ class ConfirmSaveScreen(ColorScreen):
     def yes_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_confirm)
-        self.app.save_collage()
         self.app.transition_to(ScreenMgr.SUCCESS)
 
     def no_event(self, obj):
@@ -966,18 +1000,29 @@ class ConfirmSaveScreen(ColorScreen):
         Clock.unschedule(self.auto_confirm)
         self.app.transition_to(ScreenMgr.WAITING)
 
+    def share_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        Logger.info('ConfirmSaveScreen: share_event().')
+        # Show QR code popup
+        self.qr_popup = QRCodePopup(on_dismiss=self._dismiss_qr_popup)
+        self.layout.add_widget(self.qr_popup)
+    
+    def _dismiss_qr_popup(self):
+        """Remove QR code popup."""
+        if hasattr(self, 'qr_popup') and self.qr_popup.parent:
+            self.layout.remove_widget(self.qr_popup)
+
     def timer_event(self, obj):
         Logger.info('ConfirmSaveScreen: timer_event().')
         Clock.unschedule(self.auto_confirm)
-        self.app.save_collage()
         self.app.transition_to(ScreenMgr.WAITING)
 
 class ConfirmPrintScreen(ColorScreen):
     """
     +-----------------+
-    |      Print ?    |
+    |HOME         SHARE|
     |                 |
-    | NO          YES |
+    |      PRINT      |
     +-----------------+
     """
     def __init__(self, app, **kwargs):
@@ -1001,124 +1046,86 @@ class ConfirmPrintScreen(ColorScreen):
         )
         self.overlay_layout.add_widget(self.preview)
 
-        # Stack all left elements into a box layout
-        self.left_layout = BoxLayout(
-                                orientation='vertical',
-                                size_hint=(0.1, 0.95),
-                                pos_hint={'x': 0.05, 'y': 0.05},
-                                spacing=10,
-                                )
-        self.overlay_layout.add_widget(self.left_layout)
-
-        # Stack all right elements into a box layout
-        self.right_layout = BoxLayout(
-                                orientation='vertical',
-                                size_hint=(0.1, 0.95),
-                                pos_hint={'right': 0.95, 'y': 0.05},
-                                spacing=20,
-                                )
-        self.overlay_layout.add_widget(self.right_layout)
-
-        # Print once button
-        self.btn_once = make_icon_button(ICON_PRINT,
-                             size=1,
-                             #pos_hint={'right': 0.95, 'y': 0.2},
+        # Home button - top left
+        btn_home = make_icon_button(ICON_HOME,
+                             size=0.14,
+                             pos_hint={'x': 0.05, 'top': 0.95},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
+                             bgcolor=HOME_COLOR,
+                             on_release=self.home_event
+                             )
+        self.overlay_layout.add_widget(btn_home)
+
+        # Print button - center bottom (with icon and text)
+        self.btn_print = make_icon_text_button(
+                             icon=ICON_PRINT,
+                             text='PRINT',
+                             size_hint=(0.25, 0.09),
+                             pos_hint={'center_x': 0.5, 'y': 0.15},
+                             icon_font=ICON_TTF,
+                             icon_font_size=SMALL_FONT,
+                             text_font_size=SMALL_FONT,
                              bgcolor=CONFIRM_COLOR,
-                             badge='1',
-                             badge_font_size=LARGE_FONT,
-                             badge_color=BADGE_COLOR,
-                             on_release=self.print_once,
+                             on_release=self.print_event
                              )
-        self.right_layout.add_widget(self.btn_once)
+        self.overlay_layout.add_widget(self.btn_print)
 
-        # Print twice button
-        self.btn_twice = make_icon_button(ICON_PRINT,
-                             size=1,
-                             #pos_hint={'right': 0.95, 'y': 0.05},
-                             font=ICON_TTF,
-                             font_size=LARGE_FONT,
-                             bgcolor=CONFIRM_COLOR,
-                             badge='2',
-                             badge_font_size=LARGE_FONT,
-                             badge_color=BADGE_COLOR,
-                             on_release=self.print_twice,
+        # Share button - below Print (with icon and text)
+        btn_share = make_icon_text_button(
+                             icon=ICON_SHARE,
+                             text='SHARE',
+                             size_hint=(0.25, 0.09),
+                             pos_hint={'center_x': 0.5, 'y': 0.05},
+                             icon_font=ICON_TTF,
+                             icon_font_size=SMALL_FONT,
+                             text_font_size=SMALL_FONT,
+                             bgcolor=SHARE_COLOR,
+                             on_release=self.share_event,
                              )
-        self.right_layout.add_widget(self.btn_twice)
-
-        # Print button
-        self.btn_print = make_icon_button(ICON_PRINT,
-                             size=1,
-                             #pos_hint={'right': 0.95, 'y': 0.05},
-                             font=ICON_TTF,
-                             font_size=LARGE_FONT,
-                             bgcolor=CONFIRM_COLOR,
-                             on_release=self.print_once,
-                             )
-        self.right_layout.add_widget(self.btn_print)
-
-        # Cancel button
-        btn_cancel = make_icon_button(ICON_CANCEL,
-                             size=1,
-                             #pos_hint={'x': 0.05, 'y': 0.05},
-                             font=ICON_TTF,
-                             font_size=LARGE_FONT,
-                             bgcolor=CANCEL_COLOR,
-                             on_release=self.no_event,
-                             )
-        self.left_layout.add_widget(btn_cancel)
+        self.overlay_layout.add_widget(btn_share)
 
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self.right_layout.remove_widget(self.btn_once)
-        self.right_layout.remove_widget(self.btn_twice)
-        self.right_layout.remove_widget(self.btn_print)
-
-        # Full page collage
-        if self._current_format == 0:
-            self.right_layout.add_widget(self.btn_once)
-            self.right_layout.add_widget(self.btn_twice)
-        # Strip collage
-        elif self._current_format == 1:
-            self.right_layout.add_widget(self.btn_print)
-        else:
-            self.app.transition_to(ScreenMgr.ERROR, error2=ICON_ERROR_UNKNOWN)
-            return
-
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
         self.app.ringled.start_rainbow()
         self.preview.filepath = FileUtils.get_small_path(self.app.get_collage())
         self.preview.reload()
 
+        self.app.save_collage()
+
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_exit().')
         self.app.ringled.clear()
 
-    def print_once(self, obj):
+    def print_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('ConfirmPrintScreen: print_once().')
+        Logger.info('ConfirmPrintScreen: print_event().')
         Clock.unschedule(self.auto_decline)
         self.app.transition_to(ScreenMgr.PRINTING, copies=1, format=self._current_format)
 
-    def print_twice(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('ConfirmPrintScreen: print_twice().')
-        Clock.unschedule(self.auto_decline)
-        self.app.transition_to(ScreenMgr.PRINTING, copies=2, format=self._current_format)
-
-    def no_event(self, obj):
+    def home_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_decline)
-        self.app.save_collage()
         self.app.transition_to(ScreenMgr.WAITING)
+
+    def share_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        Logger.info('ConfirmPrintScreen: share_event().')
+        # Show QR code popup
+        self.qr_popup = QRCodePopup(on_dismiss=self._dismiss_qr_popup)
+        self.layout.add_widget(self.qr_popup)
+    
+    def _dismiss_qr_popup(self):
+        """Remove QR code popup."""
+        if hasattr(self, 'qr_popup') and self.qr_popup.parent:
+            self.layout.remove_widget(self.qr_popup)
 
     def timer_event(self, obj):
         Logger.info('ConfirmPrintScreen: timer_event().')
-        self.app.save_collage()
         self.app.transition_to(ScreenMgr.WAITING)
 
 class PrintingScreen(ColorScreen):
@@ -1318,3 +1325,146 @@ class CopyingScreen(ColorScreen):
     def on_update(self, kwargs={}):
         if not 'label' in kwargs: return
         self.progress.text = f"Copying {kwargs.get('label')}"
+
+class QRCodePopup(FloatLayout):
+    """Popup overlay to show QR code."""
+    
+    def __init__(self, on_dismiss=None, **kwargs):
+        super(QRCodePopup, self).__init__(**kwargs)
+        self.on_dismiss = on_dismiss
+        
+        # Semi-transparent overlay that blocks all touch events
+        with self.canvas.before:
+            Color(0, 0, 0, 0.8)
+            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
+        
+        self.bind(pos=self._update_bg, size=self._update_bg)
+        
+        # Calculate responsive card size (max 60% of window width, 70% of height)
+        max_width = Window.width * 0.6
+        max_height = Window.height * 0.7
+        card_width = min(max_width, 600)
+        card_height = min(max_height, 750)
+        
+        # Calculate QR code size based on card dimensions
+        qr_size = min(card_width * 0.7, card_height * 0.5)
+        
+        # White card container with responsive size using BoxLayout for better positioning
+        from kivy.graphics import RoundedRectangle
+        
+        self.card = BoxLayout(
+            orientation='vertical',
+            size_hint=(None, None),
+            size=(card_width, card_height),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            padding=30,
+            spacing=20,
+        )
+        
+        with self.card.canvas.before:
+            Color(1, 1, 1, 1)
+            self.card_rect = RoundedRectangle(pos=self.card.pos, size=self.card.size, radius=[20,])
+        
+        self.card.bind(pos=self._update_card, size=self._update_card)
+        
+        # "SCAN ME" label
+        scan_label = Label(
+            text='SCAN ME',
+            size_hint=(1, None),
+            height=60,
+            font_size=SMALL_FONT,
+            bold=True,
+            color=(0, 0, 0, 1),
+            halign='center',
+            valign='middle',
+        )
+        scan_label.bind(size=scan_label.setter('text_size'))
+        self.card.add_widget(scan_label)
+        
+        # QR Code container (centered)
+        qr_container = AnchorLayout(
+            size_hint=(1, 1),
+            anchor_x='center',
+            anchor_y='center',
+        )
+        
+        # QR Code image with responsive size
+        self.qr_image = Image(
+            size_hint=(None, None),
+            size=(qr_size, qr_size),
+            allow_stretch=True,
+        )
+        qr_container.add_widget(self.qr_image)
+        self.card.add_widget(qr_container)
+        
+        # Close button positioned below QR code
+        btn_container = AnchorLayout(
+            size_hint=(1, None),
+            height=100,
+            anchor_x='center',
+            anchor_y='center',
+        )
+        
+        btn_close = make_icon_button(
+            ICON_CANCEL,
+            size=0.07,
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            font=ICON_TTF,
+            font_size=NORMAL_FONT,
+            bgcolor=CANCEL_COLOR,
+            on_release=self._close
+        )
+        btn_container.add_widget(btn_close)
+        self.card.add_widget(btn_container)
+        
+        self.add_widget(self.card)
+        
+        # Generate QR code
+        self._generate_qr_code()
+    
+    def on_touch_down(self, touch):
+        """Block all touch events from reaching widgets below the popup."""
+        # Only allow touches on the card to be processed
+        if self.card.collide_point(*touch.pos):
+            return super(QRCodePopup, self).on_touch_down(touch)
+        # Block all other touches
+        return True
+    
+    def _update_bg(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+    
+    def _update_card(self, instance, *args):
+        self.card_rect.pos = instance.pos
+        self.card_rect.size = instance.size
+    
+    def _generate_qr_code(self):
+        """Generate WiFi QR code."""
+        import qrcode
+        import io
+        from kivy.core.image import Image as CoreImage
+        
+        wifi_qr_data = "WIFI:T:nopass;S:PhotoBooth;P:;H:false;;"
+        
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(wifi_qr_data)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        buf.seek(0)
+        
+        core_image = CoreImage(buf, ext='png')
+        self.qr_image.texture = core_image.texture
+        Logger.info('QRCodePopup: QR code generated')
+    
+    def _close(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if self.on_dismiss:
+            self.on_dismiss()
