@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Booth Template Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: white;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sidebar-header h1 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .template-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .template-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .template-item:hover {
+            background: #e9ecef;
+        }
+
+        .template-item.active {
+            border-color: #007bff;
+            background: #e7f3ff;
+        }
+
+        .template-item-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .template-item-desc {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .template-item-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 4px;
+        }
+
+        .template-item-actions button {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            background: white;
+            border-bottom: 1px solid #ddd;
+            padding: 10px 20px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
+
+        .toolbar label {
+            font-size: 13px;
+            color: #666;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .toolbar select,
+        .toolbar input[type="number"] {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            background: white;
+            transition: border-color 0.2s;
+        }
+
+        .toolbar select:focus,
+        .toolbar input[type="number"]:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .toolbar select {
+            min-width: 110px;
+            cursor: pointer;
+        }
+
+        .toolbar input[type="number"] {
+            width: 70px;
+            text-align: center;
+        }
+
+        .toolbar input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            margin: 0 4px 0 8px;
+        }
+
+        .canvas-container {
+            flex: 1;
+            overflow: auto;
+            padding: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f5f5f5;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            background: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transform-origin: center center;
+        }
+
+        .canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        .scale-info {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            pointer-events: none;
+        }
+
+        .photo-frame {
+            position: absolute;
+            border: 2px solid #007bff;
+            background: rgba(0, 123, 255, 0.1);
+            cursor: move;
+            box-sizing: border-box;
+        }
+
+        .photo-frame:hover {
+            background: rgba(0, 123, 255, 0.2);
+            border-color: #0056b3;
+        }
+
+        .photo-frame.selected {
+            border-color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.2);
+        }
+
+        .photo-frame-label {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 2px 6px;
+            font-size: 11px;
+            border-radius: 2px;
+            pointer-events: none;
+        }
+
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: white;
+            border: 2px solid #ff6b6b;
+            border-radius: 50%;
+            z-index: 10;
+        }
+
+        .resize-handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
+        .resize-handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+        .resize-handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .resize-handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+
+        .duplicate-preview {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .properties-panel {
+            width: 320px;
+            background: white;
+            border-left: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .properties-panel h3 {
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .prop-group {
+            margin-bottom: 15px;
+        }
+
+        .prop-group label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .prop-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .prop-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .prop-actions button {
+            flex: 1;
+        }
+
+        .grid-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .grid-toggle input[type="checkbox"] {
+            width: auto;
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .export-panel {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .modal-content .prop-group {
+            margin-bottom: 15px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>Templates</h1>
+            <button class="btn btn-success" onclick="exportTemplate()" style="width: 100%; margin-top: 10px;">
+                📥 Export JSON
+            </button>
+        </div>
+        <div class="template-list" id="templateList"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="toolbar">
+            <label>Orientation:</label>
+            <select id="orientationSelect" onchange="changeOrientation()">
+                <option value="landscape">Landscape</option>
+                <option value="portrait">Portrait</option>
+            </select>
+            
+            <label>Format:</label>
+            <select id="formatSelect" onchange="changeFormat()">
+                <option value="10x15">10x15 cm</option>
+                <option value="5x15">5x15 cm</option>
+                <option value="custom">Custom</option>
+            </select>
+            
+            <label>Size:</label>
+            <input type="number" id="widthInput" value="1800" onchange="updatePageDimensions()" />
+            <span style="color: #999; margin: 0 2px;">×</span>
+            <input type="number" id="heightInput" value="1200" onchange="updatePageDimensions()" />
+            
+            <input type="checkbox" id="gridToggle" checked onchange="toggleGrid()" />
+            <label for="gridToggle">Grid</label>
+            
+            <label>Step:</label>
+            <input type="number" id="gridSizeInput" value="30" min="5" max="100" step="5" onchange="updateGridSize()" />
+        </div>
+
+        <div class="canvas-container">
+            <div class="canvas-wrapper" id="canvasWrapper">
+                <canvas id="canvas" class="canvas"></canvas>
+                <div class="scale-info" id="scaleInfo">100%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="properties-panel">
+        <h3>Template Properties</h3>
+        <div class="prop-group">
+            <label>Name:</label>
+            <input type="text" id="templateName" oninput="updateTemplateName()" />
+        </div>
+        <div class="prop-group">
+            <label>Description:</label>
+            <input type="text" id="templateDesc" oninput="updateTemplateDesc()" />
+        </div>
+
+        <div class="prop-group">
+            <label>Background (optional):</label>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="templateBackground" placeholder="path/to/background.png" oninput="updateTemplateBackground()" style="flex: 1;" />
+                <input type="file" id="backgroundFile" accept="image/*" onchange="loadBackgroundImage()" style="display: none;" />
+                <button class="btn btn-secondary" onclick="document.getElementById('backgroundFile').click()" style="padding: 6px 12px; font-size: 12px;">📁</button>
+            </div>
+        </div>
+
+        <div class="prop-group">
+            <label>Foreground (optional):</label>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="templateForeground" placeholder="../overlays/frame.png" oninput="updateTemplateForeground()" style="flex: 1;" />
+                <input type="file" id="foregroundFile" accept="image/*" onchange="loadForegroundImage()" style="display: none;" />
+                <button class="btn btn-secondary" onclick="document.getElementById('foregroundFile').click()" style="padding: 6px 12px; font-size: 12px;">📁</button>
+            </div>
+        </div>
+
+        <div class="prop-group">
+            <button class="btn btn-success" onclick="addPhotoFrame()" style="width: 100%;">+ Add Photo Frame</button>
+        </div>
+
+        <div class="prop-group">
+            <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="duplicateHorizontal" onchange="updateDuplication()" style="width: auto;" />
+                Duplicate horizontally
+            </label>
+        </div>
+
+        <div class="prop-group">
+            <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="duplicateVertical" onchange="updateDuplication()" style="width: auto;" />
+                Duplicate vertically
+            </label>
+        </div>
+
+        <div id="frameProperties" style="display: none;">
+            <h3 style="margin-top: 20px;">Selected Frame</h3>
+            <div class="prop-group">
+                <label>X:</label>
+                <input type="number" id="frameX" onchange="updateFrameProperties()" />
+            </div>
+            <div class="prop-group">
+                <label>Y:</label>
+                <input type="number" id="frameY" onchange="updateFrameProperties()" />
+            </div>
+            <div class="prop-group">
+                <label>Width:</label>
+                <input type="number" id="frameWidth" onchange="updateFrameProperties()" />
+            </div>
+            <div class="prop-group">
+                <label>Height:</label>
+                <input type="number" id="frameHeight" onchange="updateFrameProperties()" />
+            </div>
+            <div class="prop-actions">
+                <button class="btn btn-danger" onclick="deleteSelectedFrame()">Delete</button>
+            </div>
+        </div>
+
+        <div class="info-text">
+            <strong>Shortcuts:</strong><br>
+            - Click to select<br>
+            - Drag to move<br>
+            - Handles to resize<br>
+            - Delete to remove
+        </div>
+    </div>
+
+    <!-- Modal for new template -->
+    <div id="newTemplateModal" class="modal">
+        <div class="modal-content">
+            <h2>New Template</h2>
+            <div class="prop-group">
+                <label>Name:</label>
+                <input type="text" id="newTemplateName" placeholder="My template" />
+            </div>
+            <div class="prop-group">
+                <label>Description:</label>
+                <input type="text" id="newTemplateDesc" placeholder="Template description" />
+            </div>
+            <div class="prop-group">
+                <label>Starting format:</label>
+                <select id="newTemplateFormat">
+                    <option value="10x15-landscape">10x15 cm Landscape</option>
+                    <option value="10x15-portrait">10x15 cm Portrait</option>
+                    <option value="5x15">5x15 cm Strip</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeNewTemplateModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="confirmNewTemplate()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let templates = [];
+        let currentTemplateIndex = -1;
+        let selectedFrameIndex = -1;
+        let gridSize = 30;
+        let gridEnabled = true;
+        let isDragging = false;
+        let isResizing = false;
+        let resizeHandle = null;
+        let resizeStartFrame = null;
+        let dragStart = { x: 0, y: 0 };
+        let scale = 1;
+        let backgroundImage = null;
+        let foregroundImage = null;
+
+        // Canvas
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+
+        // Initialize with sample templates
+        function init() {
+            templates = [
+                {
+                    "name": "(Empty)",
+                    "description": "Empty page",
+                    "page": { "width": 1800, "height": 1200 },
+                    "photos": [],
+                    "background": null,
+                    "foreground": null,
+                    "print_params": {
+                        "PageSize": "w288h432",
+                        "print-scaling": "fit"
+                    }
+                },{
+                    "name": "Full Page (Landscape)",
+                    "description": "Single photo full page format",
+                    "page": { "width": 1800, "height": 1200 },
+                    "photos": [
+                        { "x": 60, "y": 60, "width": 1680, "height": 1080 }
+                    ],
+                    "background": null,
+                    "foreground": null,
+                    "print_params": {
+                        "PageSize": "w288h432",
+                        "print-scaling": "fit"
+                    }
+                },
+                {
+                    "name": "Full Page (Portrait)",
+                    "description": "Single photo full page format",
+                    "page": { "width": 1200, "height": 1800 },
+                    "photos": [
+                        { "x": 60, "y": 60, "width": 1080, "height": 1680 }
+                    ],
+                    "background": null,
+                    "foreground": null,
+                    "print_params": {
+                        "PageSize": "w288h432",
+                        "print-scaling": "fit"
+                    }
+                },
+                {
+                    "name": "Photo Strip (Portrait)",
+                    "description": "Three photos strip format",
+                    "page": { "width": 600, "height": 1800 },
+                    "photos": [
+                        { "x": 30, "y": 30, "width": 540, "height": 540 },
+                        { "x": 30, "y": 600, "width": 540, "height": 540 },
+                        { "x": 30, "y": 1170, "width": 540, "height": 540 }
+                    ],
+                    "background": null,
+                    "foreground": null,
+                    "print_params": {
+                        "PageSize": "w288h432-div2",
+                        "print-scaling": "fit"
+                    },
+                    "duplicate_horizontal": true
+                },
+                {
+                    "name": "Photo Strip (Landscape)",
+                    "description": "Three photos strip format",
+                    "page": { "width": 1800, "height": 600 },
+                    "photos": [
+                        { "x": 30, "y": 30, "width": 540, "height": 540 },
+                        { "x": 630, "y": 30, "width": 540, "height": 540 },
+                        { "x": 1230, "y": 30, "width": 540, "height": 540 }
+                    ],
+                    "background": null,
+                    "foreground": null,
+                    "print_params": {
+                        "PageSize": "w288h432-div2",
+                        "print-scaling": "fit"
+                    },
+                    "duplicate_vertical": true
+                }
+            ];
+
+            renderTemplateList();
+            selectTemplate(0);
+        }
+
+        function renderTemplateList() {
+            const listEl = document.getElementById('templateList');
+            listEl.innerHTML = '';
+
+            templates.forEach((template, index) => {
+                const item = document.createElement('div');
+                item.className = 'template-item' + (index === currentTemplateIndex ? ' active' : '');
+                item.onclick = () => selectTemplate(index);
+
+                item.innerHTML = `
+                    <div class="template-item-name">${template.name}</div>
+                    <div class="template-item-desc">${template.description}</div>
+                `;
+
+                listEl.appendChild(item);
+            });
+        }
+
+        function selectTemplate(index) {
+            currentTemplateIndex = index;
+            selectedFrameIndex = -1;
+            backgroundImage = null;
+            foregroundImage = null;
+            renderTemplateList();
+            loadTemplate();
+        }
+
+        function loadTemplate() {
+            if (currentTemplateIndex < 0 || currentTemplateIndex >= templates.length) return;
+
+            const template = templates[currentTemplateIndex];
+            
+            // Update canvas size
+            canvas.width = template.page.width;
+            canvas.height = template.page.height;
+            canvasWrapper.style.width = template.page.width + 'px';
+            canvasWrapper.style.height = template.page.height + 'px';
+            
+            // Calculate actual display size considering duplication
+            let displayWidth = template.page.width;
+            let displayHeight = template.page.height;
+            
+            if (template.duplicate_horizontal) {
+                displayWidth = template.page.width * 2;
+            }
+            if (template.duplicate_vertical) {
+                displayHeight = template.page.height * 2;
+            }
+            
+            // Calculate scale to fit screen with margin
+            const containerWidth = document.querySelector('.canvas-container').clientWidth - 100;
+            const containerHeight = document.querySelector('.canvas-container').clientHeight - 100;
+            
+            scale = Math.min(
+                containerWidth / displayWidth,
+                containerHeight / displayHeight,
+                1  // Max scale 100% to keep actual size
+            );
+            
+            canvasWrapper.style.transform = `scale(${scale})`;
+            document.getElementById('scaleInfo').textContent = Math.round(scale * 100) + '%';
+            
+            // Update form fields
+            document.getElementById('templateName').value = template.name;
+            document.getElementById('templateDesc').value = template.description;
+            document.getElementById('templateBackground').value = template.background || '';
+            document.getElementById('templateForeground').value = template.foreground || '';
+            document.getElementById('widthInput').value = template.page.width;
+            document.getElementById('heightInput').value = template.page.height;
+            document.getElementById('duplicateHorizontal').checked = template.duplicate_horizontal || false;
+            document.getElementById('duplicateVertical').checked = template.duplicate_vertical || false;
+            
+            // Try to load images from paths
+            if (template.background && template.background !== null) {
+                loadImageFromPath(template.background, 'background');
+            }
+            if (template.foreground && template.foreground !== null) {
+                loadImageFromPath(template.foreground, 'foreground');
+            }
+            
+            // Update orientation select
+            if (template.page.width > template.page.height) {
+                document.getElementById('orientationSelect').value = 'landscape';
+            } else {
+                document.getElementById('orientationSelect').value = 'portrait';
+            }
+            
+            // Update format select
+            if (template.page.width === 1800 && template.page.height === 1200) {
+                document.getElementById('formatSelect').value = '10x15';
+            } else if (template.page.width === 1200 && template.page.height === 1800) {
+                document.getElementById('formatSelect').value = '10x15';
+            } else if (template.page.width === 600 && template.page.height === 1800) {
+                document.getElementById('formatSelect').value = '5x15';
+            } else if (template.page.width === 900 && template.page.height === 1800) {
+                document.getElementById('formatSelect').value = '5x15';
+            } else {
+                document.getElementById('formatSelect').value = 'custom';
+            }
+            
+            renderCanvas();
+        }
+
+        function renderCanvas() {
+            if (currentTemplateIndex < 0) return;
+            
+            const template = templates[currentTemplateIndex];
+            
+            // Update canvas size based on duplication
+            let canvasDisplayWidth = template.page.width;
+            let canvasDisplayHeight = template.page.height;
+            
+            if (template.duplicate_horizontal) {
+                canvasDisplayWidth = template.page.width * 2;
+            }
+            if (template.duplicate_vertical) {
+                canvasDisplayHeight = template.page.height * 2;
+            }
+            
+            canvas.width = canvasDisplayWidth;
+            canvas.height = canvasDisplayHeight;
+            canvasWrapper.style.width = canvasDisplayWidth + 'px';
+            canvasWrapper.style.height = canvasDisplayHeight + 'px';
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background image if available
+            if (backgroundImage) {
+                ctx.drawImage(backgroundImage, 0, 0, template.page.width, template.page.height);
+                
+                // If duplicating, draw background in duplicated area too
+                if (template.duplicate_horizontal) {
+                    ctx.drawImage(backgroundImage, template.page.width, 0, template.page.width, template.page.height);
+                }
+                if (template.duplicate_vertical) {
+                    ctx.drawImage(backgroundImage, 0, template.page.height, template.page.width, template.page.height);
+                }
+            }
+            
+            // Draw a separation line if duplicating
+            if (template.duplicate_horizontal || template.duplicate_vertical) {
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 5]);
+                
+                if (template.duplicate_horizontal) {
+                    ctx.beginPath();
+                    ctx.moveTo(template.page.width, 0);
+                    ctx.lineTo(template.page.width, canvas.height);
+                    ctx.stroke();
+                }
+                
+                if (template.duplicate_vertical) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, template.page.height);
+                    ctx.lineTo(canvas.width, template.page.height);
+                    ctx.stroke();
+                }
+                
+                ctx.setLineDash([]);
+            }
+            
+            // Draw grid
+            if (gridEnabled) {
+                ctx.strokeStyle = '#e0e0e0';
+                ctx.lineWidth = 1;
+                
+                for (let x = 0; x <= canvas.width; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                    ctx.stroke();
+                }
+                
+                for (let y = 0; y <= canvas.height; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+            }
+            
+            // Draw photo frames
+            template.photos.forEach((photo, index) => {
+                drawPhotoFrame(photo, index, false);
+            });
+            
+            // Draw duplicate frames
+            if (template.duplicate_horizontal) {
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                template.photos.forEach((photo, index) => {
+                    const duplicatedPhoto = {
+                        x: template.page.width + (template.page.width - photo.x - photo.width),
+                        y: photo.y,
+                        width: photo.width,
+                        height: photo.height
+                    };
+                    drawPhotoFrame(duplicatedPhoto, index, true);
+                });
+                ctx.restore();
+            }
+            
+            if (template.duplicate_vertical) {
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                template.photos.forEach((photo, index) => {
+                    const duplicatedPhoto = {
+                        x: photo.x,
+                        y: template.page.height + (template.page.height - photo.y - photo.height),
+                        width: photo.width,
+                        height: photo.height
+                    };
+                    drawPhotoFrame(duplicatedPhoto, index, true);
+                });
+                ctx.restore();
+            }
+            
+            // Draw foreground image if available
+            if (foregroundImage) {
+                ctx.drawImage(foregroundImage, 0, 0, template.page.width, template.page.height);
+                
+                // If duplicating, draw foreground in duplicated area too
+                if (template.duplicate_horizontal) {
+                    ctx.drawImage(foregroundImage, template.page.width, 0, template.page.width, template.page.height);
+                }
+                if (template.duplicate_vertical) {
+                    ctx.drawImage(foregroundImage, 0, template.page.height, template.page.width, template.page.height);
+                }
+            }
+            
+            // Draw resize handles for selected frame
+            if (selectedFrameIndex >= 0) {
+                const photo = template.photos[selectedFrameIndex];
+                drawResizeHandles(photo);
+            }
+            
+            updateFramePropertiesPanel();
+        }
+
+        function drawPhotoFrame(photo, index, isDuplicate) {
+            ctx.strokeStyle = index === selectedFrameIndex && !isDuplicate ? '#ff6b6b' : '#007bff';
+            ctx.lineWidth = 2;
+            ctx.fillStyle = index === selectedFrameIndex && !isDuplicate ? 'rgba(255, 107, 107, 0.1)' : 'rgba(0, 123, 255, 0.1)';
+            
+            ctx.fillRect(photo.x, photo.y, photo.width, photo.height);
+            ctx.strokeRect(photo.x, photo.y, photo.width, photo.height);
+            
+            // Draw label
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(photo.x + 4, photo.y + 4, 60, 20);
+            ctx.fillStyle = 'white';
+            ctx.font = '12px sans-serif';
+            ctx.fillText(`Photo ${index + 1}`, photo.x + 8, photo.y + 18);
+        }
+
+        function drawResizeHandles(photo) {
+            const handleSize = 10;
+            const handles = [
+                { x: photo.x, y: photo.y, type: 'nw' },
+                { x: photo.x + photo.width, y: photo.y, type: 'ne' },
+                { x: photo.x, y: photo.y + photo.height, type: 'sw' },
+                { x: photo.x + photo.width, y: photo.y + photo.height, type: 'se' }
+            ];
+            
+            handles.forEach(handle => {
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = '#ff6b6b';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(handle.x, handle.y, handleSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+
+        function updateFramePropertiesPanel() {
+            const panel = document.getElementById('frameProperties');
+            
+            if (selectedFrameIndex >= 0 && currentTemplateIndex >= 0) {
+                const photo = templates[currentTemplateIndex].photos[selectedFrameIndex];
+                panel.style.display = 'block';
+                document.getElementById('frameX').value = photo.x;
+                document.getElementById('frameY').value = photo.y;
+                document.getElementById('frameWidth').value = photo.width;
+                document.getElementById('frameHeight').value = photo.height;
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        function updateFrameProperties() {
+            if (selectedFrameIndex < 0 || currentTemplateIndex < 0) return;
+            
+            const photo = templates[currentTemplateIndex].photos[selectedFrameIndex];
+            photo.x = parseInt(document.getElementById('frameX').value) || 0;
+            photo.y = parseInt(document.getElementById('frameY').value) || 0;
+            photo.width = parseInt(document.getElementById('frameWidth').value) || 100;
+            photo.height = parseInt(document.getElementById('frameHeight').value) || 100;
+            
+            renderCanvas();
+        }
+
+        function updateTemplateName() {
+            if (currentTemplateIndex < 0) return;
+            templates[currentTemplateIndex].name = document.getElementById('templateName').value;
+            renderTemplateList();
+        }
+
+        function updateTemplateDesc() {
+            if (currentTemplateIndex < 0) return;
+            templates[currentTemplateIndex].description = document.getElementById('templateDesc').value;
+            renderTemplateList();
+        }
+
+        function updateTemplateBackground() {
+            if (currentTemplateIndex < 0) return;
+            const value = document.getElementById('templateBackground').value.trim();
+            templates[currentTemplateIndex].background = value === '' ? null : value;
+        }
+
+        function updateTemplateForeground() {
+            if (currentTemplateIndex < 0) return;
+            const value = document.getElementById('templateForeground').value.trim();
+            templates[currentTemplateIndex].foreground = value === '' ? null : value;
+        }
+
+        function loadBackgroundImage() {
+            const file = document.getElementById('backgroundFile').files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    backgroundImage = img;
+                    backgroundImage._file = file; // Store file for export
+                    backgroundImage._dataUrl = e.target.result;
+                    if (currentTemplateIndex >= 0) {
+                        templates[currentTemplateIndex].background = file.name;
+                        document.getElementById('templateBackground').value = file.name;
+                    }
+                    renderCanvas();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function loadForegroundImage() {
+            const file = document.getElementById('foregroundFile').files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    foregroundImage = img;
+                    foregroundImage._file = file; // Store file for export
+                    foregroundImage._dataUrl = e.target.result;
+                    if (currentTemplateIndex >= 0) {
+                        templates[currentTemplateIndex].foreground = file.name;
+                        document.getElementById('templateForeground').value = file.name;
+                    }
+                    renderCanvas();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function loadImageFromPath(path, type) {
+            // Try to load image from path (works if it's a relative path or URL)
+            const img = new Image();
+            img.onload = function() {
+                if (type === 'background') {
+                    backgroundImage = img;
+                } else if (type === 'foreground') {
+                    foregroundImage = img;
+                }
+                renderCanvas();
+            };
+            img.onerror = function() {
+                // Image couldn't be loaded - that's okay, user can reload it manually
+                console.log(`Could not load ${type} image from path: ${path}`);
+            };
+            img.src = path;
+        }
+
+        function updateDuplication() {
+            if (currentTemplateIndex < 0) return;
+            const template = templates[currentTemplateIndex];
+            
+            const horizChecked = document.getElementById('duplicateHorizontal').checked;
+            const vertChecked = document.getElementById('duplicateVertical').checked;
+            
+            // Make duplications mutually exclusive
+            if (horizChecked && vertChecked) {
+                // If both are checked, uncheck the other one
+                if (event.target.id === 'duplicateHorizontal') {
+                    document.getElementById('duplicateVertical').checked = false;
+                    template.duplicate_vertical = false;
+                } else {
+                    document.getElementById('duplicateHorizontal').checked = false;
+                    template.duplicate_horizontal = false;
+                }
+            }
+            
+            template.duplicate_horizontal = document.getElementById('duplicateHorizontal').checked;
+            template.duplicate_vertical = document.getElementById('duplicateVertical').checked;
+            loadTemplate(); // Reload to recalculate scale
+        }
+
+        function updateGridSize() {
+            const newSize = parseInt(document.getElementById('gridSizeInput').value);
+            if (newSize >= 5 && newSize <= 100) {
+                gridSize = newSize;
+                renderCanvas();
+            }
+        }
+
+        function changeOrientation() {
+            if (currentTemplateIndex < 0) return;
+            
+            const template = templates[currentTemplateIndex];
+            const temp = template.page.width;
+            template.page.width = template.page.height;
+            template.page.height = temp;
+            
+            // Adjust photos to fit within new canvas bounds
+            adjustPhotosToCanvasBounds();
+            
+            loadTemplate();
+        }
+
+        function adjustPhotosToCanvasBounds() {
+            if (currentTemplateIndex < 0) return;
+            
+            const template = templates[currentTemplateIndex];
+            const pageWidth = template.page.width;
+            const pageHeight = template.page.height;
+            
+            template.photos.forEach(photo => {
+                // If photo is outside or too large for new canvas, adjust it
+                if (photo.x + photo.width > pageWidth || photo.y + photo.height > pageHeight) {
+                    // First, constrain width and height to fit within canvas
+                    if (photo.width > pageWidth) {
+                        photo.width = pageWidth - 60; // Leave some margin
+                    }
+                    if (photo.height > pageHeight) {
+                        photo.height = pageHeight - 60; // Leave some margin
+                    }
+                    
+                    // Then adjust position to be within bounds
+                    if (photo.x + photo.width > pageWidth) {
+                        photo.x = Math.max(30, pageWidth - photo.width - 30);
+                    }
+                    if (photo.y + photo.height > pageHeight) {
+                        photo.y = Math.max(30, pageHeight - photo.height - 30);
+                    }
+                    
+                    // Ensure position is not negative
+                    photo.x = Math.max(0, photo.x);
+                    photo.y = Math.max(0, photo.y);
+                    
+                    // Snap to grid
+                    photo.x = snapToGrid(photo.x);
+                    photo.y = snapToGrid(photo.y);
+                    photo.width = snapToGrid(photo.width);
+                    photo.height = snapToGrid(photo.height);
+                }
+            });
+        }
+
+        function changeFormat() {
+            if (currentTemplateIndex < 0) return;
+            
+            const format = document.getElementById('formatSelect').value;
+            const template = templates[currentTemplateIndex];
+            const orientation = document.getElementById('orientationSelect').value;
+            
+            if (format === '10x15') {
+                if (orientation === 'landscape') {
+                    template.page.width = 1800;
+                    template.page.height = 1200;
+                } else {
+                    template.page.width = 1200;
+                    template.page.height = 1800;
+                }
+            } else if (format === '5x15') {
+                template.page.width = 600;
+                template.page.height = 1800;
+            }
+            
+            // Adjust photos to fit within new canvas bounds
+            adjustPhotosToCanvasBounds();
+            
+            loadTemplate();
+        }
+
+        function updatePageDimensions() {
+            if (currentTemplateIndex < 0) return;
+            
+            const template = templates[currentTemplateIndex];
+            template.page.width = parseInt(document.getElementById('widthInput').value) || 1800;
+            template.page.height = parseInt(document.getElementById('heightInput').value) || 1200;
+            
+            document.getElementById('formatSelect').value = 'custom';
+            
+            // Adjust photos to fit within new canvas bounds
+            adjustPhotosToCanvasBounds();
+            
+            loadTemplate();
+        }
+
+        function toggleGrid() {
+            gridEnabled = document.getElementById('gridToggle').checked;
+            renderCanvas();
+        }
+
+        function addPhotoFrame() {
+            if (currentTemplateIndex < 0) return;
+            
+            const template = templates[currentTemplateIndex];
+            const centerX = Math.floor(template.page.width / 2 - 150);
+            const centerY = Math.floor(template.page.height / 2 - 150);
+            
+            template.photos.push({
+                x: snapToGrid(centerX),
+                y: snapToGrid(centerY),
+                width: 300,
+                height: 300
+            });
+            
+            selectedFrameIndex = template.photos.length - 1;
+            renderCanvas();
+        }
+
+        function deleteSelectedFrame() {
+            if (selectedFrameIndex < 0 || currentTemplateIndex < 0) return;
+            
+            templates[currentTemplateIndex].photos.splice(selectedFrameIndex, 1);
+            selectedFrameIndex = -1;
+            renderCanvas();
+        }
+
+        function snapToGrid(value) {
+            if (!gridEnabled) return value;
+            return Math.round(value / gridSize) * gridSize;
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            if (currentTemplateIndex < 0) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / scale;
+            const y = (e.clientY - rect.top) / scale;
+            
+            const template = templates[currentTemplateIndex];
+            
+            // Check if clicking on resize handle of selected frame
+            if (selectedFrameIndex >= 0) {
+                const photo = template.photos[selectedFrameIndex];
+                const handleSize = 10;
+                const handles = [
+                    { x: photo.x, y: photo.y, type: 'nw' },
+                    { x: photo.x + photo.width, y: photo.y, type: 'ne' },
+                    { x: photo.x, y: photo.y + photo.height, type: 'sw' },
+                    { x: photo.x + photo.width, y: photo.y + photo.height, type: 'se' }
+                ];
+                
+                for (const handle of handles) {
+                    const dist = Math.sqrt(Math.pow(x - handle.x, 2) + Math.pow(y - handle.y, 2));
+                    if (dist <= handleSize) {
+                        isResizing = true;
+                        resizeHandle = handle.type;
+                        resizeStartFrame = { ...photo };
+                        dragStart = { x, y };
+                        return;
+                    }
+                }
+            }
+            
+            // Check if clicking on a frame
+            for (let i = template.photos.length - 1; i >= 0; i--) {
+                const photo = template.photos[i];
+                if (x >= photo.x && x <= photo.x + photo.width &&
+                    y >= photo.y && y <= photo.y + photo.height) {
+                    selectedFrameIndex = i;
+                    isDragging = true;
+                    dragStart = { x: x - photo.x, y: y - photo.y };
+                    renderCanvas();
+                    return;
+                }
+            }
+            
+            // Clicked on empty space
+            selectedFrameIndex = -1;
+            renderCanvas();
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (currentTemplateIndex < 0 || selectedFrameIndex < 0) return;
+            if (!isDragging && !isResizing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / scale;
+            const y = (e.clientY - rect.top) / scale;
+            
+            const photo = templates[currentTemplateIndex].photos[selectedFrameIndex];
+            
+            if (isResizing) {
+                const dx = x - dragStart.x;
+                const dy = y - dragStart.y;
+                
+                switch (resizeHandle) {
+                    case 'se':
+                        photo.width = Math.max(50, resizeStartFrame.width + dx);
+                        photo.height = Math.max(50, resizeStartFrame.height + dy);
+                        break;
+                    case 'sw':
+                        const newWidth = Math.max(50, resizeStartFrame.width - dx);
+                        photo.x = resizeStartFrame.x + (resizeStartFrame.width - newWidth);
+                        photo.width = newWidth;
+                        photo.height = Math.max(50, resizeStartFrame.height + dy);
+                        break;
+                    case 'ne':
+                        photo.width = Math.max(50, resizeStartFrame.width + dx);
+                        const newHeight = Math.max(50, resizeStartFrame.height - dy);
+                        photo.y = resizeStartFrame.y + (resizeStartFrame.height - newHeight);
+                        photo.height = newHeight;
+                        break;
+                    case 'nw':
+                        const newW = Math.max(50, resizeStartFrame.width - dx);
+                        const newH = Math.max(50, resizeStartFrame.height - dy);
+                        photo.x = resizeStartFrame.x + (resizeStartFrame.width - newW);
+                        photo.y = resizeStartFrame.y + (resizeStartFrame.height - newH);
+                        photo.width = newW;
+                        photo.height = newH;
+                        break;
+                }
+                
+                // Snap to grid
+                photo.x = snapToGrid(photo.x);
+                photo.y = snapToGrid(photo.y);
+                photo.width = snapToGrid(photo.width);
+                photo.height = snapToGrid(photo.height);
+                
+            } else if (isDragging) {
+                photo.x = snapToGrid(x - dragStart.x);
+                photo.y = snapToGrid(y - dragStart.y);
+                
+                // Keep within bounds of the original page size (not the duplicated area)
+                const template = templates[currentTemplateIndex];
+                photo.x = Math.max(0, Math.min(photo.x, template.page.width - photo.width));
+                photo.y = Math.max(0, Math.min(photo.y, template.page.height - photo.height));
+            }
+            
+            renderCanvas();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            isResizing = false;
+            resizeHandle = null;
+        });
+
+        // Keyboard events
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedFrameIndex >= 0 && document.activeElement.tagName !== 'INPUT') {
+                    e.preventDefault();
+                    deleteSelectedFrame();
+                }
+            }
+        });
+
+        // Template management
+        function duplicateTemplate(index) {
+            const template = JSON.parse(JSON.stringify(templates[index]));
+            template.name = template.name + ' (copy)';
+            templates.push(template);
+            renderTemplateList();
+            selectTemplate(templates.length - 1);
+        }
+
+        function deleteTemplate(index) {
+            if (templates.length <= 1) {
+                alert('You must keep at least one template.');
+                return;
+            }
+            
+            if (confirm(`Delete template "${templates[index].name}"?`)) {
+                templates.splice(index, 1);
+                if (currentTemplateIndex >= templates.length) {
+                    currentTemplateIndex = templates.length - 1;
+                }
+                renderTemplateList();
+                loadTemplate();
+            }
+        }
+
+        function createNewTemplate() {
+            document.getElementById('newTemplateModal').classList.add('show');
+            document.getElementById('newTemplateName').value = '';
+            document.getElementById('newTemplateDesc').value = '';
+        }
+
+        function closeNewTemplateModal() {
+            document.getElementById('newTemplateModal').classList.remove('show');
+        }
+
+        function confirmNewTemplate() {
+            const name = document.getElementById('newTemplateName').value || 'New Template';
+            const desc = document.getElementById('newTemplateDesc').value || 'Description';
+            const format = document.getElementById('newTemplateFormat').value;
+            
+            let width = 1800, height = 1200;
+            
+            if (format === '10x15-landscape') {
+                width = 1800;
+                height = 1200;
+            } else if (format === '10x15-portrait') {
+                width = 1200;
+                height = 1800;
+            } else if (format === '5x15') {
+                width = 600;
+                height = 1800;
+            }
+            
+            const newTemplate = {
+                name: name,
+                description: desc,
+                page: { width: width, height: height },
+                photos: [],
+                background: null,
+                foreground: null,
+                print_params: {
+                    PageSize: "w288h432",
+                    "print-scaling": "fit"
+                },
+                margin_percent: 5
+            };
+            
+            templates.push(newTemplate);
+            renderTemplateList();
+            selectTemplate(templates.length - 1);
+            closeNewTemplateModal();
+        }
+
+        function exportTemplate() {
+            if (currentTemplateIndex < 0) return;
+            
+            const template = templates[currentTemplateIndex];
+            const baseName = template.name.toLowerCase().replace(/\s+/g, '_');
+            
+            // Export JSON
+            const json = JSON.stringify(template, null, 2);
+            downloadFile(json, baseName + '.json', 'application/json');
+            
+            // Export background image if available
+            if (backgroundImage && backgroundImage._dataUrl) {
+                const bgName = template.background || 'background.png';
+                downloadImageFromDataUrl(backgroundImage._dataUrl, bgName);
+            }
+            
+            // Export foreground image if available
+            if (foregroundImage && foregroundImage._dataUrl) {
+                const fgName = template.foreground || 'foreground.png';
+                downloadImageFromDataUrl(foregroundImage._dataUrl, fgName);
+            }
+        }
+
+        function downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type: type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadImageFromDataUrl(dataUrl, filename) {
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

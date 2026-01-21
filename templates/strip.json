@@ -26,11 +26,10 @@
     }
   ],
   "background": null,
-  "foreground": "../overlays/strip0.png",
+  "foreground": "strip0.png",
   "print_params": {
     "PageSize": "w288h432-div2",
     "print-scaling": "fit"
   },
-  "margin_percent": 5,
   "duplicate_horizontal": true
 }
