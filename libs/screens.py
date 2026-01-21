@@ -81,7 +81,6 @@ class ScreenMgr(ScreenManager):
             self.WAITING            : WaitingScreen(app, name=self.WAITING),
             self.SELECT_FORMAT      : SelectFormatScreen(app, name=self.SELECT_FORMAT),
             self.ERROR              : ErrorScreen(app, name=self.ERROR),
-            self.READY              : ReadyScreen(app, name=self.READY),
             self.COUNTDOWN          : CountdownScreen(app, name=self.COUNTDOWN),
             self.CONFIRM_CAPTURE    : ConfirmCaptureScreen(app, name=self.CONFIRM_CAPTURE),
             self.PROCESSING         : ProcessingScreen(app, name=self.PROCESSING),
@@ -294,12 +293,12 @@ class SelectFormatScreen(ColorScreen):
     def on_click_left(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('SelectFormatScreen: on_click_left().')
-        self.app.transition_to(ScreenMgr.READY, shot=0, format=0)
+        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=0)
 
     def on_click_right(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('SelectFormatScreen: on_click_right().')
-        self.app.transition_to(ScreenMgr.READY, shot=0, format=1)
+        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=1)
 
 class ErrorScreen(ColorScreen):
     """
@@ -351,53 +350,6 @@ class ErrorScreen(ColorScreen):
         Logger.info('ErrorScreen: on_click().')
         self.app.transition_to(ScreenMgr.WAITING)
 
-class ReadyScreen(ColorScreen):
-    """
-    +-----------------+
-    |                 |
-    |      Ready      |
-    |                 |
-    +-----------------+
-    """
-    def __init__(self, app, **kwargs):
-        Logger.info('ReadyScreen: __init__().')
-        super(ReadyScreen, self).__init__(**kwargs)
-
-        self.app = app
-
-        # Use progress bar
-        self.progress = ThickProgressBar(
-            color=PROGRESS_COLOR,
-            max=100,
-            size_hint=(1, 0.1),
-            pos_hint={'x': 0, 'y': 0.45},
-        )
-
-        self.layout = BoxLayout(padding=BORDER_THINKNESS)
-        self.layout.add_widget(self.progress)
-        self.add_widget(self.layout)
-
-    def on_entry(self, kwargs={}):
-        Logger.info('ReadyScreen: on_entry().')
-        self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
-        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self._clock_progress = Clock.schedule_once(self.timer_progress, 0.05)
-        self.progress.value = 100/(2/0.05)
-        self._clock = Clock.schedule_once(self.timer_event, 2.1)
-
-    def on_exit(self, kwargs={}):
-        Logger.info('ReadyScreen: on_exit().')
-        Clock.unschedule(self._clock)
-        Clock.unschedule(self._clock_progress)
-
-    def timer_progress(self, obj):
-        self.progress.value += 100/(2/0.05)
-        self._clock_progress = Clock.schedule_once(self.timer_progress, 0.05)
-
-    def timer_event(self, obj):
-        Logger.info('ReadyScreen: timer_event().')
-        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
-
 class CountdownScreen(ColorScreen):
     """
     +-----------------+
@@ -413,14 +365,20 @@ class CountdownScreen(ColorScreen):
         self.app = app
         self._current_shot = 0
         self._current_format = 0
+        self._timer_active = False
 
         self.time_remaining = self.app.COUNTDOWN
         self.total_countdown = self.app.COUNTDOWN
 
         # Display camera preview
         self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='center')
+        
         self.camera = KivyCamera(app=self.app, fps=30, blur=BLUR_CAMERA, fit_mode='contain')
         self.layout.add_widget(self.camera)
+        
+        # Create overlay layout for buttons (on top of camera)
+        self.overlay_layout = FloatLayout()
+        self.layout.add_widget(self.overlay_layout)
 
         # Display countdown with circular progress
         self.circular_counter = CircularProgressCounter(
@@ -431,7 +389,6 @@ class CountdownScreen(ColorScreen):
             line_width=6,
             progress_color=BORDER_COLOR
         )
-        self.layout.add_widget(self.circular_counter)
 
         # Declare color background
         self.color_background = BackgroundBoxLayout(background_color=(1,1,1,1))
@@ -456,32 +413,70 @@ class CountdownScreen(ColorScreen):
         )
         self.loading_layout.add_widget(loading)
 
+        # Home button (visible only when timer is not active) - top left
+        self.btn_home = make_icon_button(ICON_HOME,
+            size=0.14,
+            pos_hint={'x': 0.05, 'top': 0.95},
+            font=ICON_TTF,
+            font_size=LARGE_FONT,
+            bgcolor=HOME_COLOR,
+            on_release=self.home_event
+        )
+
+        # Trigger/Cancel button - center bottom with text
+        self.btn_trigger = RoundedButton(
+            text='Prendre une photo',
+            font_size=SMALL_FONT,
+            size_hint=(None, None),
+            size=(600, 120),
+            pos_hint={'center_x': 0.5, 'y': 0.05},
+            background_color=CONFIRM_COLOR,
+        )
+        self.btn_trigger.bind(on_release=self.trigger_event)
+
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('CountdownScreen: on_entry().')
         self.time_remaining = self.app.COUNTDOWN
         self.total_countdown = self.app.COUNTDOWN
-        self.start_time = Clock.get_boottime()
-        if (not self.circular_counter.parent): self.layout.add_widget(self.circular_counter)
+        self._timer_active = False
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.camera.start(self.app.is_square_format(self._current_format))
-        self.circular_counter.set_text(str(self.time_remaining))
-        self.circular_counter.set_progress(1.0)
-        self._clock = Clock.schedule_once(self.timer_event, 1)
-        self._clock_progress = Clock.schedule_interval(self.timer_progress, 1/60.0)
+        
+        # Reset button states
+        self.btn_trigger.text = 'Prendre une photo'
+        self.btn_trigger.background_color = CONFIRM_COLOR
+        
+        # Show home button and trigger button, hide circular counter
+        if not self.btn_home.parent:
+            self.overlay_layout.add_widget(self.btn_home)
+        if not self.btn_trigger.parent:
+            self.overlay_layout.add_widget(self.btn_trigger)
+        if self.circular_counter.parent:
+            self.overlay_layout.remove_widget(self.circular_counter)
+        
+        self._clock = None
+        self._clock_progress = None
         self._clock_trigger = None
-        self.app.ringled.start_countdown(self.time_remaining)
 
     def on_exit(self, kwargs={}):
         Logger.info('CountdownScreen: on_exit().')
         self.camera.opacity = 1
-        Clock.unschedule(self._clock)
-        Clock.unschedule(self._clock_progress)
-        Clock.unschedule(self._clock_trigger)
+        if self._clock:
+            Clock.unschedule(self._clock)
+        if self._clock_progress:
+            Clock.unschedule(self._clock_progress)
+        if self._clock_trigger:
+            Clock.unschedule(self._clock_trigger)
         self.app.ringled.clear()
-        self.layout.remove_widget(self.loading_layout)
+        if self.loading_layout.parent:
+            self.overlay_layout.remove_widget(self.loading_layout)
+        if self.btn_home.parent:
+            self.overlay_layout.remove_widget(self.btn_home)
+        if self.btn_trigger.parent:
+            self.overlay_layout.remove_widget(self.btn_trigger)
         self.camera.stop()
 
     def timer_progress(self, dt):
@@ -492,13 +487,21 @@ class CountdownScreen(ColorScreen):
 
     def timer_event(self, obj):
         Logger.info('CountdownScreen: timer_event(%s)', obj)
+        
+        # Check if timer is still active (not cancelled)
+        if not self._timer_active:
+            Logger.info('CountdownScreen: timer_event cancelled.')
+            return
+        
         self.time_remaining -= 1
         if self.time_remaining:
             self.circular_counter.set_text(str(self.time_remaining))
-            Clock.schedule_once(self.timer_event, 1)
+            self._clock = Clock.schedule_once(self.timer_event, 1)
         else:
             # Stop progressive update
-            Clock.unschedule(self._clock_progress)
+            if self._clock_progress:
+                Clock.unschedule(self._clock_progress)
+                self._clock_progress = None
             self.circular_counter.set_progress(0)
             
             # Trigger shot
@@ -510,8 +513,10 @@ class CountdownScreen(ColorScreen):
                 Clock.schedule_once(self.timer_bg, 0.2)
 
                 # Display loading
-                self.layout.remove_widget(self.circular_counter)
-                self.layout.add_widget(self.loading_layout)
+                self.overlay_layout.remove_widget(self.circular_counter)
+                if self.btn_trigger.parent:
+                    self.overlay_layout.remove_widget(self.btn_trigger)
+                self.overlay_layout.add_widget(self.loading_layout)
             except:
                 return self.app.transition_to(ScreenMgr.ERROR, error2=ICON_ERROR_TRIGGER)
 
@@ -530,6 +535,75 @@ class CountdownScreen(ColorScreen):
         else:
             # Display photo and take next shot
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
+
+    def trigger_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        Logger.info('CountdownScreen: trigger_event().')
+        
+        if not self._timer_active:
+            # Start the countdown
+            self._timer_active = True
+            self.start_countdown()
+        else:
+            # Cancel the countdown
+            self._timer_active = False
+            self.cancel_countdown()
+
+    def start_countdown(self):
+        Logger.info('CountdownScreen: start_countdown().')
+        # Hide home button
+        if self.btn_home.parent:
+            self.overlay_layout.remove_widget(self.btn_home)
+        
+        # Show circular counter
+        if not self.circular_counter.parent:
+            self.overlay_layout.add_widget(self.circular_counter)
+        
+        # Update button appearance
+        self.btn_trigger.text = 'Annuler la prise'
+        self.btn_trigger.background_color = CANCEL_COLOR
+        
+        # Reset timer
+        self.time_remaining = self.app.COUNTDOWN
+        self.total_countdown = self.app.COUNTDOWN
+        self.start_time = Clock.get_boottime()
+        self.circular_counter.set_text(str(self.time_remaining))
+        self.circular_counter.set_progress(1.0)
+        
+        # Start countdown
+        self._clock = Clock.schedule_once(self.timer_event, 1)
+        self._clock_progress = Clock.schedule_interval(self.timer_progress, 1/60.0)
+        self.app.ringled.start_countdown(self.time_remaining)
+
+    def cancel_countdown(self):
+        Logger.info('CountdownScreen: cancel_countdown().')
+        # Stop timers
+        if self._clock:
+            Clock.unschedule(self._clock)
+            self._clock = None
+        if self._clock_progress:
+            Clock.unschedule(self._clock_progress)
+            self._clock_progress = None
+        
+        # Hide circular counter
+        if self.circular_counter.parent:
+            self.overlay_layout.remove_widget(self.circular_counter)
+        
+        # Show home button again
+        if not self.btn_home.parent:
+            self.overlay_layout.add_widget(self.btn_home)
+        
+        # Update button appearance
+        self.btn_trigger.text = 'Prendre une photo'
+        self.btn_trigger.background_color = CONFIRM_COLOR
+        
+        # Clear LED
+        self.app.ringled.clear()
+
+    def home_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        Logger.info('CountdownScreen: home_event().')
+        self.app.transition_to(ScreenMgr.WAITING)
 
 class ConfirmCaptureScreen(ColorScreen):
     """

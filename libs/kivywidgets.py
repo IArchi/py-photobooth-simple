@@ -355,6 +355,20 @@ class CircularProgressCounter(FloatLayout):
         """Set progress from 0 to 1"""
         self.progress = max(0, min(1, value))
 
+Builder.load_string("""
+<RoundedButton>:
+    background_color: 1, 1, 1, 1
+    canvas.before:
+        Color:
+            rgba: self.background_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [20,]
+""")
+class RoundedButton(ButtonBehavior, Label):
+    background_color = ListProperty([1, 1, 1, 1])
+
 def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=10, bgcolor=(1,1,1,1), badge=None, badge_font_size=10, badge_color=(1,0,0,1), on_release=None):
     parent = SquareFloatLayout(
         size_square=size,
