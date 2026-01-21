@@ -7,9 +7,10 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.progressbar import ProgressBar
 from kivy.graphics.texture import Texture
-from kivy.properties import ColorProperty, StringProperty, ListProperty, NumericProperty
+from kivy.properties import ColorProperty, StringProperty, ListProperty, NumericProperty, BooleanProperty
 from kivy.metrics import sp
 from kivy.logger import Logger
+from kivy.core.window import Window
 import numpy as np
 import cv2
 
@@ -149,7 +150,6 @@ class ResizeLabel(Label):
 Builder.load_string("""
 <SquareFloatLayout>:
     size_hint: None, None
-    size: min(self.parent.size) * self.size_square if self.parent else 150, min(self.parent.size) * self.size_square if self.parent else 150
     background_color: 0, 0, 0, 0
 
     canvas:
@@ -162,6 +162,38 @@ Builder.load_string("""
 class SquareFloatLayout(FloatLayout):
     size_square = NumericProperty(100)
     background_color = ColorProperty()
+    use_parent_size = BooleanProperty(False)
+    
+    def __init__(self, use_parent_size=False, **kwargs):
+        self.use_parent_size = use_parent_size
+        super(SquareFloatLayout, self).__init__(**kwargs)
+        if not use_parent_size:
+            self._update_size()
+            Window.bind(size=self._on_window_resize)
+        else:
+            self.bind(parent=self._on_parent_change)
+    
+    def _on_window_resize(self, instance, value):
+        if not self.use_parent_size:
+            self._update_size()
+    
+    def _on_parent_change(self, instance, parent):
+        if parent and self.use_parent_size:
+            parent.bind(size=self._update_size_from_parent)
+            self._update_size_from_parent()
+    
+    def _update_size(self, *args):
+        # Use Window size for consistent button sizing across all screens
+        window_min = min(Window.size)
+        button_size = window_min * self.size_square
+        self.size = (button_size, button_size)
+    
+    def _update_size_from_parent(self, *args):
+        # Use parent size for buttons in BoxLayouts
+        if self.parent:
+            parent_min = min(self.parent.size) if self.parent.size[0] > 0 and self.parent.size[1] > 0 else 150
+            button_size = parent_min * self.size_square
+            self.size = (button_size, button_size)
 
 Builder.load_string("""
 <LabelRoundButton>:
@@ -427,9 +459,12 @@ class RoundedButton(ButtonBehavior, Label):
     background_color = ListProperty([1, 1, 1, 1])
 
 def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=10, bgcolor=(1,1,1,1), badge=None, badge_font_size=10, badge_color=(1,0,0,1), on_release=None):
+    # If size >= 1, use parent size (for buttons in BoxLayouts), otherwise use Window size
+    use_parent = (size >= 1.0)
     parent = SquareFloatLayout(
         size_square=size,
         pos_hint=pos_hint,
+        use_parent_size=use_parent,
     )
     ic = LabelRoundButton(
         font_name=font,
@@ -452,3 +487,80 @@ def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=10, bgcol
         parent.add_widget(bg)
     ic.bind(on_release=on_release)
     return parent
+
+Builder.load_string("""
+<IconTextButton>:
+    background_color: 1, 1, 1, 1
+    orientation: 'horizontal'
+    spacing: 10
+    padding: 15
+    canvas.before:
+        Color:
+            rgba: self.background_color
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [20,]
+""")
+class IconTextButton(ButtonBehavior, BoxLayout):
+    background_color = ListProperty([1, 1, 1, 1])
+
+def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_font='Roboto', text_font='Roboto', icon_font_size='50sp', text_font_size='30sp', bgcolor=(1,1,1,1), on_release=None):
+    """
+    Create a horizontal button with icon on left and text on right
+    
+    Args:
+        icon: Icon character to display
+        text: Text to display
+        size_hint: Size hint tuple (width, height)
+        pos_hint: Position hint dict
+        icon_font: Font for the icon
+        text_font: Font for the text
+        icon_font_size: Font size for the icon (can be string like '60sp' or number)
+        text_font_size: Font size for the text (can be string like '30sp' or number)
+        bgcolor: Background color tuple (r, g, b, a)
+        on_release: Callback function for button release
+    
+    Returns:
+        IconTextButton widget
+    """
+    button = IconTextButton(
+        size_hint=size_hint,
+        pos_hint=pos_hint,
+        background_color=bgcolor,
+    )
+    
+    # Icon container with padding
+    icon_container = BoxLayout(
+        size_hint=(0.4, 1),
+        padding=(0, 10, 0, 10),  # Add vertical padding
+    )
+    
+    # Icon label
+    icon_label = Label(
+        text=icon,
+        font_name=icon_font,
+        font_size=icon_font_size,
+        color=(1, 1, 1, 1),
+    )
+    icon_container.add_widget(icon_label)
+    button.add_widget(icon_container)
+    
+    # Text label
+    text_label = Label(
+        text=text,
+        font_name=text_font,
+        font_size=text_font_size,
+        size_hint=(0.6, 1),
+        color=(1, 1, 1, 1),
+        bold=True,
+        halign='left',
+        valign='middle',
+    )
+    text_label.bind(size=text_label.setter('text_size'))
+    button.add_widget(text_label)
+    
+    if on_release:
+        button.bind(on_release=on_release)
+    
+    return button

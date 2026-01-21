@@ -17,6 +17,7 @@ from libs.screens import ScreenMgr
 from libs.ringled import RingLed
 from libs.template_collage import load_templates
 from libs.usb_transfer import UsbTransfer
+from libs.web_server import WebServer
 
 RINGLED = RingLed(num_pixels=12)
 autorestart = True
@@ -69,6 +70,13 @@ class PhotoboothApp(App):
 
         # Start USB transfer
         UsbTransfer(self, self.save_directory).start()
+        
+        # Initialize web server for photo gallery (convert to absolute path)
+        abs_save_directory = os.path.abspath(self.save_directory)
+        self.web_server = WebServer(abs_save_directory, host='0.0.0.0', port=5000)
+        self.web_server.start()
+        Logger.info(f'PhotoboothApp: Web server started for photo gallery at {abs_save_directory}')
+        
         Clock.schedule_interval(self.check_transition_request, 0.5)
 
     def build(self):
@@ -147,7 +155,14 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_print().')
         options = self.print_formats[format].get_print_params()
         options['copies'] = str(copies)
-        return self.devices.print(self.get_collage(), options)
+        
+        # Check if a print version exists (for duplicated templates)
+        print_collage = self.get_collage().replace('.jpg', '_print.jpg')
+        if os.path.exists(print_collage):
+            Logger.info(f'PhotoboothApp: Using print version: {print_collage}')
+            return self.devices.print(print_collage, options)
+        else:
+            return self.devices.print(self.get_collage(), options)
 
     def is_print_completed(self, print_task_id):
         try:
@@ -166,20 +181,21 @@ class PhotoboothApp(App):
         destination = os.path.join(self.save_directory, now.strftime('%Y%m%d_%H%M%S'))
         os.makedirs(destination, exist_ok=True)
 
-        # Move to save_directory
+        # Move to save_directory (exclude small previews and print versions)
         for f in all_files:
-            if '_small' in f: continue
+            if '_small' in f or '_print' in f: continue
             src_path = os.path.join(self.tmp_directory, f)
             dst_path = os.path.join(destination, f)
             os.rename(src_path, dst_path)
 
     def purge_tmp(self):
-        # List existing files and delete
+        # List existing files and delete (including _print versions)
         all_files = os.listdir(self.tmp_directory)
         if len(all_files) == 0: return
         for f in all_files:
             src_path = os.path.join(self.tmp_directory, f)
-            os.remove(src_path)
+            if os.path.isfile(src_path):
+                os.remove(src_path)
 
 if __name__ == '__main__':
     # Auto restart app on crash
