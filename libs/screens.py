@@ -415,22 +415,23 @@ class CountdownScreen(ColorScreen):
         self._current_format = 0
 
         self.time_remaining = self.app.COUNTDOWN
-        self.time_remaining_label = ShadowLabel(
-            text=str(self.time_remaining),
-            halign='center',
-            valign='middle',
-            font_size=XLARGE_FONT
-        )
+        self.total_countdown = self.app.COUNTDOWN
 
         # Display camera preview
-        self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
+        self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='center')
         self.camera = KivyCamera(app=self.app, fps=30, blur=BLUR_CAMERA, fit_mode='contain')
         self.layout.add_widget(self.camera)
 
-        # Display countdown
-        self.boxlayout = BoxLayout()
-        self.boxlayout.add_widget(self.time_remaining_label)
-        self.layout.add_widget(self.boxlayout)
+        # Display countdown with circular progress
+        self.circular_counter = CircularProgressCounter(
+            size_hint=(None, None),
+            size=(400, 400),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            circle_size=350,
+            line_width=6,
+            progress_color=BORDER_COLOR
+        )
+        self.layout.add_widget(self.circular_counter)
 
         # Declare color background
         self.color_background = BackgroundBoxLayout(background_color=(1,1,1,1))
@@ -460,12 +461,16 @@ class CountdownScreen(ColorScreen):
     def on_entry(self, kwargs={}):
         Logger.info('CountdownScreen: on_entry().')
         self.time_remaining = self.app.COUNTDOWN
-        if (not self.time_remaining_label.parent): self.boxlayout.add_widget(self.time_remaining_label)
+        self.total_countdown = self.app.COUNTDOWN
+        self.start_time = Clock.get_boottime()
+        if (not self.circular_counter.parent): self.layout.add_widget(self.circular_counter)
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.camera.start(self.app.is_square_format(self._current_format))
-        self.time_remaining_label.text = str(self.time_remaining)
+        self.circular_counter.set_text(str(self.time_remaining))
+        self.circular_counter.set_progress(1.0)
         self._clock = Clock.schedule_once(self.timer_event, 1)
+        self._clock_progress = Clock.schedule_interval(self.timer_progress, 1/60.0)
         self._clock_trigger = None
         self.app.ringled.start_countdown(self.time_remaining)
 
@@ -473,18 +478,29 @@ class CountdownScreen(ColorScreen):
         Logger.info('CountdownScreen: on_exit().')
         self.camera.opacity = 1
         Clock.unschedule(self._clock)
+        Clock.unschedule(self._clock_progress)
         Clock.unschedule(self._clock_trigger)
         self.app.ringled.clear()
-        self.boxlayout.remove_widget(self.loading_layout)
+        self.layout.remove_widget(self.loading_layout)
         self.camera.stop()
+
+    def timer_progress(self, dt):
+        """Update progress bar smoothly every 0.05 seconds"""
+        elapsed_time = Clock.get_boottime() - self.start_time
+        remaining_progress = max(0, 1.0 - (elapsed_time / self.total_countdown))
+        self.circular_counter.set_progress(remaining_progress)
 
     def timer_event(self, obj):
         Logger.info('CountdownScreen: timer_event(%s)', obj)
         self.time_remaining -= 1
         if self.time_remaining:
-            self.time_remaining_label.text = str(self.time_remaining)
+            self.circular_counter.set_text(str(self.time_remaining))
             Clock.schedule_once(self.timer_event, 1)
         else:
+            # Stop progressive update
+            Clock.unschedule(self._clock_progress)
+            self.circular_counter.set_progress(0)
+            
             # Trigger shot
             try:
                 # Make screen blink
@@ -494,8 +510,8 @@ class CountdownScreen(ColorScreen):
                 Clock.schedule_once(self.timer_bg, 0.2)
 
                 # Display loading
-                self.boxlayout.remove_widget(self.time_remaining_label)
-                self.boxlayout.add_widget(self.loading_layout)
+                self.layout.remove_widget(self.circular_counter)
+                self.layout.add_widget(self.loading_layout)
             except:
                 return self.app.transition_to(ScreenMgr.ERROR, error2=ICON_ERROR_TRIGGER)
 
