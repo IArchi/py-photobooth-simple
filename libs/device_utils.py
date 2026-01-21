@@ -140,7 +140,7 @@ class Gphoto2Camera(CaptureDevice):
 
     def get_preview(self, square=False, zoom=None):
         cfile = self._instance.capture_preview()
-        buf = np.frombuffer(cfile.get_data(), dtype=np.uint8)
+        buf = np.frombuffer(cfile.get_data(auto_clean=False), dtype=np.uint8)
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
         im = cv2.rotate(im, cv2.ROTATE_180)
         if square: im = self._crop_to_square(im)
