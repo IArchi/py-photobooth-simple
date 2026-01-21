@@ -14,10 +14,9 @@
     }
   ],
   "background": null,
-  "foreground": "../overlays/fullpage0.png",
+  "foreground": "fullpage0.png",
   "print_params": {
     "PageSize": "w288h432",
     "print-scaling": "fit"
-  },
-  "margin_percent": 5
+  }
 }

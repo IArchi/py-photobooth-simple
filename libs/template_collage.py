@@ -24,6 +24,7 @@ class TemplateCollage:
         
         self._template_path = template_path
         self._module_dir = os.path.dirname(os.path.abspath(__file__))
+        self._template_dir = os.path.dirname(os.path.abspath(template_path))
         
         # Load template
         with open(template_path, 'r') as f:
@@ -40,14 +41,14 @@ class TemplateCollage:
         self._duplicate_horizontal = self._template.get('duplicate_horizontal', False)
         self._duplicate_vertical = self._template.get('duplicate_vertical', False)
         
-        # Resolve paths relative to module directory
+        # Resolve paths relative to template directory (where the JSON file is located)
         self._background = self._template.get('background')
         if self._background:
-            self._background = os.path.join(self._module_dir, self._background)
+            self._background = os.path.join(self._template_dir, self._background)
             
         self._foreground = self._template.get('foreground')
         if self._foreground:
-            self._foreground = os.path.join(self._module_dir, self._foreground)
+            self._foreground = os.path.join(self._template_dir, self._foreground)
         
         # Load dummy images for preview
         self._dummies = [
