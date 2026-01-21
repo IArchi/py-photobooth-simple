@@ -3,10 +3,6 @@
 I wanted to create a very simple to use photobooth without unecessary features.
 This project is easy to edit and has been tested on 3 to 5 years old child to ensure it was easy to understand the way to use it.
 
-## State machine
-It relies on a state machine to display screens.
-![State Machine](doc/state_machine.png)
-
 ## Screens
 ![Waiting screen](doc/waiting.png)
 ![Select format](doc/select_format.png)
@@ -186,8 +182,3 @@ A dedicated thread will handle USB dongles and automatically dump the whole cont
 Application will not be usable during the copy process but will display a message.
 
 **USB dongle must be formated to FAT-32.**
-
-## TODO
- - Fix size difference between theorical DNP paper size and reality
- - Try to print the 4 photos in two separated strips
- - Make printer wireless

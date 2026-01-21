@@ -40,6 +40,7 @@ class PhotoboothApp(App):
         config = Config()
         autorestart = config.get_autorestart()
         self.FULLSCREEN = config.get_fullscreen()
+        self.SHARE = config.get_share()
         self.COUNTDOWN = config.get_countdown()
         self.DCIM_DIRECTORY = config.get_dcim_directory()
         self.PRINTER = config.get_printer()
@@ -71,11 +72,15 @@ class PhotoboothApp(App):
         # Start USB transfer
         UsbTransfer(self, self.save_directory).start()
         
-        # Initialize web server for photo gallery (convert to absolute path)
-        abs_save_directory = os.path.abspath(self.save_directory)
-        self.web_server = WebServer(abs_save_directory, host='0.0.0.0', port=5000)
-        self.web_server.start()
-        Logger.info(f'PhotoboothApp: Web server started for photo gallery at {abs_save_directory}')
+        # Initialize web server for photo gallery (convert to absolute path) only if SHARE is enabled
+        if self.SHARE:
+            abs_save_directory = os.path.abspath(self.save_directory)
+            self.web_server = WebServer(abs_save_directory, host='0.0.0.0', port=5000)
+            self.web_server.start()
+            Logger.info(f'PhotoboothApp: Web server started for photo gallery at {abs_save_directory}')
+        else:
+            self.web_server = None
+            Logger.info('PhotoboothApp: Web server disabled (SHARE=False)')
         
         Clock.schedule_interval(self.check_transition_request, 0.5)
 
