@@ -38,6 +38,7 @@ class TemplateCollage:
         self._print_params = self._template.get('print_params', {})
         self._margin_percent = self._template.get('margin_percent', 5)
         self._duplicate_horizontal = self._template.get('duplicate_horizontal', False)
+        self._duplicate_vertical = self._template.get('duplicate_vertical', False)
         
         # Resolve paths relative to module directory
         self._background = self._template.get('background')
@@ -164,18 +165,26 @@ class TemplateCollage:
                 overlay = cv2.resize(overlay, (self._page_width, self._page_height), interpolation=cv2.INTER_AREA)
                 canvas = self._apply_overlay(canvas, overlay)
         
-        # Step 5: Duplicate horizontally if specified and printing
-        # (Only duplicate for printing, not for preview/display)
-        if self._duplicate_horizontal and for_print:
-            canvas = cv2.hconcat([canvas, canvas])
-        
-        # Step 6: Save output
+        # Step 5: Save base collage (without duplication for web gallery)
         if output_path:
             cv2.imwrite(output_path, canvas)
             
             # Create small preview
             small = FileUtils.resize(canvas)
             cv2.imwrite(FileUtils.get_small_path(output_path), small)
+        
+        # Step 6: Apply duplication for printing if needed
+        if for_print:
+            if self._duplicate_horizontal:
+                canvas = cv2.hconcat([canvas, canvas])
+            if self._duplicate_vertical:
+                canvas = cv2.vconcat([canvas, canvas])
+            
+            # Save print version if different from base
+            if output_path and (self._duplicate_horizontal or self._duplicate_vertical):
+                print_path = output_path.replace('.jpg', '_print.jpg')
+                cv2.imwrite(print_path, canvas)
+                Logger.info(f'TemplateCollage: Saved print version to {print_path}')
         
         return canvas
     
