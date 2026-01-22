@@ -1,6 +1,7 @@
 import os
 import cv2
 import json
+import base64
 import tempfile
 import numpy as np
 from kivy.logger import Logger
@@ -41,14 +42,9 @@ class TemplateCollage:
         self._duplicate_horizontal = self._template.get('duplicate_horizontal', False)
         self._duplicate_vertical = self._template.get('duplicate_vertical', False)
         
-        # Resolve paths relative to template directory (where the JSON file is located)
+        # Store background and foreground (can be base64 or file path)
         self._background = self._template.get('background')
-        if self._background:
-            self._background = os.path.join(self._template_dir, self._background)
-            
         self._foreground = self._template.get('foreground')
-        if self._foreground:
-            self._foreground = os.path.join(self._template_dir, self._foreground)
         
         # Load dummy images for preview
         self._dummies = [
@@ -85,6 +81,44 @@ class TemplateCollage:
     def get_print_params(self):
         """Return the print parameters."""
         return self._print_params
+    
+    def _load_image(self, image_data, imread_flags=cv2.IMREAD_UNCHANGED):
+        """
+        Load an image from either base64 data or file path.
+        
+        Args:
+            image_data: Either a base64 data URI (data:image/png;base64,...) or a file path
+            imread_flags: OpenCV imread flags (default: IMREAD_UNCHANGED to preserve alpha)
+            
+        Returns:
+            Loaded image as numpy array, or None if loading failed
+        """
+        if not image_data:
+            return None
+            
+        # Check if it's base64 data
+        if isinstance(image_data, str) and image_data.startswith('data:image'):
+            try:
+                # Extract base64 data after the comma
+                encoded = image_data.split(',', 1)[1]
+                # Decode base64 to bytes
+                img_bytes = base64.b64decode(encoded)
+                # Convert to numpy array
+                nparr = np.frombuffer(img_bytes, np.uint8)
+                # Decode image
+                img = cv2.imdecode(nparr, imread_flags)
+                return img
+            except Exception as e:
+                Logger.error(f'Failed to decode base64 image: {e}')
+                return None
+        else:
+            # It's a file path - resolve relative to template directory
+            path = os.path.join(self._template_dir, image_data)
+            if os.path.exists(path):
+                return cv2.imread(path, imread_flags)
+            else:
+                Logger.warning(f'Image file not found: {path}')
+                return None
     
     def get_preview(self):
         """
@@ -125,8 +159,8 @@ class TemplateCollage:
         canvas = np.full((self._page_height, self._page_width, 3), 255, dtype=np.uint8)
         
         # Step 2: Apply background image if specified (resize to exact canvas size)
-        if self._background and os.path.exists(self._background):
-            bg = cv2.imread(self._background, cv2.IMREAD_COLOR)
+        if self._background:
+            bg = self._load_image(self._background, cv2.IMREAD_COLOR)
             if bg is not None:
                 bg = cv2.resize(bg, (self._page_width, self._page_height), interpolation=cv2.INTER_AREA)
                 canvas = bg
@@ -160,8 +194,8 @@ class TemplateCollage:
                 canvas[y:y + paste_height, x:x + paste_width] = img_resized[0:paste_height, 0:paste_width]
         
         # Step 4: Apply foreground overlay if specified (resize to exact canvas size)
-        if self._foreground and os.path.exists(self._foreground):
-            overlay = cv2.imread(self._foreground, cv2.IMREAD_UNCHANGED)
+        if self._foreground:
+            overlay = self._load_image(self._foreground, cv2.IMREAD_UNCHANGED)
             if overlay is not None:
                 overlay = cv2.resize(overlay, (self._page_width, self._page_height), interpolation=cv2.INTER_AREA)
                 canvas = self._apply_overlay(canvas, overlay)
