@@ -393,6 +393,10 @@
     <div class="sidebar">
         <div class="sidebar-header">
             <h1>Templates</h1>
+            <input type="file" id="importJsonFile" accept="application/json,.json" onchange="importTemplate()" style="display: none;" />
+            <button class="btn btn-primary" onclick="document.getElementById('importJsonFile').click()" style="width: 100%; margin-top: 10px;">
+                📤 Import JSON
+            </button>
             <button class="btn btn-success" onclick="exportTemplate()" style="width: 100%; margin-top: 10px;">
                 📥 Export JSON
             </button>
@@ -452,6 +456,7 @@
                 <input type="text" id="templateBackground" placeholder="path/to/background.png" oninput="updateTemplateBackground()" style="flex: 1;" />
                 <input type="file" id="backgroundFile" accept="image/*" onchange="loadBackgroundImage()" style="display: none;" />
                 <button class="btn btn-secondary" onclick="document.getElementById('backgroundFile').click()" style="padding: 6px 12px; font-size: 12px;">📁</button>
+                <button class="btn btn-secondary" onclick="downloadImageLayer('background')" style="padding: 6px 12px; font-size: 12px;">💾</button>
             </div>
         </div>
 
@@ -461,6 +466,7 @@
                 <input type="text" id="templateForeground" placeholder="../overlays/frame.png" oninput="updateTemplateForeground()" style="flex: 1;" />
                 <input type="file" id="foregroundFile" accept="image/*" onchange="loadForegroundImage()" style="display: none;" />
                 <button class="btn btn-secondary" onclick="document.getElementById('foregroundFile').click()" style="padding: 6px 12px; font-size: 12px;">📁</button>
+                <button class="btn btn-secondary" onclick="downloadImageLayer('foreground')" style="padding: 6px 12px; font-size: 12px;">💾</button>
             </div>
         </div>
 
@@ -963,13 +969,23 @@
         function updateTemplateBackground() {
             if (currentTemplateIndex < 0) return;
             const value = document.getElementById('templateBackground').value.trim();
-            templates[currentTemplateIndex].background = value === '' ? null : value;
+            // Only update if it's not a base64 data URI (those are set via file upload)
+            if (value !== '' && !value.startsWith('data:image')) {
+                templates[currentTemplateIndex].background = value;
+            } else if (value === '') {
+                templates[currentTemplateIndex].background = null;
+            }
         }
 
         function updateTemplateForeground() {
             if (currentTemplateIndex < 0) return;
             const value = document.getElementById('templateForeground').value.trim();
-            templates[currentTemplateIndex].foreground = value === '' ? null : value;
+            // Only update if it's not a base64 data URI (those are set via file upload)
+            if (value !== '' && !value.startsWith('data:image')) {
+                templates[currentTemplateIndex].foreground = value;
+            } else if (value === '') {
+                templates[currentTemplateIndex].foreground = null;
+            }
         }
 
         function loadBackgroundImage() {
@@ -984,8 +1000,10 @@
                     backgroundImage._file = file; // Store file for export
                     backgroundImage._dataUrl = e.target.result;
                     if (currentTemplateIndex >= 0) {
-                        templates[currentTemplateIndex].background = file.name;
-                        document.getElementById('templateBackground').value = file.name;
+                        // Store base64 directly in template
+                        templates[currentTemplateIndex].background = e.target.result;
+                        // Show only "[Base64 Image]" in the text field for clarity
+                        document.getElementById('templateBackground').value = '[Base64 Image - ' + Math.round(e.target.result.length / 1024) + ' KB]';
                     }
                     renderCanvas();
                 };
@@ -1006,8 +1024,10 @@
                     foregroundImage._file = file; // Store file for export
                     foregroundImage._dataUrl = e.target.result;
                     if (currentTemplateIndex >= 0) {
-                        templates[currentTemplateIndex].foreground = file.name;
-                        document.getElementById('templateForeground').value = file.name;
+                        // Store base64 directly in template
+                        templates[currentTemplateIndex].foreground = e.target.result;
+                        // Show only "[Base64 Image]" in the text field for clarity
+                        document.getElementById('templateForeground').value = '[Base64 Image - ' + Math.round(e.target.result.length / 1024) + ' KB]';
                     }
                     renderCanvas();
                 };
@@ -1017,19 +1037,29 @@
         }
 
         function loadImageFromPath(path, type) {
-            // Try to load image from path (works if it's a relative path or URL)
+            // Handle both file paths and base64 data URIs
             const img = new Image();
             img.onload = function() {
                 if (type === 'background') {
                     backgroundImage = img;
+                    // If it's a base64 string, show size info
+                    if (path.startsWith('data:image')) {
+                        document.getElementById('templateBackground').value = '[Base64 Image - ' + Math.round(path.length / 1024) + ' KB]';
+                    }
                 } else if (type === 'foreground') {
                     foregroundImage = img;
+                    // If it's a base64 string, show size info
+                    if (path.startsWith('data:image')) {
+                        document.getElementById('templateForeground').value = '[Base64 Image - ' + Math.round(path.length / 1024) + ' KB]';
+                    }
                 }
                 renderCanvas();
             };
             img.onerror = function() {
-                // Image couldn't be loaded - that's okay, user can reload it manually
-                console.log(`Could not load ${type} image from path: ${path}`);
+                // Image couldn't be loaded - that's okay for file paths, user can reload it manually
+                if (!path.startsWith('data:image')) {
+                    console.log(`Could not load ${type} image from path: ${path}`);
+                }
             };
             img.src = path;
         }
@@ -1405,18 +1435,6 @@
             // Export JSON
             const json = JSON.stringify(template, null, 2);
             downloadFile(json, baseName + '.json', 'application/json');
-            
-            // Export background image if available
-            if (backgroundImage && backgroundImage._dataUrl) {
-                const bgName = template.background || 'background.png';
-                downloadImageFromDataUrl(backgroundImage._dataUrl, bgName);
-            }
-            
-            // Export foreground image if available
-            if (foregroundImage && foregroundImage._dataUrl) {
-                const fgName = template.foreground || 'foreground.png';
-                downloadImageFromDataUrl(foregroundImage._dataUrl, fgName);
-            }
         }
 
         function downloadFile(content, filename, type) {
@@ -1431,13 +1449,79 @@
             URL.revokeObjectURL(url);
         }
 
-        function downloadImageFromDataUrl(dataUrl, filename) {
-            const a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+        function importTemplate() {
+            const file = document.getElementById('importJsonFile').files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedTemplate = JSON.parse(e.target.result);
+                    
+                    // Validate that it's a template object
+                    if (!importedTemplate.page || !importedTemplate.name) {
+                        alert('Invalid template file: missing required fields (page, name)');
+                        return;
+                    }
+                    
+                    // Add the imported template to the list
+                    templates.push(importedTemplate);
+                    renderTemplateList();
+                    selectTemplate(templates.length - 1);
+                    
+                    alert(`Template "${importedTemplate.name}" imported successfully!`);
+                } catch (error) {
+                    alert('Error parsing JSON file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function downloadImageLayer(layer) {
+            if (currentTemplateIndex < 0) return;
+            
+            const template = templates[currentTemplateIndex];
+            const baseName = template.name.toLowerCase().replace(/\s+/g, '_');
+            
+            let imageToDownload = null;
+            let filename = '';
+            
+            if (layer === 'background') {
+                if (!backgroundImage) {
+                    alert('No background image loaded');
+                    return;
+                }
+                imageToDownload = backgroundImage;
+                filename = baseName + '_background.png';
+            } else if (layer === 'foreground') {
+                if (!foregroundImage) {
+                    alert('No foreground image loaded');
+                    return;
+                }
+                imageToDownload = foregroundImage;
+                filename = baseName + '_foreground.png';
+            }
+            
+            // Create a canvas to export the image
+            const exportCanvas = document.createElement('canvas');
+            const exportCtx = exportCanvas.getContext('2d');
+            
+            exportCanvas.width = imageToDownload.width;
+            exportCanvas.height = imageToDownload.height;
+            
+            exportCtx.drawImage(imageToDownload, 0, 0);
+            
+            // Convert to blob and download
+            exportCanvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
         }
 
         // Initialize on load
