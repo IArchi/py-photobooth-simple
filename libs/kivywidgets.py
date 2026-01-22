@@ -517,7 +517,7 @@ def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_
         icon_font: Font for the icon
         text_font: Font for the text
         icon_font_size: Font size for the icon (can be string like '60sp' or number)
-        text_font_size: Font size for the text (can be string like '30sp' or number)
+        text_font_size: Maximum font size for the text (can be string like '30sp' or number) - will auto-resize on small screens
         bgcolor: Background color tuple (r, g, b, a)
         on_release: Callback function for button release
     
@@ -546,15 +546,15 @@ def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_
     icon_container.add_widget(icon_label)
     button.add_widget(icon_container)
     
-    # Text label
-    text_label = Label(
+    # Text label - using ResizeLabel for auto-resizing on small screens
+    text_label = ResizeLabel(
         text=text,
         font_name=text_font,
-        font_size=text_font_size,
+        max_font_size=text_font_size,
         size_hint=(0.6, 1),
         color=(1, 1, 1, 1),
         bold=True,
-        halign='left',
+        halign='center',
         valign='middle',
     )
     text_label.bind(size=text_label.setter('text_size'))

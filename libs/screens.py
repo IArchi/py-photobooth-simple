@@ -967,7 +967,7 @@ class ConfirmSaveScreen(ColorScreen):
             btn_share = make_icon_text_button(
                                  icon=ICON_SHARE,
                                  text='SHARE',
-                                 size_hint=(0.25, 0.09),
+                                 size_hint=(0.15, 0.09),
                                  pos_hint={'center_x': 0.5, 'y': 0.05},
                                  icon_font=ICON_TTF,
                                  icon_font_size=SMALL_FONT,
@@ -1064,7 +1064,7 @@ class ConfirmPrintScreen(ColorScreen):
         self.btn_print = make_icon_text_button(
                              icon=ICON_PRINT,
                              text='PRINT',
-                             size_hint=(0.25, 0.09),
+                             size_hint=(0.15, 0.09),
                              pos_hint={'center_x': 0.5, 'y': print_y_pos},
                              icon_font=ICON_TTF,
                              icon_font_size=SMALL_FONT,
@@ -1079,7 +1079,7 @@ class ConfirmPrintScreen(ColorScreen):
             btn_share = make_icon_text_button(
                                  icon=ICON_SHARE,
                                  text='SHARE',
-                                 size_hint=(0.25, 0.09),
+                                 size_hint=(0.15, 0.09),
                                  pos_hint={'center_x': 0.5, 'y': 0.05},
                                  icon_font=ICON_TTF,
                                  icon_font_size=SMALL_FONT,
