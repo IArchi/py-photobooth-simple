@@ -192,12 +192,14 @@ class WaitingScreen(BackgroundScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('WaitingScreen: on_entry().')
-        self.app.ringled.start_rainbow()
+        if self.app.ringled:
+            self.app.ringled.start_rainbow()
         self.app.purge_tmp()
 
     def on_exit(self, kwargs={}):
         Logger.info('WaitingScreen: on_exit().')
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
 
     def on_click(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
@@ -417,11 +419,13 @@ class SelectFormatScreen(ColorScreen):
         # OPTIMIZED: Previews are now cached in templates, no need to reload
         # Previously: reloaded all previews on every entry (slow)
         # Now: previews are generated once and cached in TemplateCollage
-        self.app.ringled.start_rainbow()
+        if self.app.ringled:
+            self.app.ringled.start_rainbow()
 
     def on_exit(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_exit().')
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
 
     def on_format_selected(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
@@ -602,7 +606,8 @@ class CountdownScreen(ColorScreen):
             Clock.unschedule(self._clock_progress)
         if self._clock_trigger:
             Clock.unschedule(self._clock_trigger)
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
         if self.loading_layout.parent:
             self.overlay_layout.remove_widget(self.loading_layout)
         if self.btn_home.parent:
@@ -661,11 +666,8 @@ class CountdownScreen(ColorScreen):
         if not(self.app.is_shot_completed(self._current_shot)):
             # Retry after 1sec
             self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
-        elif self.app.get_shots_to_take(self._current_format) == 1:
-            # Only one photo to capture
-            self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
         else:
-            # Display photo and take next shot
+            # Display photo for validation
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
 
     def trigger_event(self, obj):
@@ -708,7 +710,8 @@ class CountdownScreen(ColorScreen):
         # Start countdown
         self._clock = Clock.schedule_once(self.timer_event, 1)
         self._clock_progress = Clock.schedule_interval(self.timer_progress, 1/30.0)
-        self.app.ringled.start_countdown(self.time_remaining)
+        if self.app.ringled:
+            self.app.ringled.start_countdown(self.time_remaining)
 
     def cancel_countdown(self):
         Logger.info('CountdownScreen: cancel_countdown().')
@@ -736,7 +739,8 @@ class CountdownScreen(ColorScreen):
                 break
         
         # Clear LED
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
 
     def home_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
@@ -829,8 +833,18 @@ class ConfirmCaptureScreen(ColorScreen):
         Logger.info('ConfirmCaptureScreen: on_entry().')
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        for i in range(0, self.app.get_shots_to_take(self._current_format)): self.icons[i].text = ICON_SHOT_TO_TAKE
-        for i in range(0, self._current_shot + 1): self.icons[i].text = ICON_SHOT_TAKEN
+        
+        # Hide counter layout when only one photo is needed
+        total_shots = self.app.get_shots_to_take(self._current_format)
+        if total_shots == 1:
+            if self.counter_layout.parent:
+                self.overlay_layout.remove_widget(self.counter_layout)
+        else:
+            if not self.counter_layout.parent:
+                self.overlay_layout.add_widget(self.counter_layout)
+            for i in range(0, total_shots): self.icons[i].text = ICON_SHOT_TO_TAKE
+            for i in range(0, self._current_shot + 1): self.icons[i].text = ICON_SHOT_TAKEN
+        
         self.preview.filepath = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
         self.preview.reload()
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
@@ -901,7 +915,8 @@ class ProcessingScreen(ColorScreen):
         Logger.info('ProcessingScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self._clock = Clock.schedule_once(self.timer_event, 3) # Fake timer to make it cleverer
-        self.app.ringled.start_rainbow()
+        if self.app.ringled:
+            self.app.ringled.start_rainbow()
 
         # Perform collage
         self.app.trigger_collage(self._current_format)
@@ -909,7 +924,8 @@ class ProcessingScreen(ColorScreen):
     def on_exit(self, kwargs={}):
         Logger.info('ProcessingScreen: on_exit().')
         Clock.unschedule(self._clock)
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
 
     def timer_event(self, obj):
         Logger.info('ProcessingScreen: timer_event().')
@@ -979,14 +995,16 @@ class ConfirmSaveScreen(ColorScreen):
     def on_entry(self, kwargs={}):
         Logger.info('ConfirmSaveScreen: on_entry().')
         self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
-        self.app.ringled.start_rainbow()
+        if self.app.ringled:
+            self.app.ringled.start_rainbow()
         self.preview.filepath = FileUtils.get_small_path(self.app.get_collage())
         self.preview.reload()
         self.app.save_collage()
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmSaveScreen: on_exit().')
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
 
     def yes_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
@@ -1092,7 +1110,8 @@ class ConfirmPrintScreen(ColorScreen):
         Logger.info('ConfirmPrintScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
-        self.app.ringled.start_rainbow()
+        if self.app.ringled:
+            self.app.ringled.start_rainbow()
         self.preview.filepath = FileUtils.get_small_path(self.app.get_collage())
         self.preview.reload()
 
@@ -1100,7 +1119,8 @@ class ConfirmPrintScreen(ColorScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_exit().')
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
 
     def print_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
@@ -1172,7 +1192,8 @@ class PrintingScreen(ColorScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('PrintingScreen: on_entry().')
-        self.app.ringled.start_rainbow()
+        if self.app.ringled:
+            self.app.ringled.start_rainbow()
         self._current_copies = kwargs.get('copies') if 'copies' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
 
@@ -1189,7 +1210,8 @@ class PrintingScreen(ColorScreen):
         if self._clock: Clock.unschedule(self._clock)
         if self._auto_cancel: Clock.unschedule(self._auto_cancel)
         self.app.save_collage()
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
 
     def timer_event(self, obj):
         Logger.info('PrintingScreen: timer_event().')
@@ -1245,12 +1267,14 @@ class SuccessScreen(ColorScreen):
     def on_entry(self, kwargs={}):
         Logger.info('SuccessScreen: on_entry().')
         self._clock = Clock.schedule_once(self.timer_event, 1)
-        self.app.ringled.blink([255, 255, 255])
+        if self.app.ringled:
+            self.app.ringled.blink([255, 255, 255])
 
     def on_exit(self, kwargs={}):
         Logger.info('SuccessScreen: on_exit().')
         Clock.unschedule(self._clock)
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
 
     def on_click_start(self, obj):
         Logger.info('SuccessScreen: on_click_start(%s).', obj)
@@ -1317,11 +1341,13 @@ class CopyingScreen(ColorScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('CopyingScreen: on_entry().')
-        self.app.ringled.wave([255, 255, 255])
+        if self.app.ringled:
+            self.app.ringled.wave([255, 255, 255])
 
     def on_exit(self, kwargs={}):
         Logger.info('CopyingScreen: on_exit().')
-        self.app.ringled.clear()
+        if self.app.ringled:
+            self.app.ringled.clear()
 
     def on_update(self, kwargs={}):
         if not 'label' in kwargs: return
