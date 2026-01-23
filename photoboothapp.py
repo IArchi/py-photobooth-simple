@@ -19,20 +19,21 @@ from libs.template_collage import load_templates
 from libs.usb_transfer import UsbTransfer
 from libs.web_server import WebServer
 
-RINGLED = RingLed(num_pixels=12)
+RINGLED = None
 autorestart = True
 
 def signal_handler(sig, frame):
     global autorestart
     print("\nCtrl+C detected. Exiting gracefully...")
     autorestart = False
-    if RINGLED: RINGLED.clear()
+    if RINGLED:
+        RINGLED.clear()
     sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
 class PhotoboothApp(App):
     def __init__(self, **kwargs):
-        global autorestart
+        global autorestart, RINGLED
         Logger.info('PhotoboothApp: __init__().')
         super(PhotoboothApp, self).__init__(**kwargs)
 
@@ -45,6 +46,13 @@ class PhotoboothApp(App):
         self.DCIM_DIRECTORY = config.get_dcim_directory()
         self.PRINTER = config.get_printer()
         self.CALIBRATION = config.get_calibration()
+        
+        # Initialize RingLed if enabled in config
+        if config.get_ringled():
+            RINGLED = RingLed(num_pixels=12)
+            Logger.info('PhotoboothApp: RingLed enabled')
+        else:
+            Logger.info('PhotoboothApp: RingLed disabled')
 
         # Assign local variables
         self.sm = None
@@ -89,7 +97,8 @@ class PhotoboothApp(App):
         return self.sm
 
     def on_stop(self):
-        self.ringled.clear()
+        if self.ringled:
+            self.ringled.clear()
 
     def request_transition_to(self, new_state, **kwargs):
         """
@@ -122,7 +131,8 @@ class PhotoboothApp(App):
     def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
         aspect_ratio = self.get_format_aspect_ratio(format_idx)
-        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), aspect_ratio, self.ringled.flash))
+        flash_callback = self.ringled.flash if self.ringled else None
+        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), aspect_ratio, flash_callback))
         t.start()
         self.processes = [t]
 

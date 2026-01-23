@@ -14,6 +14,9 @@ class Config:
     def get_share(self):
         return self.config.getboolean('Global', 'SHARE')
 
+    def get_ringled(self):
+        return self.config.getboolean('Global', 'RINGLED')
+
     def get_countdown(self):
         return self.config.getint('Picture', 'COUNTDOWN')
 
