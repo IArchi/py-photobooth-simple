@@ -173,6 +173,8 @@ The application includes a **visual template editor** (`template_editor.html`) -
 - **Import/Export:** Save templates as JSON files and import existing templates
 - **Live Preview:** Real-time preview with scaling and duplication visualization
 
+![Template Editor](doc/template_editor.png)
+
 ## USB Photo Export
 
 A dedicated background thread monitors for USB drives and automatically exports all photos:
