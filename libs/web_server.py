@@ -1,5 +1,7 @@
 import os
+import json
 import threading
+from datetime import datetime
 from flask import Flask, send_file, render_template_string, redirect
 from kivy.logger import Logger
 
@@ -12,7 +14,59 @@ class WebServer:
         self.port = port
         self.app = Flask(__name__)
         self.server_thread = None
+        self.stats_file = os.path.join(save_directory, '.stats.json')
+        self.stats_lock = threading.Lock()
         self._setup_routes()
+    
+    def _load_stats(self):
+        """Load statistics from JSON file."""
+        try:
+            if os.path.exists(self.stats_file):
+                with open(self.stats_file, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            Logger.error(f'WebServer: Error loading stats: {e}')
+        
+        # Default stats structure
+        return {
+            'photos_taken': 0,
+            'downloads': 0,
+            'gallery_views': 0,
+            'collage_views': 0,
+            'image_views': 0,
+            'first_photo_date': None,
+            'last_photo_date': None,
+            'last_download_date': None,
+            'sessions': []
+        }
+    
+    def _save_stats(self, stats):
+        """Save statistics to JSON file."""
+        try:
+            with self.stats_lock:
+                with open(self.stats_file, 'w') as f:
+                    json.dump(stats, f, indent=2)
+        except Exception as e:
+            Logger.error(f'WebServer: Error saving stats: {e}')
+    
+    def _track_event(self, event_type, session=None):
+        """Track an event in statistics."""
+        try:
+            stats = self._load_stats()
+            
+            if event_type == 'download':
+                stats['downloads'] += 1
+                stats['last_download_date'] = datetime.now().isoformat()
+            elif event_type == 'gallery_view':
+                stats['gallery_views'] += 1
+            elif event_type == 'collage_view':
+                stats['collage_views'] += 1
+            elif event_type == 'image_view':
+                stats['image_views'] += 1
+            
+            self._save_stats(stats)
+        except Exception as e:
+            Logger.error(f'WebServer: Error tracking event: {e}')
     
     def _get_all_collages(self):
         """Get all collage files sorted by date (newest first)."""
@@ -94,6 +148,7 @@ class WebServer:
         @self.app.route('/gallery')
         def gallery():
             """Gallery view with all collages."""
+            self._track_event('gallery_view')
             collages = self._get_all_collages()
             
             html = """
@@ -183,6 +238,8 @@ class WebServer:
             if not os.path.exists(collage_path):
                 return redirect('/')
             
+            self._track_event('collage_view', session)
+            
             html = f"""
             <!DOCTYPE html>
             <html>
@@ -253,6 +310,7 @@ class WebServer:
             if not os.path.exists(image_path):
                 return "Not found", 404
             
+            self._track_event('image_view', session)
             return send_file(image_path, mimetype='image/jpeg')
         
         @self.app.route('/download/<session>/<filename>')
@@ -263,12 +321,193 @@ class WebServer:
             if not os.path.exists(image_path):
                 return "Not found", 404
             
+            self._track_event('download', session)
             return send_file(
                 image_path,
                 mimetype='image/jpeg',
                 as_attachment=True,
                 download_name=f'photobooth_{session}.jpg'
             )
+        
+        @self.app.route('/stats')
+        def statistics():
+            """Hidden statistics page - shows usage analytics."""
+            stats = self._load_stats()
+            collages = self._get_all_collages()
+            
+            # Calculate photos taken from number of sessions
+            stats['photos_taken'] = len(collages)
+            
+            html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>PhotoBooth - Statistiques</title>
+                <style>
+                    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+                    body {{
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        min-height: 100vh;
+                        padding: 40px 20px;
+                    }}
+                    .container {{
+                        max-width: 1200px;
+                        margin: 0 auto;
+                    }}
+                    h1 {{
+                        color: white;
+                        text-align: center;
+                        margin-bottom: 40px;
+                        font-size: 42px;
+                        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                    }}
+                    .stats-grid {{
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                        gap: 20px;
+                        margin-bottom: 40px;
+                    }}
+                    .stat-card {{
+                        background: white;
+                        border-radius: 15px;
+                        padding: 30px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                        transition: transform 0.3s;
+                    }}
+                    .stat-card:hover {{
+                        transform: translateY(-5px);
+                    }}
+                    .stat-icon {{
+                        font-size: 48px;
+                        margin-bottom: 15px;
+                    }}
+                    .stat-value {{
+                        font-size: 42px;
+                        font-weight: bold;
+                        color: #667eea;
+                        margin-bottom: 5px;
+                    }}
+                    .stat-label {{
+                        font-size: 16px;
+                        color: #666;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                    }}
+                    .stat-description {{
+                        font-size: 12px;
+                        color: #999;
+                        margin-top: 8px;
+                        line-height: 1.4;
+                    }}
+                    .info-card {{
+                        background: white;
+                        border-radius: 15px;
+                        padding: 30px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                    }}
+                    .info-row {{
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 15px 0;
+                        border-bottom: 1px solid #eee;
+                    }}
+                    .info-row:last-child {{
+                        border-bottom: none;
+                    }}
+                    .info-label {{
+                        font-weight: bold;
+                        color: #333;
+                    }}
+                    .info-value {{
+                        color: #667eea;
+                    }}
+                    .back-btn {{
+                        display: inline-block;
+                        margin-top: 30px;
+                        padding: 15px 40px;
+                        background: white;
+                        color: #667eea;
+                        text-decoration: none;
+                        border-radius: 30px;
+                        font-weight: bold;
+                        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+                        transition: transform 0.2s;
+                    }}
+                    .back-btn:hover {{
+                        transform: scale(1.05);
+                    }}
+                    @media (max-width: 768px) {{
+                        .stats-grid {{
+                            grid-template-columns: 1fr;
+                        }}
+                        h1 {{
+                            font-size: 32px;
+                        }}
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>📊 PhotoBooth Statistics</h1>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">📸</div>
+                            <div class="stat-value">{stats['photos_taken']}</div>
+                            <div class="stat-label">Photos Taken</div>
+                            <div class="stat-description">Total collages created</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">⬇️</div>
+                            <div class="stat-value">{stats['downloads']}</div>
+                            <div class="stat-label">Downloads</div>
+                            <div class="stat-description">Files downloaded by users</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">🖼️</div>
+                            <div class="stat-value">{stats['gallery_views']}</div>
+                            <div class="stat-label">Gallery Views</div>
+                            <div class="stat-description">Grid view page visits</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-icon">👁️</div>
+                            <div class="stat-value">{stats['collage_views']}</div>
+                            <div class="stat-label">Collage Views</div>
+                            <div class="stat-description">Full-screen collage page visits</div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h2 style="margin-bottom: 20px; color: #667eea;">Additional Information</h2>
+                        <div class="info-row">
+                            <span class="info-label">Last Download:</span>
+                            <span class="info-value">{stats['last_download_date'] or 'None'}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Total Sessions:</span>
+                            <span class="info-value">{len(collages)}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Stats File:</span>
+                            <span class="info-value" style="font-size: 12px; word-break: break-all;">{self.stats_file}</span>
+                        </div>
+                    </div>
+                    
+                    <center>
+                        <a href="/gallery" class="back-btn">← Back to gallery</a>
+                    </center>
+                </div>
+            </body>
+            </html>
+            """
+            
+            return render_template_string(html)
         
         # Captive portal detection URLs
         @self.app.route('/generate_204')
@@ -299,6 +538,28 @@ class WebServer:
         self.server_thread = threading.Thread(target=run_server, daemon=True)
         self.server_thread.start()
         Logger.info('WebServer: Server started successfully')
+    
+    def track_photo_taken(self, session_id=None):
+        """Public method to track when a photo is taken.
+        
+        Args:
+            session_id: Optional session identifier for the photo
+        """
+        try:
+            stats = self._load_stats()
+            stats['photos_taken'] += 1
+            stats['last_photo_date'] = datetime.now().isoformat()
+            
+            if stats['first_photo_date'] is None:
+                stats['first_photo_date'] = datetime.now().isoformat()
+            
+            if session_id and session_id not in stats['sessions']:
+                stats['sessions'].append(session_id)
+            
+            self._save_stats(stats)
+            Logger.info(f'WebServer: Photo tracked - Total: {stats["photos_taken"]}')
+        except Exception as e:
+            Logger.error(f'WebServer: Error tracking photo: {e}')
     
     def stop(self):
         """Stop the web server."""
