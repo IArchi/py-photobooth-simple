@@ -44,6 +44,7 @@ class PhotoboothApp(App):
         autorestart = config.get_autorestart()
         self.FULLSCREEN = config.get_fullscreen()
         self.SHARE = config.get_share()
+        self.FILTERS = config.get_filters()
         self.COUNTDOWN = config.get_countdown()
         self.DCIM_DIRECTORY = config.get_dcim_directory()
         self.PRINTER = config.get_printer()
