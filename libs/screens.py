@@ -1,4 +1,6 @@
 import random
+import cv2
+import numpy as np
 from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.uix.boxlayout import BoxLayout
@@ -10,6 +12,7 @@ from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.input.providers.mouse import MouseMotionEvent
 from kivy.core.window import Window
+from kivy.graphics.texture import Texture
 
 from libs.kivywidgets import *
 from libs.file_utils import FileUtils
@@ -755,6 +758,15 @@ class ConfirmCaptureScreen(ColorScreen):
     | NO          YES |
     +-----------------+
     """
+    # Filter definitions
+    FILTERS = [
+        {'name': 'Color', 'key': 'color'},
+        {'name': 'B&W', 'key': 'bw'},
+        {'name': 'Sepia', 'key': 'sepia'},
+        {'name': 'Glam', 'key': 'glam'},
+        {'name': 'Vintage', 'key': 'vintage'},
+    ]
+    
     def __init__(self, app, **kwargs):
         Logger.info('ConfirmCaptureScreen: __init__().')
         super(ConfirmCaptureScreen, self).__init__(**kwargs)
@@ -762,17 +774,21 @@ class ConfirmCaptureScreen(ColorScreen):
         self.app = app
         self._current_shot = 0
         self._current_format = 1
+        self._selected_filter = 'color'  # Default filter
+        self._original_image = None  # Store original image
 
         self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
         self.overlay_layout = FloatLayout()
         self.layout.add_widget(self.overlay_layout)
 
-        # Display capture
+        # Display capture - size depends on whether filters are enabled
+        preview_height = 0.85 if self.app.FILTERS else 1.0
+        preview_y = 0.15 if self.app.FILTERS else 0.0
         self.preview = BlurredImage(
             blur=BLUR_IMAGES,
             fit_mode='contain',
-            size_hint=(1, 1),
-            pos_hint={'x': 0, 'y': 0},
+            size_hint=(1, preview_height),
+            pos_hint={'x': 0, 'y': preview_y},
         )
         self.overlay_layout.add_widget(self.preview)
 
@@ -794,6 +810,51 @@ class ConfirmCaptureScreen(ColorScreen):
             self.icons.append(icon)
         self.overlay_layout.add_widget(self.counter_layout)
 
+        # Filter cards container at bottom (only if FILTERS is enabled)
+        if self.app.FILTERS:
+            from kivy.uix.scrollview import ScrollView
+            
+            # Outer container to center the scroll view
+            filter_outer = AnchorLayout(
+                size_hint=(1, 0.15),
+                pos_hint={'x': 0, 'y': 0},
+                anchor_x='center',
+                anchor_y='center',
+            )
+            
+            self.filter_scroll = ScrollView(
+                size_hint=(None, 1),
+                do_scroll_x=True,
+                do_scroll_y=False,
+            )
+            
+            self.filter_container = BoxLayout(
+                orientation='horizontal',
+                spacing=15,
+                padding=(20, 10, 20, 10),
+                size_hint=(None, 1),
+            )
+            self.filter_container.bind(minimum_width=self.filter_container.setter('width'))
+            
+            # Update scroll view width based on container width
+            def update_scroll_width(instance, value):
+                # Limit scroll view width to window width or container width, whichever is smaller
+                max_width = min(Window.width - 40, value)
+                self.filter_scroll.width = max_width
+            
+            self.filter_container.bind(minimum_width=update_scroll_width)
+            
+            self.filter_scroll.add_widget(self.filter_container)
+            filter_outer.add_widget(self.filter_scroll)
+            self.overlay_layout.add_widget(filter_outer)
+            
+            # Create filter cards
+            self.filter_cards = []
+            for filter_def in self.FILTERS:
+                card = self._create_filter_card(filter_def)
+                self.filter_container.add_widget(card)
+                self.filter_cards.append(card)
+
         # Home button - top left
         btn_home = make_icon_button(ICON_HOME,
                              size=0.14,
@@ -805,10 +866,11 @@ class ConfirmCaptureScreen(ColorScreen):
                              )
         self.overlay_layout.add_widget(btn_home)
 
-        # Cancel button - bottom left
+        # Cancel button - bottom left (position depends on filters)
+        cancel_y = 0.16 if self.app.FILTERS else 0.05
         btn_cancel = make_icon_button(ICON_CANCEL,
                              size=0.14,
-                             pos_hint={'x': 0.05, 'y': 0.05},
+                             pos_hint={'x': 0.05, 'y': cancel_y},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CANCEL_COLOR,
@@ -816,10 +878,11 @@ class ConfirmCaptureScreen(ColorScreen):
                              )
         self.overlay_layout.add_widget(btn_cancel)
 
-        # Confirm button - bottom right
+        # Confirm button - bottom right (position depends on filters)
+        confirm_y = 0.16 if self.app.FILTERS else 0.05
         btn_confirm = make_icon_button(ICON_CONFIRM,
                              size=0.14,
-                             pos_hint={'right': 0.95, 'y': 0.05},
+                             pos_hint={'right': 0.95, 'y': confirm_y},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CONFIRM_COLOR,
@@ -829,10 +892,182 @@ class ConfirmCaptureScreen(ColorScreen):
 
         self.add_widget(self.layout)
 
+    def _create_filter_card(self, filter_def):
+        """Create a card for a specific filter."""
+        from kivy.uix.behaviors import ButtonBehavior
+        from kivy.graphics import RoundedRectangle
+        
+        class ClickableCard(ButtonBehavior, BoxLayout):
+            pass
+        
+        card_size = 120
+        card = ClickableCard(
+            orientation='vertical',
+            size_hint=(None, None),
+            size=(card_size, card_size),
+            padding=5,
+        )
+        
+        # Draw rounded card background
+        with card.canvas.before:
+            Color(*hex_to_rgba('#3d4f5c'))
+            card_bg = RoundedRectangle(
+                pos=card.pos,
+                size=card.size,
+                radius=[15,]
+            )
+            # Selection indicator (initially hidden)
+            card.selection_color = Color(0, 0, 0, 0)
+            card.selection_rect = RoundedRectangle(
+                pos=card.pos,
+                size=card.size,
+                radius=[15,]
+            )
+        
+        # Bind to update background when card size/pos changes
+        def update_card_bg(instance, value):
+            card_bg.pos = instance.pos
+            card_bg.size = instance.size
+            card.selection_rect.pos = instance.pos
+            card.selection_rect.size = instance.size
+        card.bind(pos=update_card_bg, size=update_card_bg)
+        
+        # Preview container for filter thumbnail
+        preview_container = AnchorLayout(
+            size_hint=(1, 1),
+            anchor_x='center',
+            anchor_y='center',
+        )
+        
+        # Thumbnail image (will be generated on entry)
+        card.thumbnail = Image(
+            size_hint=(None, None),
+            size=(card_size - 10, card_size - 10),
+            allow_stretch=True,
+            keep_ratio=True,
+        )
+        
+        preview_container.add_widget(card.thumbnail)
+        card.add_widget(preview_container)
+        
+        # Store filter info
+        card.filter_key = filter_def['key']
+        card.bind(on_release=self.on_filter_selected)
+        
+        return card
+    
+    def _apply_filter(self, img, filter_key):
+        """Apply a filter to an image using OpenCV."""
+        if filter_key == 'color':
+            return img
+        
+        elif filter_key == 'bw':
+            # Black and white
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+        
+        elif filter_key == 'sepia':
+            # Sepia tone
+            sepia_filter = np.array([[0.272, 0.534, 0.131],
+                                    [0.349, 0.686, 0.168],
+                                    [0.393, 0.769, 0.189]])
+            sepia_img = cv2.transform(img, sepia_filter)
+            return np.clip(sepia_img, 0, 255).astype(np.uint8)
+        
+        elif filter_key == 'glam':
+            # Glam: increase contrast and saturation
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+            hsv[:, :, 1] = hsv[:, :, 1] * 1.3  # Increase saturation
+            hsv[:, :, 2] = hsv[:, :, 2] * 1.1  # Increase brightness
+            hsv = np.clip(hsv, 0, 255).astype(np.uint8)
+            result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+            # Increase contrast
+            alpha = 1.2  # Contrast control
+            beta = 10    # Brightness control
+            return cv2.convertScaleAbs(result, alpha=alpha, beta=beta)
+        
+        elif filter_key == 'vintage':
+            # Vintage: reduced saturation, warm tones, slight vignette
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+            hsv[:, :, 1] = hsv[:, :, 1] * 0.7  # Reduce saturation
+            hsv = np.clip(hsv, 0, 255).astype(np.uint8)
+            result = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+            # Add warm tone
+            result[:, :, 0] = np.clip(result[:, :, 0] * 0.9, 0, 255)  # Reduce blue
+            result[:, :, 2] = np.clip(result[:, :, 2] * 1.1, 0, 255)  # Increase red
+            return result.astype(np.uint8)
+        
+        return img
+    
+    def _generate_thumbnail(self, img, filter_key, size=(110, 110)):
+        """Generate a thumbnail with the filter applied."""
+        # Resize image for thumbnail
+        h, w = img.shape[:2]
+        aspect = w / h
+        if aspect > 1:
+            new_w = size[0]
+            new_h = int(size[0] / aspect)
+        else:
+            new_h = size[1]
+            new_w = int(size[1] * aspect)
+        
+        thumbnail = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        
+        # Apply filter
+        filtered = self._apply_filter(thumbnail, filter_key)
+        
+        return filtered
+    
+    def _update_filter_thumbnails(self):
+        """Generate thumbnails for all filters based on current image."""
+        if self._original_image is None:
+            return
+        
+        for card in self.filter_cards:
+            thumbnail = self._generate_thumbnail(self._original_image, card.filter_key)
+            
+            # Convert to texture
+            thumbnail_flipped = cv2.flip(thumbnail, 0)
+            texture = Texture.create(size=(thumbnail.shape[1], thumbnail.shape[0]), colorfmt='bgr')
+            texture.blit_buffer(thumbnail_flipped.flatten(), colorfmt='bgr', bufferfmt='ubyte')
+            card.thumbnail.texture = texture
+    
+    def _update_selection_indicator(self):
+        """Update visual indicator for selected filter."""
+        for card in self.filter_cards:
+            if card.filter_key == self._selected_filter:
+                # Show selection with border color
+                card.selection_color.rgba = BORDER_COLOR
+            else:
+                # Hide selection
+                card.selection_color.rgba = (0, 0, 0, 0)
+    
+    def on_filter_selected(self, obj):
+        """Handle filter selection."""
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        Logger.info(f'ConfirmCaptureScreen: on_filter_selected({obj.filter_key}).')
+        
+        self._selected_filter = obj.filter_key
+        self._update_selection_indicator()
+        
+        # Apply filter to preview
+        if self._original_image is not None:
+            filtered_image = self._apply_filter(self._original_image.copy(), self._selected_filter)
+            
+            # Save filtered image temporarily
+            import tempfile
+            temp_path = tempfile.mktemp(suffix='.jpg')
+            cv2.imwrite(temp_path, filtered_image)
+            
+            # Update preview
+            self.preview.filepath = temp_path
+            self.preview.reload()
+
     def on_entry(self, kwargs={}):
         Logger.info('ConfirmCaptureScreen: on_entry().')
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self._selected_filter = 'color'  # Reset to default filter
         
         # Hide counter layout when only one photo is needed
         total_shots = self.app.get_shots_to_take(self._current_format)
@@ -845,8 +1080,21 @@ class ConfirmCaptureScreen(ColorScreen):
             for i in range(0, total_shots): self.icons[i].text = ICON_SHOT_TO_TAKE
             for i in range(0, self._current_shot + 1): self.icons[i].text = ICON_SHOT_TAKEN
         
-        self.preview.filepath = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
+        # Load image
+        original_path = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
+        
+        # Load original image only if filters are enabled
+        if self.app.FILTERS:
+            self._original_image = cv2.imread(self.app.get_shot(self._current_shot))
+        
+        self.preview.filepath = original_path
         self.preview.reload()
+        
+        # Generate filter thumbnails only if filters are enabled
+        if self.app.FILTERS:
+            self._update_filter_thumbnails()
+            self._update_selection_indicator()
+        
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
 
     def on_exit(self, kwargs={}):
@@ -855,8 +1103,21 @@ class ConfirmCaptureScreen(ColorScreen):
     def keep_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_leave)
-        if self._current_shot == self.app.get_shots_to_take(self._current_format) - 1: self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
-        else: self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot + 1, format=self._current_format)
+        
+        # Apply selected filter to the original image and save it (only if filters are enabled)
+        if self.app.FILTERS and self._selected_filter != 'color' and self._original_image is not None:
+            filtered_image = self._apply_filter(self._original_image.copy(), self._selected_filter)
+            shot_path = self.app.get_shot(self._current_shot)
+            cv2.imwrite(shot_path, filtered_image)
+            # Also update small version
+            small_path = FileUtils.get_small_path(shot_path)
+            small_filtered = cv2.resize(filtered_image, (0, 0), fx=0.3, fy=0.3)
+            cv2.imwrite(small_path, small_filtered)
+        
+        if self._current_shot == self.app.get_shots_to_take(self._current_format) - 1:
+            self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
+        else:
+            self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot + 1, format=self._current_format)
 
     def no_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
