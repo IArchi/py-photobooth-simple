@@ -66,7 +66,7 @@ The photobooth application follows this screen navigation flow:
            ┌─────────────┐                 │            │
            │  Printing   │                 │            │
            └──────┬──────┘                 │            │
-                  │             ┌──────────             │
+                  │             ┌──────────┘            │
                   │             ▼                       |
                   |     ┌─────────────┐                 │
                   └────►│   Success   │─────────────────┘
@@ -134,7 +134,7 @@ For detailed installation instructions, please see [INSTALLATION.md](INSTALLATIO
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/py-photobooth-simple.git
+git clone https://github.com/IArchi/py-photobooth-simple.git
 cd py-photobooth-simple
 
 # Run automated installation (recommended)
@@ -160,11 +160,11 @@ You can edit `config.ini` to change various parameters such as:
  - **COUNTDOWN:** Countdown time before photo capture
  - **DCIM_DIRECTORY:** Directory where photos and collages are stored
  - **PRINTER:** Printer's name in CUPS
- - **CALIBRATION:** Calibration matrix for hybrid mode (DSLR + piCamera or DSLR + webcam)
+ - **CALIBRATION:** Calibration matrix for hybrid mode (DSLR + piCamera or DSLR + webcam) from `tools/calibrate_zoom.py`
 
 ### Template Editor
 
-The application includes a **visual template editor** (`template_editor.html`) - a browser-based tool for creating and customizing photo layouts without coding.
+The application includes a **visual template editor** (`tools/template_editor.html`) - a browser-based tool for creating and customizing photo layouts without coding.
 
 - **Visual Canvas:** Interactive canvas with grid snapping for precise positioning
 - **Photo Frames:** Add, move, resize, and delete photo placeholders
