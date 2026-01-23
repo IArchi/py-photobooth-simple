@@ -15,9 +15,11 @@ A simple and intuitive photobooth application designed to be easy to use, even f
 
 ## Screenshots
 
-![Waiting Screen](doc/waiting.png)
-![Select Format](doc/select_format.png)
-![Capture Screen](doc/capture.png)
+![Waiting Screen](doc/waiting.jpeg)
+![Select Format](doc/select_format.jpeg)
+![Capture Screen](doc/capture.jpeg)
+![Capture Screen](doc/confirm.jpeg)
+![Review Screen](doc/review.jpeg)
 
 ## Screen Flow
 
@@ -146,14 +148,30 @@ python3 photoboothapp.py
 ```
 
 ## Customization
-You can also edit `config.ini` to change some parameters such as:
- - Autorestart on failure ;
- - Full screen window ;
- - Countdown before the photo is taken ;
- - Directory in which the photos and collages are stored ;
- - Printer's name in CUPS ;
- - Calibration matrix if using hybrid mode (DSLR + piCamera or DSLR + webcam) ;
- - Overlay to use.
+
+### Configuration File
+
+You can edit `config.ini` to change various parameters such as:
+ - **AUTORESTART:** Automatically restart on failure
+ - **FULLSCREEN:** Full screen window mode
+ - **SHARE:** Enable/disable share buttons and web server
+ - **RINGLED:** Enable/disable RingLed functionality (set to `False` if you don't have RingLed hardware)
+ - **COUNTDOWN:** Countdown time before photo capture
+ - **DCIM_DIRECTORY:** Directory where photos and collages are stored
+ - **PRINTER:** Printer's name in CUPS
+ - **CALIBRATION:** Calibration matrix for hybrid mode (DSLR + piCamera or DSLR + webcam)
+
+### Template Editor
+
+The application includes a **visual template editor** (`template_editor.html`) - a browser-based tool for creating and customizing photo layouts without coding.
+
+- **Visual Canvas:** Interactive canvas with grid snapping for precise positioning
+- **Photo Frames:** Add, move, resize, and delete photo placeholders
+- **Background/Foreground Layers:** Import decorative backgrounds and overlay frames
+- **Multiple Formats:** Support for various print formats (10x15 cm, 5x15 cm strips, custom sizes)
+- **Duplication Support:** Automatically duplicate templates horizontally or vertically for strip printing
+- **Import/Export:** Save templates as JSON files and import existing templates
+- **Live Preview:** Real-time preview with scaling and duplication visualization
 
 ## USB Photo Export
 
@@ -162,7 +180,7 @@ A dedicated background thread monitors for USB drives and automatically exports 
 - Insert a FAT32-formatted USB drive
 - The application will automatically copy all photos from the `DCIM_DIRECTORY` to the USB drive
 - A progress screen is displayed during the copy process
-- Safely remove the USB drive when the process completes
+- Safely remove thUe USB drive when the process completes
 
 **Important:** USB drives must be formatted as FAT32 for compatibility.
 
