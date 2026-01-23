@@ -59,7 +59,7 @@ class KivyCamera(Image):
 
             # Apply as texture
             image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
-            image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
+            image_texture.blit_buffer(im.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
             self.texture = image_texture
 
         except Exception as e:
@@ -75,8 +75,10 @@ class BlurredImage(Image):
     def __init__(self, blur=False, **kwargs):
         super(BlurredImage, self).__init__(**kwargs)
         self._blur = blur
-        self.bind(size=self.update_texture)
-        if blur: self.create_empty_texture()
+        self._last_size = None
+        if blur:
+            self.bind(size=self.update_texture)
+            self.create_empty_texture()
 
     def create_empty_texture(self):
         width, height = self.size
@@ -87,8 +89,14 @@ class BlurredImage(Image):
         self.texture = texture
 
     def update_texture(self, *args):
-        if self.filepath:
-            self.reload()
+        # Only reload if size actually changed significantly (avoid micro-updates)
+        if self.filepath and self._blur:
+            current_size = (int(self.size[0]), int(self.size[1]))
+            if self._last_size is None or \
+               abs(current_size[0] - self._last_size[0]) > 10 or \
+               abs(current_size[1] - self._last_size[1]) > 10:
+                self._last_size = current_size
+                self.reload()
 
     def reload(self):
         try:
@@ -276,7 +284,7 @@ class BreezyBorderedLabel(Label):
     
     def start_breeze(self):
         if self._animation_event is None:
-            self._animation_event = Clock.schedule_interval(self._update_breeze, 1/60.0)
+            self._animation_event = Clock.schedule_interval(self._update_breeze, 1/30.0)
     
     def stop_breeze(self):
         if self._animation_event is not None:
@@ -336,10 +344,10 @@ class RotatingImage(AsyncImage):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.angle = 0
-        Clock.schedule_interval(self.update, 1/60)
+        Clock.schedule_interval(self.update, 1/30)
 
     def update(self, dt):
-        self.angle -= 2
+        self.angle -= 4  # Was 2 at 60fps, now 4 at 30fps for same visual speed
         self.angle %= 360
 
 Builder.load_string('''
@@ -359,10 +367,10 @@ class RotatingLabel(ResizeLabel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.angle = 0
-        Clock.schedule_interval(self.update, 1/60)
+        Clock.schedule_interval(self.update, 1/30)
 
     def update(self, dt):
-        self.angle -= 2
+        self.angle -= 4  # Was 2 at 60fps, now 4 at 30fps for same visual speed
         self.angle %= 360
 
 class ResizeLabel(Label):
