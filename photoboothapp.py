@@ -81,8 +81,6 @@ class PhotoboothApp(App):
         else:
             self.web_server = None
             Logger.info('PhotoboothApp: Web server disabled (SHARE=False)')
-        
-        Clock.schedule_interval(self.check_transition_request, 0.5)
 
     def build(self):
         Logger.info('PhotoboothApp: build().')
@@ -94,16 +92,11 @@ class PhotoboothApp(App):
         self.ringled.clear()
 
     def request_transition_to(self, new_state, **kwargs):
-        self._requested_screen = new_state
-        self._requested_kwargs = kwargs
-
-    def check_transition_request(self, obj):
-        if self._requested_screen:
-            next = self._requested_screen
-            kwargs = self._requested_kwargs
-            self._requested_screen = None
-            self._requested_kwargs = None
-            self.transition_to(next, **kwargs)
+        """
+        Request a screen transition. 
+        OPTIMIZED: Direct call instead of polling for better performance.
+        """
+        self.transition_to(new_state, **kwargs)
 
     def transition_to(self, new_state, **kwargs):
         self.sm.current_screen.on_exit()

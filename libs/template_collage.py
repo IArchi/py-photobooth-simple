@@ -53,6 +53,13 @@ class TemplateCollage:
             os.path.join(self._module_dir, '../assets/icons/dummy2.png'),
             os.path.join(self._module_dir, '../assets/icons/dummy3.png')
         ]
+        
+        # Cache for preview image (generate once)
+        self._preview_cache = None
+        
+        # Cache for loaded background/foreground images
+        self._background_cache = None
+        self._foreground_cache = None
     
     def get_name(self):
         """Return the template name."""
@@ -82,19 +89,26 @@ class TemplateCollage:
         """Return the print parameters."""
         return self._print_params
     
-    def _load_image(self, image_data, imread_flags=cv2.IMREAD_UNCHANGED):
+    def _load_image(self, image_data, imread_flags=cv2.IMREAD_UNCHANGED, cache_key=None):
         """
-        Load an image from either base64 data or file path.
+        Load an image from either base64 data or file path with caching.
         
         Args:
             image_data: Either a base64 data URI (data:image/png;base64,...) or a file path
             imread_flags: OpenCV imread flags (default: IMREAD_UNCHANGED to preserve alpha)
+            cache_key: Optional key for caching ('background' or 'foreground')
             
         Returns:
             Loaded image as numpy array, or None if loading failed
         """
         if not image_data:
             return None
+        
+        # Check cache first
+        if cache_key == 'background' and self._background_cache is not None:
+            return self._background_cache.copy()
+        if cache_key == 'foreground' and self._foreground_cache is not None:
+            return self._foreground_cache.copy()
             
         # Check if it's base64 data
         if isinstance(image_data, str) and image_data.startswith('data:image'):
@@ -107,6 +121,13 @@ class TemplateCollage:
                 nparr = np.frombuffer(img_bytes, np.uint8)
                 # Decode image
                 img = cv2.imdecode(nparr, imread_flags)
+                
+                # Cache if requested
+                if cache_key == 'background':
+                    self._background_cache = img.copy()
+                elif cache_key == 'foreground':
+                    self._foreground_cache = img.copy()
+                
                 return img
             except Exception as e:
                 Logger.error(f'Failed to decode base64 image: {e}')
@@ -115,7 +136,15 @@ class TemplateCollage:
             # It's a file path - resolve relative to template directory
             path = os.path.join(self._template_dir, image_data)
             if os.path.exists(path):
-                return cv2.imread(path, imread_flags)
+                img = cv2.imread(path, imread_flags)
+                
+                # Cache if requested
+                if cache_key == 'background':
+                    self._background_cache = img.copy()
+                elif cache_key == 'foreground':
+                    self._foreground_cache = img.copy()
+                
+                return img
             else:
                 Logger.warning(f'Image file not found: {path}')
                 return None
@@ -123,10 +152,15 @@ class TemplateCollage:
     def get_preview(self):
         """
         Generate a preview image using dummy photos.
+        Cache the result to avoid regenerating on every call.
         
         Returns:
             Path to the generated preview image
         """
+        # Return cached preview if already generated
+        if self._preview_cache is not None:
+            return self._preview_cache
+        
         # Use dummy images for preview
         num_photos = self.get_photos_required()
         image_paths = [self._dummies[min(i, len(self._dummies) - 1)] for i in range(num_photos)]
@@ -138,6 +172,9 @@ class TemplateCollage:
         # Dump to temp file
         _, tmp_output = tempfile.mkstemp(suffix='.jpg')
         cv2.imwrite(tmp_output, collage)
+        
+        # Cache the result
+        self._preview_cache = tmp_output
         return tmp_output
     
     def assemble(self, image_paths, output_path=None, for_print=False):
@@ -160,7 +197,7 @@ class TemplateCollage:
         
         # Step 2: Apply background image if specified (resize to exact canvas size)
         if self._background:
-            bg = self._load_image(self._background, cv2.IMREAD_COLOR)
+            bg = self._load_image(self._background, cv2.IMREAD_COLOR, cache_key='background')
             if bg is not None:
                 bg = cv2.resize(bg, (self._page_width, self._page_height), interpolation=cv2.INTER_AREA)
                 canvas = bg
@@ -195,7 +232,7 @@ class TemplateCollage:
         
         # Step 4: Apply foreground overlay if specified (resize to exact canvas size)
         if self._foreground:
-            overlay = self._load_image(self._foreground, cv2.IMREAD_UNCHANGED)
+            overlay = self._load_image(self._foreground, cv2.IMREAD_UNCHANGED, cache_key='foreground')
             if overlay is not None:
                 overlay = cv2.resize(overlay, (self._page_width, self._page_height), interpolation=cv2.INTER_AREA)
                 canvas = self._apply_overlay(canvas, overlay)

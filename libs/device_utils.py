@@ -1,6 +1,7 @@
 import os
 import tempfile
 import subprocess
+import threading
 import numpy as np
 from kivy.logger import Logger
 
@@ -122,10 +123,16 @@ class Cv2Camera(CaptureDevice):
         # Dump to file
         cv2.imwrite(output_name, im)
 
-        # Resize for display
-        resized_im = FileUtils.resize(im)
-        print(FileUtils.get_small_path(output_name))
-        cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
+        # Create small preview in background thread (non-blocking)
+        threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
+    
+    def _create_small_async(self, image, output_name):
+        """Create small preview image asynchronously to avoid blocking capture."""
+        try:
+            resized_im = FileUtils.resize(image)
+            cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
+        except Exception as e:
+            Logger.error(f'Error creating small preview: {e}')
 
 class Gphoto2Camera(CaptureDevice):
     def __init__(self):
@@ -181,9 +188,16 @@ class Gphoto2Camera(CaptureDevice):
         # Dump to file
         cv2.imwrite(output_name, im)
 
-        # Resize for display
-        resized_im = FileUtils.resize(im)
-        cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
+        # Create small preview in background thread (non-blocking)
+        threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
+    
+    def _create_small_async(self, image, output_name):
+        """Create small preview image asynchronously to avoid blocking capture."""
+        try:
+            resized_im = FileUtils.resize(image)
+            cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
+        except Exception as e:
+            Logger.error(f'Error creating small preview: {e}')
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
@@ -217,9 +231,16 @@ class Picamera2Camera(CaptureDevice):
         # Dump to file
         cv2.imwrite(output_name, im)
 
-        # Resize for display
-        resized_im = FileUtils.resize(im)
-        cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
+        # Create small preview in background thread (non-blocking)
+        threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
+    
+    def _create_small_async(self, image, output_name):
+        """Create small preview image asynchronously to avoid blocking capture."""
+        try:
+            resized_im = FileUtils.resize(image)
+            cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
+        except Exception as e:
+            Logger.error(f'Error creating small preview: {e}')
 
 class CupsPrinter(PrintDevice):
     _name = None
