@@ -83,7 +83,7 @@ echo ""
 # ============================================================================
 # STEP 1: Base System Dependencies
 # ============================================================================
-print_info "Step 1/8: Installing base system dependencies..."
+print_info "Step 1/9: Installing base system dependencies..."
 
 sudo apt update
 sudo apt-get install -y gcc make build-essential git scons swig
@@ -95,7 +95,7 @@ echo ""
 # ============================================================================
 # STEP 2: Python Dependencies
 # ============================================================================
-print_info "Step 2/8: Installing Python dependencies..."
+print_info "Step 2/9: Installing Python dependencies..."
 
 pip3 install -r requirements.txt --break-system-packages
 
@@ -107,7 +107,7 @@ echo ""
 # ============================================================================
 if is_raspberry_pi; then
     echo ""
-    if ask_yes_no "Step 3/8: Do you want to enable Kiosk Mode (hide mouse, taskbar, etc.)?"; then
+    if ask_yes_no "Step 3/9: Do you want to enable Kiosk Mode (hide mouse, taskbar, etc.)?"; then
         print_info "Configuring Kiosk Mode..."
         
         # Hide mouse and panel
@@ -130,7 +130,7 @@ if is_raspberry_pi; then
         print_info "Skipping Kiosk Mode configuration"
     fi
 else
-    print_info "Step 3/8: Kiosk Mode (Raspberry Pi only) - Skipped (not on Raspberry Pi)"
+    print_info "Step 3/9: Kiosk Mode (Raspberry Pi only) - Skipped (not on Raspberry Pi)"
 fi
 echo ""
 
@@ -139,7 +139,7 @@ echo ""
 # ============================================================================
 if is_raspberry_pi; then
     echo ""
-    if ask_yes_no "Step 4/8: Are you using the Ingcool 7\" touchscreen?"; then
+    if ask_yes_no "Step 4/9: Are you using the Ingcool 7\" touchscreen?"; then
         print_info "Configuring Ingcool 7\" touchscreen..."
         
         sudo sh -c "echo '# Ingcool 7in touch screen' >> /boot/firmware/config.txt"
@@ -156,7 +156,7 @@ if is_raspberry_pi; then
         print_info "Skipping Ingcool touchscreen configuration"
     fi
 else
-    print_info "Step 4/8: Ingcool Touchscreen (Raspberry Pi only) - Skipped (not on Raspberry Pi)"
+    print_info "Step 4/9: Ingcool Touchscreen (Raspberry Pi only) - Skipped (not on Raspberry Pi)"
 fi
 echo ""
 
@@ -165,7 +165,7 @@ echo ""
 # ============================================================================
 if is_raspberry_pi; then
     echo ""
-    if ask_yes_no "Step 5/8: Do you want to configure Raspberry Pi Camera Module V3?"; then
+    if ask_yes_no "Step 5/9: Do you want to configure Raspberry Pi Camera Module V3?"; then
         print_info "Configuring Pi Camera Module V3..."
         
         # Allocate more memory
@@ -183,7 +183,7 @@ if is_raspberry_pi; then
         print_info "Skipping Pi Camera configuration"
     fi
 else
-    print_info "Step 5/8: Pi Camera Module (Raspberry Pi only) - Skipped (not on Raspberry Pi)"
+    print_info "Step 5/9: Pi Camera Module (Raspberry Pi only) - Skipped (not on Raspberry Pi)"
 fi
 echo ""
 
@@ -191,7 +191,7 @@ echo ""
 # STEP 6: DSLR Support with gPhoto2
 # ============================================================================
 echo ""
-if ask_yes_no "Step 6/8: Do you want to install DSLR support (gPhoto2)?"; then
+if ask_yes_no "Step 6/9: Do you want to install DSLR support (gPhoto2)?"; then
     print_info "Installing gPhoto2..."
     
     # Download and run gPhoto2 updater
@@ -221,7 +221,7 @@ echo ""
 # STEP 7: CUPS Printer Support
 # ============================================================================
 echo ""
-if ask_yes_no "Step 7/8: Do you want to install printer support (CUPS)?"; then
+if ask_yes_no "Step 7/9: Do you want to install printer support (CUPS)?"; then
     print_info "Installing CUPS..."
     
     sudo apt-get install -y cups libcups2-dev python3-cups
@@ -247,7 +247,7 @@ echo ""
 # ============================================================================
 if is_raspberry_pi; then
     echo ""
-    if ask_yes_no "Step 8/8: Do you want to install WS2812 LED Ring support?"; then
+    if ask_yes_no "Step 8/9: Do you want to install WS2812 LED Ring support?"; then
         print_info "Configuring LED Ring support..."
         
         # Enable SPI
@@ -263,7 +263,143 @@ if is_raspberry_pi; then
         print_info "Skipping LED Ring configuration"
     fi
 else
-    print_info "Step 8/8: LED Ring Support (Raspberry Pi only) - Skipped (not on Raspberry Pi)"
+    print_info "Step 8/9: LED Ring Support (Raspberry Pi only) - Skipped (not on Raspberry Pi)"
+fi
+echo ""
+
+# ============================================================================
+# STEP 9: WiFi Access Point Setup (Raspberry Pi only)
+# ============================================================================
+if is_raspberry_pi; then
+    echo ""
+    if ask_yes_no "Step 9/9: Do you want to configure WiFi Access Point for photo downloads?"; then
+        print_info "Configuring WiFi Access Point..."
+        
+        # Install required packages
+        print_info "Installing hostapd, dnsmasq, and iptables-persistent..."
+        sudo apt-get install -y hostapd dnsmasq iptables-persistent
+        
+        # Stop services during configuration
+        print_info "Stopping services..."
+        sudo systemctl stop hostapd 2>/dev/null || true
+        sudo systemctl stop dnsmasq 2>/dev/null || true
+        
+        # Backup original configuration files
+        print_info "Backing up original configurations..."
+        sudo cp /etc/dhcpcd.conf /etc/dhcpcd.conf.backup 2>/dev/null || true
+        sudo cp /etc/dnsmasq.conf /etc/dnsmasq.conf.backup 2>/dev/null || true
+        sudo cp /etc/hostapd/hostapd.conf /etc/hostapd/hostapd.conf.backup 2>/dev/null || true
+        
+        # Configure static IP for wlan0
+        print_info "Configuring static IP for wlan0..."
+        sudo bash -c 'cat >> /etc/dhcpcd.conf << EOF
+
+# PhotoBooth WiFi AP Configuration
+interface wlan0
+    static ip_address=192.168.4.1/24
+    nohook wpa_supplicant
+EOF'
+        
+        # Configure dnsmasq (DHCP and DNS server)
+        print_info "Configuring dnsmasq..."
+        sudo bash -c 'cat > /etc/dnsmasq.conf << EOF
+# PhotoBooth WiFi AP - DHCP Configuration
+interface=wlan0
+dhcp-range=192.168.4.10,192.168.4.100,255.255.255.0,24h
+domain=photobooth.local
+address=/#/192.168.4.1
+
+# Captive Portal - Redirect all DNS queries to AP
+address=/captive.apple.com/192.168.4.1
+address=/connectivitycheck.gstatic.com/192.168.4.1
+address=/www.msftconnecttest.com/192.168.4.1
+address=/detectportal.firefox.com/192.168.4.1
+
+# Logging (optional, comment out for production)
+log-queries
+log-dhcp
+EOF'
+        
+        # Configure hostapd (WiFi Access Point)
+        print_info "Configuring hostapd..."
+        sudo bash -c 'cat > /etc/hostapd/hostapd.conf << EOF
+# PhotoBooth WiFi AP Configuration
+interface=wlan0
+driver=nl80211
+
+# Network name (SSID)
+ssid=PhotoBooth
+
+# WiFi channel (1-13)
+channel=6
+
+# WiFi mode (a=5GHz, g=2.4GHz)
+hw_mode=g
+
+# 802.11n support
+ieee80211n=1
+
+# No password (open network)
+# For password protection, uncomment and configure:
+# wpa=2
+# wpa_passphrase=YOUR_PASSWORD_HERE
+# wpa_key_mgmt=WPA-PSK
+# wpa_pairwise=TKIP
+# rsn_pairwise=CCMP
+
+# Country code (adjust for your location)
+country_code=FR
+
+# Beacon interval
+beacon_int=100
+
+# DTIM period
+dtim_period=2
+EOF'
+        
+        # Tell hostapd where to find the config file
+        print_info "Updating hostapd daemon configuration..."
+        sudo bash -c 'cat > /etc/default/hostapd << EOF
+# Defaults for hostapd initscript
+DAEMON_CONF="/etc/hostapd/hostapd.conf"
+EOF'
+        
+        # Enable IP forwarding
+        print_info "Enabling IP forwarding..."
+        sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
+        sudo sysctl -w net.ipv4.ip_forward=1 2>/dev/null || true
+        
+        # Configure iptables for NAT
+        print_info "Configuring iptables..."
+        sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null || true
+        sudo iptables -A FORWARD -i eth0 -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+        sudo iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT 2>/dev/null || true
+        
+        # Save iptables rules
+        sudo netfilter-persistent save 2>/dev/null || true
+        
+        # Unmask and enable services
+        print_info "Enabling services..."
+        sudo systemctl unmask hostapd
+        sudo systemctl enable hostapd
+        sudo systemctl enable dnsmasq
+        
+        # Start services
+        print_info "Starting services..."
+        sudo systemctl start hostapd 2>/dev/null || true
+        sudo systemctl start dnsmasq 2>/dev/null || true
+        sudo systemctl restart dhcpcd 2>/dev/null || true
+        
+        print_success "WiFi Access Point configured"
+        print_info "SSID: PhotoBooth"
+        print_info "IP Address: 192.168.4.1"
+        print_info "Web Server: http://192.168.4.1:5000"
+        NEED_REBOOT=true
+    else
+        print_info "Skipping WiFi Access Point configuration"
+    fi
+else
+    print_info "Step 9/9: WiFi Access Point (Raspberry Pi only) - Skipped (not on Raspberry Pi)"
 fi
 echo ""
 
