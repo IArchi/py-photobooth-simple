@@ -21,8 +21,9 @@ SMALL_FONT = '30sp'
 TINY_FONT = '15sp'
 
 # Add or not blurry borders to make images match the size of the window
+# OPTIMIZED: Disabled by default for better performance (blurring is CPU intensive)
 BLUR_CAMERA = True
-BLUR_IMAGES = True
+BLUR_IMAGES = False
 BLUR_COLLAGE = False
 
 # Colors
@@ -413,13 +414,9 @@ class SelectFormatScreen(ColorScreen):
     
     def on_entry(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_entry().')
-        # Reload all previews
-        for card in self.format_cards:
-            # Find the Image widget in the card and reload it
-            for child in card.walk():
-                if isinstance(child, Image):
-                    child.reload()
-                    break
+        # OPTIMIZED: Previews are now cached in templates, no need to reload
+        # Previously: reloaded all previews on every entry (slow)
+        # Now: previews are generated once and cached in TemplateCollage
         self.app.ringled.start_rainbow()
 
     def on_exit(self, kwargs={}):
@@ -710,7 +707,7 @@ class CountdownScreen(ColorScreen):
         
         # Start countdown
         self._clock = Clock.schedule_once(self.timer_event, 1)
-        self._clock_progress = Clock.schedule_interval(self.timer_progress, 1/60.0)
+        self._clock_progress = Clock.schedule_interval(self.timer_progress, 1/30.0)
         self.app.ringled.start_countdown(self.time_remaining)
 
     def cancel_countdown(self):
@@ -1333,6 +1330,9 @@ class CopyingScreen(ColorScreen):
 class QRCodePopup(FloatLayout):
     """Popup overlay to show QR code."""
     
+    # Class-level cache for QR code texture (shared across all instances)
+    _qr_texture_cache = None
+    
     def __init__(self, on_dismiss=None, **kwargs):
         super(QRCodePopup, self).__init__(**kwargs)
         self.on_dismiss = on_dismiss
@@ -1443,7 +1443,13 @@ class QRCodePopup(FloatLayout):
         self.card_rect.size = instance.size
     
     def _generate_qr_code(self):
-        """Generate WiFi QR code."""
+        """Generate WiFi QR code with caching for better performance."""
+        # Use cached texture if available
+        if QRCodePopup._qr_texture_cache is not None:
+            self.qr_image.texture = QRCodePopup._qr_texture_cache
+            Logger.info('QRCodePopup: Using cached QR code')
+            return
+        
         import qrcode
         import io
         from kivy.core.image import Image as CoreImage
@@ -1466,7 +1472,10 @@ class QRCodePopup(FloatLayout):
         
         core_image = CoreImage(buf, ext='png')
         self.qr_image.texture = core_image.texture
-        Logger.info('QRCodePopup: QR code generated')
+        
+        # Cache the texture for future use
+        QRCodePopup._qr_texture_cache = core_image.texture
+        Logger.info('QRCodePopup: QR code generated and cached')
     
     def _close(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
