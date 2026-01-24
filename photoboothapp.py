@@ -7,7 +7,7 @@ import threading
 import traceback
 from datetime import datetime
 
-os.environ['KIVY_NO_CONSOLELOG'] = '1'
+#os.environ['KIVY_NO_CONSOLELOG'] = '1'
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.logger import Logger

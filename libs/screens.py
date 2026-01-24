@@ -782,14 +782,12 @@ class ConfirmCaptureScreen(ColorScreen):
         self.overlay_layout = FloatLayout()
         self.layout.add_widget(self.overlay_layout)
 
-        # Display capture - size depends on whether filters are enabled
-        preview_height = 0.85 if self.app.FILTERS else 1.0
-        preview_y = 0.15 if self.app.FILTERS else 0.0
+        # Display capture - always full size regardless of filters
         self.preview = BlurredImage(
             blur=BLUR_IMAGES,
             fit_mode='contain',
-            size_hint=(1, preview_height),
-            pos_hint={'x': 0, 'y': preview_y},
+            size_hint=(1, 1),
+            pos_hint={'x': 0, 'y': 0},
         )
         self.overlay_layout.add_widget(self.preview)
 
@@ -811,46 +809,47 @@ class ConfirmCaptureScreen(ColorScreen):
             self.icons.append(icon)
         self.overlay_layout.add_widget(self.counter_layout)
 
-        # Filter cards container at bottom (only if FILTERS is enabled)
+        # Filter cards container at bottom (always created in absolute position)
+        from kivy.uix.scrollview import ScrollView
+        
+        # Outer container to center the scroll view - in absolute position
+        self.filter_outer = AnchorLayout(
+            size_hint=(1, 0.15),
+            pos_hint={'x': 0, 'y': 0},
+            anchor_x='center',
+            anchor_y='center',
+            opacity=1 if self.app.FILTERS else 0,
+        )
+        
+        self.filter_scroll = ScrollView(
+            size_hint=(None, 1),
+            do_scroll_x=True,
+            do_scroll_y=False,
+        )
+        
+        self.filter_container = BoxLayout(
+            orientation='horizontal',
+            spacing=15,
+            padding=(20, 10, 20, 10),
+            size_hint=(None, 1),
+        )
+        self.filter_container.bind(minimum_width=self.filter_container.setter('width'))
+        
+        # Update scroll view width based on container width
+        def update_scroll_width(instance, value):
+            # Limit scroll view width to window width or container width, whichever is smaller
+            max_width = min(Window.width - 40, value)
+            self.filter_scroll.width = max_width
+        
+        self.filter_container.bind(minimum_width=update_scroll_width)
+        
+        self.filter_scroll.add_widget(self.filter_container)
+        self.filter_outer.add_widget(self.filter_scroll)
+        self.overlay_layout.add_widget(self.filter_outer)
+        
+        # Create filter cards (even if filters are disabled, to maintain consistent layout)
+        self.filter_cards = []
         if self.app.FILTERS:
-            from kivy.uix.scrollview import ScrollView
-            
-            # Outer container to center the scroll view
-            filter_outer = AnchorLayout(
-                size_hint=(1, 0.15),
-                pos_hint={'x': 0, 'y': 0},
-                anchor_x='center',
-                anchor_y='center',
-            )
-            
-            self.filter_scroll = ScrollView(
-                size_hint=(None, 1),
-                do_scroll_x=True,
-                do_scroll_y=False,
-            )
-            
-            self.filter_container = BoxLayout(
-                orientation='horizontal',
-                spacing=15,
-                padding=(20, 10, 20, 10),
-                size_hint=(None, 1),
-            )
-            self.filter_container.bind(minimum_width=self.filter_container.setter('width'))
-            
-            # Update scroll view width based on container width
-            def update_scroll_width(instance, value):
-                # Limit scroll view width to window width or container width, whichever is smaller
-                max_width = min(Window.width - 40, value)
-                self.filter_scroll.width = max_width
-            
-            self.filter_container.bind(minimum_width=update_scroll_width)
-            
-            self.filter_scroll.add_widget(self.filter_container)
-            filter_outer.add_widget(self.filter_scroll)
-            self.overlay_layout.add_widget(filter_outer)
-            
-            # Create filter cards
-            self.filter_cards = []
             for filter_def in self.FILTERS:
                 card = self._create_filter_card(filter_def)
                 self.filter_container.add_widget(card)
@@ -867,11 +866,10 @@ class ConfirmCaptureScreen(ColorScreen):
                              )
         self.overlay_layout.add_widget(btn_home)
 
-        # Cancel button - bottom left (position depends on filters)
-        cancel_y = 0.16 if self.app.FILTERS else 0.05
+        # Cancel button - bottom left (always at same position)
         btn_cancel = make_icon_button(ICON_CANCEL,
                              size=0.14,
-                             pos_hint={'x': 0.05, 'y': cancel_y},
+                             pos_hint={'x': 0.05, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CANCEL_COLOR,
@@ -879,11 +877,10 @@ class ConfirmCaptureScreen(ColorScreen):
                              )
         self.overlay_layout.add_widget(btn_cancel)
 
-        # Confirm button - bottom right (position depends on filters)
-        confirm_y = 0.16 if self.app.FILTERS else 0.05
+        # Confirm button - bottom right (always at same position)
         btn_confirm = make_icon_button(ICON_CONFIRM,
                              size=0.14,
-                             pos_hint={'right': 0.95, 'y': confirm_y},
+                             pos_hint={'right': 0.95, 'y': 0.05},
                              font=ICON_TTF,
                              font_size=LARGE_FONT,
                              bgcolor=CONFIRM_COLOR,
