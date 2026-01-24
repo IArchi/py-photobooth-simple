@@ -762,6 +762,7 @@ class ConfirmCaptureScreen(ColorScreen):
     FILTERS = [
         {'name': 'Color', 'key': 'color'},
         {'name': 'B&W', 'key': 'bw'},
+        {'name': 'B&W Glam', 'key': 'bwglam'},
         {'name': 'Sepia', 'key': 'sepia'},
         {'name': 'Glam', 'key': 'glam'},
         {'name': 'Vintage', 'key': 'vintage'},
@@ -965,6 +966,22 @@ class ConfirmCaptureScreen(ColorScreen):
             # Black and white
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             return cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+            
+        elif filter_key == 'bwglam':
+            # Black and white with glam effect
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            smooth = cv2.bilateralFilter(gray, d=9, sigmaColor=75, sigmaSpace=75)
+            clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+            contrast = clahe.apply(smooth)
+            blur = cv2.GaussianBlur(contrast, (0, 0), sigmaX=15)
+            dodge = cv2.divide(contrast, blur, scale=255)
+            sharpen = cv2.addWeighted(dodge, 1.3, blur, -0.3, 0)
+            rows, cols = sharpen.shape
+            kernel_x = cv2.getGaussianKernel(cols, cols/2)
+            kernel_y = cv2.getGaussianKernel(rows, rows/2)
+            kernel = kernel_y * kernel_x.T
+            mask = kernel / kernel.max()
+            return np.uint8(sharpen * mask)
         
         elif filter_key == 'sepia':
             # Sepia tone
