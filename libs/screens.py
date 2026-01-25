@@ -1392,14 +1392,20 @@ class ConfirmSaveScreen(ColorScreen):
     def share_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ConfirmSaveScreen: share_event().')
+        # Reset timeout when opening QR code popup
+        Clock.unschedule(self.auto_confirm)
+        self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
         # Show QR code popup
         self.qr_popup = QRCodePopup(on_dismiss=self._dismiss_qr_popup)
         self.layout.add_widget(self.qr_popup)
     
     def _dismiss_qr_popup(self):
-        """Remove QR code popup."""
+        """Remove QR code popup and reset timeout."""
         if hasattr(self, 'qr_popup') and self.qr_popup.parent:
             self.layout.remove_widget(self.qr_popup)
+        # Reset timeout when closing QR code popup
+        Clock.unschedule(self.auto_confirm)
+        self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
 
     def timer_event(self, obj):
         Logger.info('ConfirmSaveScreen: timer_event().')
@@ -1509,14 +1515,20 @@ class ConfirmPrintScreen(ColorScreen):
     def share_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ConfirmPrintScreen: share_event().')
+        # Reset timeout when opening QR code popup
+        Clock.unschedule(self.auto_decline)
+        self.auto_decline = Clock.schedule_once(self.timer_event, 60)
         # Show QR code popup
         self.qr_popup = QRCodePopup(on_dismiss=self._dismiss_qr_popup)
         self.layout.add_widget(self.qr_popup)
     
     def _dismiss_qr_popup(self):
-        """Remove QR code popup."""
+        """Remove QR code popup and reset timeout."""
         if hasattr(self, 'qr_popup') and self.qr_popup.parent:
             self.layout.remove_widget(self.qr_popup)
+        # Reset timeout when closing QR code popup
+        Clock.unschedule(self.auto_decline)
+        self.auto_decline = Clock.schedule_once(self.timer_event, 60)
 
     def timer_event(self, obj):
         Logger.info('ConfirmPrintScreen: timer_event().')
