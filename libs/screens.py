@@ -766,6 +766,12 @@ class ConfirmCaptureScreen(ColorScreen):
         {'name': 'Sepia', 'key': 'sepia'},
         {'name': 'Glam', 'key': 'glam'},
         {'name': 'Vintage', 'key': 'vintage'},
+        {'name': 'Warm Glow', 'key': 'warmglow'},
+        {'name': 'Cool Tone', 'key': 'cooltone'},
+        {'name': 'Soft Focus', 'key': 'softfocus'},
+        {'name': 'Retro 70s', 'key': 'retro70s'},
+        {'name': 'Pastel', 'key': 'pastel'},
+        {'name': 'Polaroid', 'key': 'polaroid'},
     ]
     
     def __init__(self, app, **kwargs):
@@ -814,7 +820,7 @@ class ConfirmCaptureScreen(ColorScreen):
         
         # Outer container to center the scroll view - in absolute position
         self.filter_outer = AnchorLayout(
-            size_hint=(1, 0.15),
+            size_hint=(1, 0.20),
             pos_hint={'x': 0, 'y': 0},
             anchor_x='center',
             anchor_y='center',
@@ -837,8 +843,12 @@ class ConfirmCaptureScreen(ColorScreen):
         
         # Update scroll view width based on container width
         def update_scroll_width(instance, value):
-            # Limit scroll view width to window width or container width, whichever is smaller
-            max_width = min(Window.width - 40, value)
+            # Limit scroll view width to avoid overlapping with confirm/cancel buttons
+            # Buttons are 14% of width each, positioned at edges with 5% margin
+            # So we need to leave space for: 5% + 14% on each side = 38% total
+            # Plus some padding: use 70% of window width maximum
+            max_available_width = Window.width * 0.70
+            max_width = min(max_available_width, value)
             self.filter_scroll.width = max_width
         
         self.filter_container.bind(minimum_width=update_scroll_width)
@@ -898,12 +908,12 @@ class ConfirmCaptureScreen(ColorScreen):
         class ClickableCard(ButtonBehavior, BoxLayout):
             pass
         
-        card_size = 120
+        card_size = 160
         card = ClickableCard(
             orientation='vertical',
             size_hint=(None, None),
             size=(card_size, card_size),
-            padding=5,
+            padding=8,
         )
         
         # Draw rounded card background
@@ -1002,6 +1012,102 @@ class ConfirmCaptureScreen(ColorScreen):
             result[:, :, 0] = np.clip(result[:, :, 0] * 0.9, 0, 255)  # Reduce blue
             result[:, :, 2] = np.clip(result[:, :, 2] * 1.1, 0, 255)  # Increase red
             return result.astype(np.uint8)
+        
+        elif filter_key == 'warmglow':
+            # Warm Glow: golden hour effect with orange/golden tones
+            # Increase red and reduce blue for warmth
+            result = img.copy().astype(np.float32)
+            result[:, :, 0] = np.clip(result[:, :, 0] * 0.85, 0, 255)  # Reduce blue
+            result[:, :, 1] = np.clip(result[:, :, 1] * 1.05, 0, 255)  # Slight green boost
+            result[:, :, 2] = np.clip(result[:, :, 2] * 1.15, 0, 255)  # Increase red
+            # Add slight brightness and saturation
+            hsv = cv2.cvtColor(result.astype(np.uint8), cv2.COLOR_BGR2HSV).astype(np.float32)
+            hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 1.2, 0, 255)  # Increase saturation
+            hsv[:, :, 2] = np.clip(hsv[:, :, 2] * 1.05, 0, 255)  # Slight brightness boost
+            return cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+        
+        elif filter_key == 'cooltone':
+            # Cool Tone: modern cinematic look with blue/cyan emphasis
+            # Increase blue and cyan, reduce red
+            result = img.copy().astype(np.float32)
+            result[:, :, 0] = np.clip(result[:, :, 0] * 1.15, 0, 255)  # Increase blue
+            result[:, :, 1] = np.clip(result[:, :, 1] * 1.05, 0, 255)  # Slight green boost for cyan
+            result[:, :, 2] = np.clip(result[:, :, 2] * 0.9, 0, 255)   # Reduce red
+            # Enhance contrast slightly
+            alpha = 1.1  # Contrast
+            beta = -5    # Brightness (slightly darker)
+            result = cv2.convertScaleAbs(result, alpha=alpha, beta=beta)
+            return result
+        
+        elif filter_key == 'softfocus':
+            # Soft Focus: dreamy romantic effect with subtle blur
+            # Apply bilateral filter for skin smoothing while preserving edges
+            smoothed = cv2.bilateralFilter(img, d=9, sigmaColor=75, sigmaSpace=75)
+            # Blend original with smoothed version for soft focus effect
+            alpha = 0.6  # Weight of smoothed image
+            result = cv2.addWeighted(smoothed, alpha, img, 1 - alpha, 0)
+            # Add slight glow by blending with a blurred version
+            blurred = cv2.GaussianBlur(result, (21, 21), 0)
+            glow = cv2.addWeighted(result, 0.85, blurred, 0.15, 0)
+            # Slightly increase brightness for dreamy effect
+            hsv = cv2.cvtColor(glow, cv2.COLOR_BGR2HSV).astype(np.float32)
+            hsv[:, :, 2] = np.clip(hsv[:, :, 2] * 1.08, 0, 255)
+            return cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+        
+        elif filter_key == 'retro70s':
+            # Retro 70s: nostalgic look with yellow/orange tones and reduced contrast
+            # Reduce contrast first
+            alpha = 0.85  # Reduced contrast
+            beta = 15     # Increased brightness
+            faded = cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+            # Add yellow/orange cast
+            result = faded.copy().astype(np.float32)
+            result[:, :, 0] = np.clip(result[:, :, 0] * 0.88, 0, 255)  # Reduce blue
+            result[:, :, 1] = np.clip(result[:, :, 1] * 1.08, 0, 255)  # Increase green
+            result[:, :, 2] = np.clip(result[:, :, 2] * 1.12, 0, 255)  # Increase red
+            # Reduce saturation slightly for vintage feel
+            hsv = cv2.cvtColor(result.astype(np.uint8), cv2.COLOR_BGR2HSV).astype(np.float32)
+            hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 0.85, 0, 255)
+            return cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+        
+        elif filter_key == 'pastel':
+            # Pastel Dream: soft pastel colors with increased brightness
+            # Increase brightness significantly
+            hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).astype(np.float32)
+            hsv[:, :, 2] = np.clip(hsv[:, :, 2] * 1.25, 0, 255)  # Increase brightness
+            # Reduce saturation for pastel effect
+            hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 0.5, 0, 255)   # Significantly reduce saturation
+            result = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+            # Add slight white overlay for pastel wash
+            white_overlay = np.ones_like(result) * 255
+            result = cv2.addWeighted(result, 0.75, white_overlay.astype(np.uint8), 0.25, 0)
+            return result
+        
+        elif filter_key == 'polaroid':
+            # Polaroid: vintage instant camera look with characteristic color shift
+            # Slight color shift and reduced contrast like old Polaroid photos
+            alpha = 0.9   # Slightly reduced contrast
+            beta = 10     # Slight brightness boost
+            faded = cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+            # Add characteristic Polaroid color cast (slightly cool with faded colors)
+            result = faded.copy().astype(np.float32)
+            result[:, :, 0] = np.clip(result[:, :, 0] * 1.05, 0, 255)  # Slight blue boost
+            result[:, :, 1] = np.clip(result[:, :, 1] * 0.98, 0, 255)  # Slight green reduction
+            result[:, :, 2] = np.clip(result[:, :, 2] * 1.02, 0, 255)  # Slight red boost
+            # Reduce saturation for faded look
+            hsv = cv2.cvtColor(result.astype(np.uint8), cv2.COLOR_BGR2HSV).astype(np.float32)
+            hsv[:, :, 1] = np.clip(hsv[:, :, 1] * 0.75, 0, 255)
+            result = cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
+            # Add slight vignette for authentic Polaroid look
+            rows, cols = result.shape[:2]
+            kernel_x = cv2.getGaussianKernel(cols, cols/2.5)
+            kernel_y = cv2.getGaussianKernel(rows, rows/2.5)
+            kernel = kernel_y * kernel_x.T
+            mask = kernel / kernel.max()
+            mask = np.dstack([mask] * 3)
+            vignette = result * mask
+            result = cv2.addWeighted(result, 0.3, vignette.astype(np.uint8), 0.7, 0)
+            return result
         
         return img
     
