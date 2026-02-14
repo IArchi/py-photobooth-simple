@@ -152,19 +152,23 @@ class Gphoto2Camera(CaptureDevice):
                 self._imread_preview = getattr(cv2, 'IMREAD_REDUCED_COLOR_2', cv2.IMREAD_COLOR)
 
                 # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
-                config = self._instance.get_config()
+                # These settings are Canon EOS specific and may not be available on other camera brands
+                try:
+                    config = self._instance.get_config()
 
-                # Update some
-                current_mode = config.get_path('/main/capturesettings/autoexposuremode').get_value()
-                if current_mode in ['Manual', 'TV']:
-                    config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
-                if current_mode in ['Manual', 'AV']:
-                    config.get_path('/main/capturesettings/aperture').set_value('13')
-                config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
-                config.get_path('/main/imgsettings/iso').set_value('100')
+                    # Update some
+                    current_mode = config.get_path('/main/capturesettings/autoexposuremode').get_value()
+                    if current_mode in ['Manual', 'TV']:
+                        config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
+                    if current_mode in ['Manual', 'AV']:
+                        config.get_path('/main/capturesettings/aperture').set_value('13')
+                    config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
+                    config.get_path('/main/imgsettings/iso').set_value('100')
 
-                # Commit changes
-                self._instance.commit_config(config)
+                    # Commit changes
+                    self._instance.commit_config(config)
+                except Exception:
+                    Logger.info('Could not set default DSLR settings, maybe unsupported camera model.')
 
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
