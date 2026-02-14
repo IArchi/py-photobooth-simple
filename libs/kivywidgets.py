@@ -25,6 +25,7 @@ class KivyCamera(Image):
         self._fps = fps
         self._blur = blur
         self._stop = False
+        self._reuse_texture = None  # Réutilisation pour éviter allocations à chaque frame
         self.create_empty_texture()
 
     def start(self, aspect_ratio=None):
@@ -35,6 +36,7 @@ class KivyCamera(Image):
     def stop(self):
         self._stop = True
         Clock.unschedule(self._clock)
+        self._reuse_texture = None
 
     def create_empty_texture(self):
         width, height = self.size
@@ -57,10 +59,14 @@ class KivyCamera(Image):
             if self._blur:
                 im = FileUtils.blurry_borders(im, self.size)
 
-            # Apply as texture
-            image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
-            image_texture.blit_buffer(im.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
-            self.texture = image_texture
+            # Réutiliser la texture si la taille est identique (évite Texture.create à chaque frame)
+            w, h = im.shape[1], im.shape[0]
+            if self._reuse_texture is not None and self._reuse_texture.size == (w, h):
+                self._reuse_texture.blit_buffer(im.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
+            else:
+                self._reuse_texture = Texture.create(size=(w, h), colorfmt='bgr')
+                self._reuse_texture.blit_buffer(im.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
+            self.texture = self._reuse_texture
 
         except Exception as e:
             Logger.error('Cannot read camera stream.')

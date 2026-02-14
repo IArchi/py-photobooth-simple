@@ -143,6 +143,14 @@ class Gphoto2Camera(CaptureDevice):
 
                 _, self._preview = tempfile.mkstemp(suffix='.jpg')
 
+                # Prévisualisation en thread : dernière frame disponible sans bloquer l'UI
+                self._preview_lock = threading.Lock()
+                self._preview_frame = None
+                self._preview_thread = None
+                self._preview_stop = False
+                # Décodage JPEG réduit (1/2 résolution) pour prévisualisation plus fluide (OpenCV 4+)
+                self._imread_preview = getattr(cv2, 'IMREAD_REDUCED_COLOR_2', cv2.IMREAD_COLOR)
+
                 # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
                 config = self._instance.get_config()
 
@@ -160,16 +168,39 @@ class Gphoto2Camera(CaptureDevice):
 
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
+    def _preview_loop(self):
+        """Thread dédié : capture + décode en continu pour ne pas bloquer l'UI."""
+        while not self._preview_stop:
+            try:
+                cfile = self._instance.capture_preview()
+                buf = np.frombuffer(cfile.get_data(auto_clean=False), dtype=np.uint8)
+                im = cv2.imdecode(buf, self._imread_preview)
+                if im is not None:
+                    im = cv2.rotate(im, cv2.ROTATE_180)
+                    with self._preview_lock:
+                        self._preview_frame = im
+            except Exception as e:
+                Logger.debug('Gphoto2Camera preview thread: %s', e)
+
+    def _start_preview_thread(self):
+        if self._preview_thread is not None and self._preview_thread.is_alive():
+            return
+        self._preview_stop = False
+        self._preview_thread = threading.Thread(target=self._preview_loop, daemon=True)
+        self._preview_thread.start()
+
     def has_physical_flash(self):
         return True
 
     def get_preview(self, aspect_ratio=None, zoom=None):
-        cfile = self._instance.capture_preview()
-        buf = np.frombuffer(cfile.get_data(auto_clean=False), dtype=np.uint8)
-        im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
-        im = cv2.rotate(im, cv2.ROTATE_180)
+        self._start_preview_thread()
+        with self._preview_lock:
+            im = self._preview_frame.copy() if self._preview_frame is not None else None
+        if im is None:
+            return None
         im = self._crop_to_aspect_ratio(im, aspect_ratio)
-        if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
+        if zoom and zoom[0] > 1.0:
+            im = FileUtils.zoom(im, zoom)
         return im
 
     def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
