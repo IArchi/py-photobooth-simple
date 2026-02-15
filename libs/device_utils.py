@@ -151,19 +151,47 @@ class Gphoto2Camera(CaptureDevice):
                 # Décodage JPEG réduit (1/2 résolution) pour prévisualisation plus fluide (OpenCV 4+)
                 self._imread_preview = getattr(cv2, 'IMREAD_REDUCED_COLOR_2', cv2.IMREAD_COLOR)
 
-                # Set default settings (For EOS 2000D: https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt)
-                # These settings are Canon EOS specific and may not be available on other camera brands
                 try:
                     config = self._instance.get_config()
 
-                    # Update some
-                    current_mode = config.get_path('/main/capturesettings/autoexposuremode').get_value()
-                    if current_mode in ['Manual', 'TV']:
-                        config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
-                    if current_mode in ['Manual', 'AV']:
-                        config.get_path('/main/capturesettings/aperture').set_value('13')
-                    config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
-                    config.get_path('/main/imgsettings/iso').set_value('100')
+                    manufacturer = config.get_path('/main/status/manufacturer').get_value()
+                    match manufacturer:
+                        case 'Canon Inc.':
+                            # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt
+                            current_mode = config.get_path('/main/capturesettings/autoexposuremode').get_value()
+                            if current_mode in ['Manual', 'TV']:
+                                config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
+                            if current_mode in ['Manual', 'AV']:
+                                config.get_path('/main/capturesettings/aperture').set_value('13')
+                             config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
+                             config.get_path('/main/imgsettings/iso').set_value('100')
+                            break
+
+                        case 'Nikon Corporation':
+                            # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/nikon-z6.txt
+                            current_mode = config.get_path('/main/capturesettings/expprogram').get_value()
+                            if current_mode in ['M', 'S']:
+                                config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
+                            if current_mode in ['M', 'A']:
+                                config.get_path('/main/capturesettings/f-number').set_value('f/13')
+                            config.get_path('/main/capturesettings/focusmode').set_value('AF-S')
+                            config.get_path('/main/imgsettings/iso').set_value('100')
+                            break
+
+                        case 'Sony Corporation':
+                            # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/sony-a7c.txt
+                            current_mode = config.get_path('/main/capturesettings/expprogram').get_value()
+                            if current_mode in ['M', 'S']:
+                                config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
+                            if current_mode in ['M', 'A']:
+                                config.get_path('/main/capturesettings/f-number').set_value('f/13')
+                            config.get_path('/main/capturesettings/focusmode').set_value('AF-A')
+                            config.get_path('/main/imgsettings/iso').set_value('100')
+                            break
+
+                        case _:
+                            Logger.info('Unsupported camera model: %s', manufacturer)
+                            return
 
                     # Commit changes
                     self._instance.commit_config(config)
