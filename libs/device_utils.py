@@ -33,7 +33,7 @@ class CaptureDevice:
     _instance = None
 
     def get_preview_fps(self):
-        """FPS conseillé pour le rafraîchissement du preview (30 par défaut)."""
+        """Recommended FPS for preview refresh (30 by default)."""
         return 30
 
     def get_preview(self, aspect_ratio=None):
@@ -139,70 +139,89 @@ class Cv2Camera(CaptureDevice):
             Logger.error(f'Error creating small preview: {e}')
 
 class Gphoto2Camera(CaptureDevice):
-    def __init__(self):
+    def __init__(self, dslr_liveview_params=None, dslr_capture_params=None):
         if gp:
             # List connected DSLR cameras
             if gp.cameraList().count():
                 self._instance = gp.camera()
 
-                # Prévisualisation en thread : double buffer pour éviter .copy() à chaque get_preview
+                self.dslr_liveview_params = dslr_liveview_params or {}
+                self.dslr_capture_params = dslr_capture_params or {}
                 self._preview_lock = threading.Lock()
                 self._preview_frame = None
                 self._preview_frame_back = None
                 self._preview_thread = None
                 self._preview_stop = False
-                self._preview_fps = 15  # DSLR preview limité en débit USB
-                # Décodage JPEG réduit (1/2 résolution) pour prévisualisation plus fluide (OpenCV 4+)
+                self._preview_fps = 15  # DSLR preview limited by USB throughput
+                # Reduced JPEG decode (1/2 resolution) for smoother preview (OpenCV 4+)
                 self._imread_preview = getattr(cv2, 'IMREAD_REDUCED_COLOR_2', cv2.IMREAD_COLOR)
 
                 try:
-                    config = self._instance.get_config()
-
-                    manufacturer = config.get_path('/main/status/manufacturer').get_value()
-                    match manufacturer:
-                        case 'Canon Inc.':
-                            # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt
-                            current_mode = config.get_path('/main/capturesettings/autoexposuremode').get_value()
-                            if current_mode in ['Manual', 'TV']:
-                                config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
-                            if current_mode in ['Manual', 'AV']:
-                                config.get_path('/main/capturesettings/aperture').set_value('13')
-                             config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
-                             config.get_path('/main/imgsettings/iso').set_value('100')
-
-                        case 'Nikon Corporation':
-                            # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/nikon-z6.txt
-                            current_mode = config.get_path('/main/capturesettings/expprogram').get_value()
-                            if current_mode in ['M', 'S']:
-                                config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
-                            if current_mode in ['M', 'A']:
-                                config.get_path('/main/capturesettings/f-number').set_value('f/13')
-                            config.get_path('/main/capturesettings/focusmode').set_value('AF-S')
-                            config.get_path('/main/imgsettings/iso').set_value('100')
-
-                        case 'Sony Corporation':
-                            # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/sony-a7c.txt
-                            current_mode = config.get_path('/main/capturesettings/expprogram').get_value()
-                            if current_mode in ['M', 'S']:
-                                config.get_path('/main/capturesettings/shutterspeed').set_value('1/125')
-                            if current_mode in ['M', 'A']:
-                                config.get_path('/main/capturesettings/f-number').set_value('f/13')
-                            config.get_path('/main/capturesettings/focusmode').set_value('AF-A')
-                            config.get_path('/main/imgsettings/iso').set_value('100')
-
-                        case _:
-                            Logger.info('Unsupported camera model: %s', manufacturer)
-                            return
-
-                    # Commit changes
-                    self._instance.commit_config(config)
+                    self._set_parameters(self._dslr_liveview_params)
                 except Exception:
                     Logger.info('Could not set default DSLR settings, maybe unsupported camera model.')
 
         if not self._instance: raise Exception('Cannot find any gPhoto2 camera or gPhoto2 is not installed.')
 
+    def _get_param(self, params, key):
+        """Returns the value if defined and non-empty, otherwise None."""
+        v = params.get(key) or params.get(key.upper())
+        if v is None or (isinstance(v, str) and v.strip() == ''): return None
+        return v
+
+    def _set_parameters(self, params):
+        """
+        Applies DSLR parameters (config.ini key -> value dict) according to manufacturer.
+        If a parameter is missing or None, it is not changed.
+        """
+        if not params: return
+
+        config = self._instance.get_config()
+        manufacturer = config.get_path('/main/status/manufacturer').get_value()
+
+        if manufacturer == 'Canon Inc.':
+            # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/canon-eos2000d.txt
+            current_mode = config.get_path('/main/capturesettings/autoexposuremode').get_value()
+            if (v := self._get_param(params, 'SHUTTERSPEED')) and current_mode in ['Manual', 'TV']:
+                config.get_path('/main/capturesettings/shutterspeed').set_value(v)
+            if (v := self._get_param(params, 'APERTURE')) and current_mode in ['Manual', 'AV']:
+                config.get_path('/main/capturesettings/aperture').set_value(v)
+            if v := self._get_param(params, 'FOCUSMODE'):
+                config.get_path('/main/capturesettings/focusmode').set_value(v)
+            if v := self._get_param(params, 'ISO'):
+                config.get_path('/main/imgsettings/iso').set_value(v)
+
+        elif manufacturer == 'Nikon Corporation':
+            # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/nikon-z6.txt
+            current_mode = config.get_path('/main/capturesettings/expprogram').get_value()
+            if (v := self._get_param(params, 'SHUTTERSPEED')) and current_mode in ['M', 'S']:
+                config.get_path('/main/capturesettings/shutterspeed').set_value(v)
+            if (v := self._get_param(params, 'APERTURE')) and current_mode in ['M', 'A']:
+                config.get_path('/main/capturesettings/f-number').set_value(v)
+            if v := self._get_param(params, 'FOCUSMODE'):
+                config.get_path('/main/capturesettings/focusmode').set_value(v)
+            if v := self._get_param(params, 'ISO'):
+                config.get_path('/main/imgsettings/iso').set_value(v)
+
+        elif manufacturer == 'Sony Corporation':
+            # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/sony-a7c.txt
+            current_mode = config.get_path('/main/capturesettings/expprogram').get_value()
+            if (v := self._get_param(params, 'SHUTTERSPEED')) and current_mode in ['M', 'S']:
+                config.get_path('/main/capturesettings/shutterspeed').set_value(v)
+            if (v := self._get_param(params, 'APERTURE')) and current_mode in ['M', 'A']:
+                config.get_path('/main/capturesettings/f-number').set_value('f/{v}')
+            if v := self._get_param(params, 'FOCUSMODE'):
+                config.get_path('/main/capturesettings/focusmode').set_value(v)
+            if v := self._get_param(params, 'ISO'):
+                config.get_path('/main/imgsettings/iso').set_value(v)
+
+        else:
+            Logger.info('Unsupported camera model: %s', manufacturer)
+
+        self._instance.commit_config(config)
+
     def _preview_loop(self):
-        """Thread dédié : capture + décode en continu pour ne pas bloquer l'UI."""
+        """Dedicated thread: continuous capture + decode so as not to block the UI."""
         while not self._preview_stop:
             try:
                 cfile = self._instance.capture_preview()
@@ -227,7 +246,7 @@ class Gphoto2Camera(CaptureDevice):
         return True
 
     def get_preview_fps(self):
-        """FPS conseillé pour le preview (DSLR limité en débit USB)."""
+        """Recommended FPS for preview (DSLR limited by USB throughput)."""
         return self._preview_fps
 
     def get_preview(self, aspect_ratio=None, zoom=None):
@@ -242,6 +261,12 @@ class Gphoto2Camera(CaptureDevice):
         return im
 
     def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
+        # Apply capture parameters (config.ini [DSLR_Capture]) right before capture
+        try:
+            self._set_parameters(self._dslr_capture_params or {})
+        except Exception as e:
+            Logger.debug('Gphoto2Camera: could not apply capture params: %s', e)
+
         # Capture photo
         if flash_fn and not self.has_physical_flash(): flash_fn()
         cfile = self._instance.capture_image()
@@ -259,6 +284,12 @@ class Gphoto2Camera(CaptureDevice):
 
         # Create small preview in background thread (non-blocking)
         threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
+
+        # Set DSLR back to liveview
+        try:
+            self.__set_parameters(self._dslr_liveview_params)
+        except Exception as e:
+            Logger.debug('Gphoto2Camera: could not apply liveview params: %s', e)
     
     def _create_small_async(self, image, output_name):
         """Create small preview image asynchronously to avoid blocking capture."""
@@ -348,7 +379,8 @@ class DeviceUtils:
     _capture = None
     _printer = None
 
-    def __init__(self, printer_name=None, picamera2_port=0, cv2_port=-1, zoom=None):
+    def __init__(self, printer_name=None, picamera2_port=0, cv2_port=-1, zoom=None,
+                 dslr_liveview_params=None, dslr_capture_params=None):
         self._zoom = zoom
 
         try:
@@ -362,7 +394,8 @@ class DeviceUtils:
         except:
             pi2_camera = None
         try:
-            g2_camera = Gphoto2Camera()
+            g2_camera = Gphoto2Camera(dslr_liveview_params=dslr_liveview_params,
+                                      dslr_capture_params=dslr_capture_params)
         except:
             g2_camera = None
         try:

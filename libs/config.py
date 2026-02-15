@@ -33,3 +33,22 @@ class Config:
 
     def get_filters(self):
         return self.config.getboolean('Picture', 'FILTERS')
+
+    def _get_dslr_params(self, section):
+        """Returns a dict param -> value for the given DSLR section. Empty or None value = do not set."""
+        keys = ['SHUTTERSPEED', 'APERTURE', 'FOCUSMODE', 'ISO']
+        out = {}
+        if not self.config.has_section(section):
+            return out
+        for k in keys:
+            if self.config.has_option(section, k):
+                v = self.config.get(section, k).strip()
+                if v and v.upper() != 'NONE':
+                    out[k] = v
+        return out
+
+    def get_dslr_liveview_params(self):
+        return self._get_dslr_params('DSLR_Liveview')
+
+    def get_dslr_capture_params(self):
+        return self._get_dslr_params('DSLR_Capture')

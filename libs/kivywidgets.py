@@ -68,10 +68,12 @@ class KivyCamera(Image):
             w, h = im.shape[1], im.shape[0]
             if self._reuse_texture is not None and self._reuse_texture.size == (w, h):
                 self._reuse_texture.blit_buffer(im.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
+                # Forcer le rafraîchissement du canvas car la référence de texture n'a pas changé
+                self.canvas.ask_update()
             else:
                 self._reuse_texture = Texture.create(size=(w, h), colorfmt='bgr')
                 self._reuse_texture.blit_buffer(im.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
-            self.texture = self._reuse_texture
+                self.texture = self._reuse_texture
 
         except Exception as e:
             Logger.error('Cannot read camera stream.')

@@ -63,7 +63,12 @@ class PhotoboothApp(App):
         self._requested_kwargs = None
         self.processes = []
         self.ringled = RINGLED
-        self.devices = DeviceUtils(printer_name=self.PRINTER, zoom=self.CALIBRATION)
+        self.devices = DeviceUtils(
+            printer_name=self.PRINTER,
+            zoom=self.CALIBRATION,
+            dslr_liveview_params=config.get_dslr_liveview_params(),
+            dslr_capture_params=config.get_dslr_capture_params(),
+        )
         
         # Load templates from JSON files
         self.print_formats = load_templates('templates')
