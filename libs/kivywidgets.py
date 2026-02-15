@@ -109,6 +109,18 @@ class BlurredImage(Image):
                 self._last_size = current_size
                 self.reload()
 
+    def set_image(self, im):
+        """Met à jour l'affichage à partir d'un tableau numpy (BGR). Appel thread-safe via Clock.schedule_once."""
+        if im is None: return
+        try:
+            im = cv2.flip(im, 0)
+            if self._blur: im = FileUtils.blurry_borders(im, self.size)
+            image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
+            image_texture.blit_buffer(im.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
+            self.texture = image_texture
+        except Exception as e:
+            Logger.error('BlurredImage.set_image: %s', e)
+
     def reload(self):
         try:
             im = cv2.imread(self.filepath)

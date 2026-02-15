@@ -1,4 +1,5 @@
 import random
+import threading
 import cv2
 import numpy as np
 from kivy.clock import Clock
@@ -1180,7 +1181,8 @@ class ConfirmCaptureScreen(ColorScreen):
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self._selected_filter = 'color'  # Reset to default filter
-        
+        self._original_image = None
+
         # Hide counter layout when only one photo is needed
         total_shots = self.app.get_shots_to_take(self._current_format)
         if total_shots == 1:
@@ -1191,22 +1193,32 @@ class ConfirmCaptureScreen(ColorScreen):
                 self.overlay_layout.add_widget(self.counter_layout)
             for i in range(0, total_shots): self.icons[i].text = ICON_SHOT_TO_TAKE
             for i in range(0, self._current_shot + 1): self.icons[i].text = ICON_SHOT_TAKEN
-        
-        # Load image
-        original_path = FileUtils.get_small_path(self.app.get_shot(self._current_shot))
-        
-        # Load original image only if filters are enabled
-        if self.app.FILTERS:
-            self._original_image = cv2.imread(self.app.get_shot(self._current_shot))
-        
-        self.preview.filepath = original_path
-        self.preview.reload()
-        
-        # Generate filter thumbnails only if filters are enabled
-        if self.app.FILTERS:
-            self._update_filter_thumbnails()
-            self._update_selection_indicator()
-        
+
+        load_id = (self._current_shot, self._current_format)
+
+        def load_images():
+            shot, fmt = self._current_shot, self._current_format
+            small_path = FileUtils.get_small_path(self.app.get_shot(shot))
+            full_path = self.app.get_shot(shot)
+            small_im = cv2.imread(small_path)
+            full_im = cv2.imread(full_path) if self.app.FILTERS else None
+
+            def apply_on_main(dt):
+                if (self._current_shot, self._current_format) != load_id:
+                    return
+                self._original_image = full_im
+                if small_im is not None:
+                    self.preview.set_image(small_im)
+                else:
+                    self.preview.filepath = small_path
+                    self.preview.reload()
+                if self.app.FILTERS:
+                    self._update_filter_thumbnails()
+                    self._update_selection_indicator()
+
+            Clock.schedule_once(apply_on_main, 0)
+
+        threading.Thread(target=load_images, daemon=True).start()
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
 
     def on_exit(self, kwargs={}):
