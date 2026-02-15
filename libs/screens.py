@@ -509,7 +509,7 @@ class CountdownScreen(ColorScreen):
         # Display camera preview
         self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='center')
         
-        self.camera = KivyCamera(app=self.app, fps=30, blur=BLUR_CAMERA, fit_mode='contain')
+        self.camera = KivyCamera(app=self.app, fps=self.app.devices.get_preview_fps(), blur=BLUR_CAMERA, fit_mode='contain')
         self.layout.add_widget(self.camera)
         
         # Create overlay layout for buttons (on top of camera)

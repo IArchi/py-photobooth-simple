@@ -55,8 +55,13 @@ class KivyCamera(Image):
             im = self._app.devices.get_preview(self._aspect_ratio)
             if im is None: return
 
-            # Generate blurry borders
+            # Generate blurry borders (réduire la résolution avant blur pour plus de fluidité)
             if self._blur:
+                max_w, max_h = 1280, 720
+                h, w = im.shape[:2]
+                if w > max_w or h > max_h:
+                    scale = min(max_w / w, max_h / h)
+                    im = cv2.resize(im, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
                 im = FileUtils.blurry_borders(im, self.size)
 
             # Réutiliser la texture si la taille est identique (évite Texture.create à chaque frame)
@@ -111,7 +116,7 @@ class BlurredImage(Image):
             im = cv2.flip(im, 0)
             if self._blur: im = FileUtils.blurry_borders(im, self.size)
             image_texture = Texture.create(size=(im.shape[1], im.shape[0]), colorfmt='bgr')
-            image_texture.blit_buffer(im.flatten(), colorfmt='bgr', bufferfmt='ubyte')
+            image_texture.blit_buffer(im.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
             self.texture = image_texture
         except Exception as e:
             Logger.error(f'Cannot open image {self.filepath}.')

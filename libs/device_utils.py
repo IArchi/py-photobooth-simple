@@ -1,7 +1,7 @@
 import os
-import tempfile
 import subprocess
 import threading
+import time
 import numpy as np
 from kivy.logger import Logger
 
@@ -31,6 +31,10 @@ except:
 
 class CaptureDevice:
     _instance = None
+
+    def get_preview_fps(self):
+        """FPS conseillé pour le rafraîchissement du preview (30 par défaut)."""
+        return 30
 
     def get_preview(self, aspect_ratio=None):
         pass
@@ -141,13 +145,13 @@ class Gphoto2Camera(CaptureDevice):
             if gp.cameraList().count():
                 self._instance = gp.camera()
 
-                _, self._preview = tempfile.mkstemp(suffix='.jpg')
-
-                # Prévisualisation en thread : dernière frame disponible sans bloquer l'UI
+                # Prévisualisation en thread : double buffer pour éviter .copy() à chaque get_preview
                 self._preview_lock = threading.Lock()
                 self._preview_frame = None
+                self._preview_frame_back = None
                 self._preview_thread = None
                 self._preview_stop = False
+                self._preview_fps = 15  # DSLR preview limité en débit USB
                 # Décodage JPEG réduit (1/2 résolution) pour prévisualisation plus fluide (OpenCV 4+)
                 self._imread_preview = getattr(cv2, 'IMREAD_REDUCED_COLOR_2', cv2.IMREAD_COLOR)
 
@@ -165,7 +169,6 @@ class Gphoto2Camera(CaptureDevice):
                                 config.get_path('/main/capturesettings/aperture').set_value('13')
                              config.get_path('/main/capturesettings/focusmode').set_value('One Shot')
                              config.get_path('/main/imgsettings/iso').set_value('100')
-                            break
 
                         case 'Nikon Corporation':
                             # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/nikon-z6.txt
@@ -176,7 +179,6 @@ class Gphoto2Camera(CaptureDevice):
                                 config.get_path('/main/capturesettings/f-number').set_value('f/13')
                             config.get_path('/main/capturesettings/focusmode').set_value('AF-S')
                             config.get_path('/main/imgsettings/iso').set_value('100')
-                            break
 
                         case 'Sony Corporation':
                             # From https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/cameras/sony-a7c.txt
@@ -187,7 +189,6 @@ class Gphoto2Camera(CaptureDevice):
                                 config.get_path('/main/capturesettings/f-number').set_value('f/13')
                             config.get_path('/main/capturesettings/focusmode').set_value('AF-A')
                             config.get_path('/main/imgsettings/iso').set_value('100')
-                            break
 
                         case _:
                             Logger.info('Unsupported camera model: %s', manufacturer)
@@ -210,7 +211,8 @@ class Gphoto2Camera(CaptureDevice):
                 if im is not None:
                     im = cv2.rotate(im, cv2.ROTATE_180)
                     with self._preview_lock:
-                        self._preview_frame = im
+                        self._preview_frame, self._preview_frame_back = im, self._preview_frame
+                time.sleep(1.0 / self._preview_fps)
             except Exception as e:
                 Logger.debug('Gphoto2Camera preview thread: %s', e)
 
@@ -224,10 +226,14 @@ class Gphoto2Camera(CaptureDevice):
     def has_physical_flash(self):
         return True
 
+    def get_preview_fps(self):
+        """FPS conseillé pour le preview (DSLR limité en débit USB)."""
+        return self._preview_fps
+
     def get_preview(self, aspect_ratio=None, zoom=None):
         self._start_preview_thread()
         with self._preview_lock:
-            im = self._preview_frame.copy() if self._preview_frame is not None else None
+            im = (self._preview_frame.copy() if self._preview_frame is not None else None)
         if im is None:
             return None
         im = self._crop_to_aspect_ratio(im, aspect_ratio)
@@ -385,16 +391,15 @@ class DeviceUtils:
             Logger.info('Switch to CV2 camera')
             self._preview = cv2_camera
             self._capture = cv2_camera
-        elif g2_camera:
-            Logger.info('Switch to gPhoto2 camera')
-            self._preview = g2_camera
-            self._capture = g2_camera
         else:
             Logger.info('Cannot find any camera nor DSLR')
-            raise Exception('This app requires at lease a piCamera, a DSLR or a webcam to work.')
+            raise Exception('This app requires at least a piCamera, a DSLR or a webcam to work.')
 
     def has_physical_flash(self):
         return self._capture.has_physical_flash()
+
+    def get_preview_fps(self):
+        return self._preview.get_preview_fps()
 
     def get_preview(self, aspect_ratio=None):
         return self._preview.get_preview(aspect_ratio=aspect_ratio, zoom=self._zoom)
@@ -403,34 +408,23 @@ class DeviceUtils:
         return self._capture.capture(output_name, aspect_ratio, self._zoom, flash_fn)
 
     def has_printer(self):
-        if self._printer is None: return False
+        if self._printer is None:
+            return False
+        if getattr(self, '_has_printer_usb', None) is not None:
+            return self._has_printer_usb
         try:
-            # Run lsusb and capture the output
-            result = subprocess.run(['lsusb'], stdout=subprocess.PIPE, text=True)
-            lsusb_output = result.stdout
-
-            # Define common keywords and vendor names associated with printers
+            result = subprocess.run(['lsusb'], stdout=subprocess.PIPE, text=True, timeout=2)
+            lsusb_output = result.stdout or ''
             printer_keywords = [
-                'Print',          # Generic term
-                'Epson',          # Epson printers
-                'HP',             # HP printers
-                'Brother',        # Brother printers
-                'Samsung',        # Samsung printers
-                'Lexmark',        # Lexmark printers
-                'Xerox',          # Xerox printers
-                'Ricoh',          # Ricoh printers
-                'Kyocera',        # Kyocera printers
-                'OKI',            # OKI printers
-                'Konica',         # Konica Minolta printers
-                'Sharp',          # Sharp printers
-                'Toshiba',        # Toshiba printers
+                'Print', 'Epson', 'HP', 'Brother', 'Samsung', 'Lexmark',
+                'Xerox', 'Ricoh', 'Kyocera', 'OKI', 'Konica', 'Sharp', 'Toshiba',
             ]
-            for keyword in printer_keywords:
-                if keyword.lower() in lsusb_output.lower(): return True
+            lower = lsusb_output.lower()
+            self._has_printer_usb = any(kw.lower() in lower for kw in printer_keywords)
         except Exception as e:
-            Logger.error("An error occurred while checking for printers: {}".format(str(e)))
-
-        return False
+            Logger.error("An error occurred while checking for printers: %s", str(e))
+            self._has_printer_usb = False
+        return self._has_printer_usb
 
     def print(self, file_path, print_params={}):
         if not self._printer: return
