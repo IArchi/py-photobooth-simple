@@ -344,8 +344,13 @@ address=/captive.apple.com/192.168.4.1
 address=/www.apple.com/192.168.4.1
 address=/apple.com/192.168.4.1
 address=/connectivitycheck.gstatic.com/192.168.4.1
+address=/clients3.google.com/192.168.4.1
+address=/msftconnecttest.com/192.168.4.1
 address=/www.msftconnecttest.com/192.168.4.1
+address=/msftncsi.com/192.168.4.1
+address=/www.msftncsi.com/192.168.4.1
 address=/detectportal.firefox.com/192.168.4.1
+address=/nmcheck.gnome.org/192.168.4.1
 
 # Logging (optional, comment out for production)
 log-queries

@@ -639,17 +639,16 @@ class WebServer:
         # Captive portal detection URLs
         @self.app.route('/generate_204')
         @self.app.route('/gen_204')
-        def android_captive():
-            return redirect('/')
-        
         @self.app.route('/hotspot-detect.html')
         @self.app.route('/library/test/success.html')
-        def apple_captive():
-            return redirect('/')
-        
+        @self.app.route('/canonical.html')
         @self.app.route('/connecttest.txt')
+        @self.app.route('/ncsi.txt')
         @self.app.route('/redirect')
-        def windows_captive():
+        @self.app.route('/fwlink')
+        @self.app.route('/check_network_status.txt')
+        @self.app.route('/mobile/status.php')
+        def captive():
             return redirect('/')
     
     def start(self):

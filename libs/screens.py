@@ -1823,7 +1823,19 @@ class QRCodePopup(FloatLayout):
         )
         qr_container.add_widget(self.qr_image)
         self.card.add_widget(qr_container)
-        
+
+        hint_label = Label(
+            text='Go to http://192.168.4.1',
+            size_hint=(1, None),
+            height=80,
+            font_size=TINY_FONT,
+            color=(0, 0, 0, 1),
+            halign='center',
+            valign='middle',
+        )
+        hint_label.bind(size=hint_label.setter('text_size'))
+        self.card.add_widget(hint_label)
+
         # Close button positioned below QR code
         btn_container = AnchorLayout(
             size_hint=(1, None),
