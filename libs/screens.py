@@ -1770,16 +1770,18 @@ class QRCodePopup(FloatLayout):
         
         self.bind(pos=self._update_bg, size=self._update_bg)
         
-        # Keep enough room for the title and actions even on small screens.
-        card_width = min(max(Window.width * 0.85, 280), 600)
+        # Keep enough room for the title and actions without making the card too wide.
+        is_small_screen = Window.width < 700 or Window.height < 700
+        card_width_ratio = 0.72 if is_small_screen else 0.6
+        card_width = min(max(Window.width * card_width_ratio, 220), 600)
         card_height = min(max(Window.height * 0.85, 360), 750)
 
-        card_padding = max(12, min(30, int(card_width * 0.05)))
-        card_spacing = max(8, min(20, int(card_height * 0.025)))
+        card_padding = max(8, min(24, int(card_width * 0.035)))
+        card_spacing = max(4 , min(12, int(card_height * 0.015)))
         label_height = max(36, min(60, int(card_height * 0.1)))
         hint_height = max(30, min(50, int(card_height * 0.08)))
         button_height = max(70, min(100, int(card_height * 0.14)))
-        qr_size = min(card_width * 0.72, card_height * 0.42)
+        qr_size = min(card_width * 0.8, card_height * 0.42)
 
         # Ensure the QR image never consumes all vertical space.
         fixed_height = (card_padding * 2) + label_height + hint_height + button_height + (card_spacing * 3)
