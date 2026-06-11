@@ -1788,7 +1788,7 @@ class QRCodePopup(FloatLayout):
         qr_size = min(qr_size, max(120, card_height - fixed_height))
 
         scan_font_size = '24sp' if Window.height < 700 else SMALL_FONT
-        hint_font_size = '13sp' if Window.height < 700 else TINY_FONT
+        hint_font_size = '20sp' if Window.height < 700 else TINY_FONT
         
         # White card container with responsive size using BoxLayout for better positioning
         from kivy.graphics import RoundedRectangle
