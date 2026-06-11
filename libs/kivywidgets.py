@@ -460,7 +460,9 @@ class CircularProgressCounter(FloatLayout):
     min_circle_size = NumericProperty(180)
     max_circle_size = NumericProperty(350)
     size_ratio = NumericProperty(0.55)
+    small_screen_ratio = NumericProperty(0.38)
     outer_padding = NumericProperty(50)
+    small_screen_padding = NumericProperty(30)
     
     def __init__(self, **kwargs):
         super(CircularProgressCounter, self).__init__(**kwargs)
@@ -482,9 +484,12 @@ class CircularProgressCounter(FloatLayout):
 
     def _update_responsive_size(self, *args):
         window_min = min(Window.size)
-        responsive_circle_size = min(self.max_circle_size, window_min * self.size_ratio)
+        is_small_screen = Window.width < 700 or Window.height < 700
+        size_ratio = self.small_screen_ratio if is_small_screen else self.size_ratio
+        responsive_circle_size = min(self.max_circle_size, window_min * size_ratio)
         self.circle_size = max(self.min_circle_size, responsive_circle_size)
-        widget_size = self.circle_size + self.outer_padding
+        padding = self.small_screen_padding if is_small_screen else self.outer_padding
+        widget_size = self.circle_size + padding
         self.size = (widget_size, widget_size)
 
     def _update_label_size(self, *args):
