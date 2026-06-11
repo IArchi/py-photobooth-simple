@@ -448,7 +448,7 @@ Builder.load_string('''
         Color:
             rgba: root.progress_color
         Line:
-            circle: (self.center_x, self.center_y, self.circle_size/2, 0, - (360 * root.progress))
+            circle: (self.center_x, self.center_y, self.circle_size/2, 0, 360 * root.progress)
             width: root.line_width
             cap: 'round'
 ''')
