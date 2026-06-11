@@ -12,7 +12,7 @@ class Config:
         return self.config.getboolean('Global', 'FULLSCREEN')
 
     def get_share(self):
-        return self.config.getboolean('Global', 'SHARE')
+        return self.config.getboolean('Global', 'WEBSERVER')
 
     def get_ringled(self):
         return self.config.getboolean('Global', 'RINGLED')

@@ -155,7 +155,7 @@ python3 photoboothapp.py
 You can edit `config.ini` to change various parameters such as:
  - **AUTORESTART:** Automatically restart on failure
  - **FULLSCREEN:** Full screen window mode
- - **SHARE:** Enable/disable share buttons and web server
+ - **WEBSERVER:** Enable/disable share buttons and web server (gallery and editor)
  - **RINGLED:** Enable/disable RingLed functionality (set to `False` if you don't have RingLed hardware)
  - **COUNTDOWN:** Countdown time before photo capture
  - **DCIM_DIRECTORY:** Directory where photos and collages are stored
@@ -165,6 +165,7 @@ You can edit `config.ini` to change various parameters such as:
 ### Template Editor
 
 The application includes a **visual template editor** (`tools/template_editor.html`) - a browser-based tool for creating and customizing photo layouts without coding.
+If you have enabled `WEBSERVER` in configuration, the editor is reachable from `<localip>/editor`.
 
 - **Visual Canvas:** Interactive canvas with grid snapping for precise positioning
 - **Photo Frames:** Add, move, resize, and delete photo placeholders
