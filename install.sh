@@ -291,6 +291,7 @@ if is_raspberry_pi; then
         sudo cp /etc/hostapd/hostapd.conf /etc/hostapd/hostapd.conf.backup 2>/dev/null || true
         sudo cp /etc/NetworkManager/conf.d/unmanaged-wlan0.conf /etc/NetworkManager/conf.d/unmanaged-wlan0.conf.backup 2>/dev/null || true
         sudo cp /etc/systemd/system/photobooth-ap-network.service /etc/systemd/system/photobooth-ap-network.service.backup 2>/dev/null || true
+        sudo cp /etc/systemd/system/photobooth-http-redirect.service /etc/systemd/system/photobooth-http-redirect.service.backup 2>/dev/null || true
         
         # Configure static IP for wlan0 using the active network manager
         if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
@@ -350,6 +351,24 @@ address=/detectportal.firefox.com/192.168.4.1
 log-queries
 log-dhcp
 EOF'
+
+        # Redirect HTTP traffic from port 80 to the application on port 5000
+        print_info "Creating HTTP redirect service (80 -> 5000)..."
+        sudo bash -c 'cat > /etc/systemd/system/photobooth-http-redirect.service << EOF
+[Unit]
+Description=Redirect HTTP traffic to PhotoBooth web app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "iptables -t nat -C PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-ports 5000 2>/dev/null || iptables -t nat -A PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-ports 5000"
+ExecStop=/bin/sh -c "iptables -t nat -D PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-ports 5000 2>/dev/null || true"
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF'
         
         # Configure hostapd (WiFi Access Point)
         print_info "Configuring hostapd..."
@@ -400,8 +419,9 @@ EOF'
         sudo systemctl unmask hostapd
         sudo systemctl enable hostapd
         sudo systemctl enable dnsmasq
+        sudo systemctl daemon-reload
+        sudo systemctl enable photobooth-http-redirect.service
         if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
-            sudo systemctl daemon-reload
             sudo systemctl enable photobooth-ap-network.service
         fi
         
@@ -415,11 +435,12 @@ EOF'
         fi
         sudo systemctl start hostapd
         sudo systemctl start dnsmasq
+        sudo systemctl start photobooth-http-redirect.service
         
         print_success "WiFi Access Point configured"
         print_info "SSID: PhotoBooth"
         print_info "IP Address: 192.168.4.1"
-        print_info "Web Server: http://192.168.4.1"
+        print_info "Web Server: http://192.168.4.1 (redirected to port 5000)"
         NEED_REBOOT=true
     else
         print_info "Skipping WiFi Access Point configuration"

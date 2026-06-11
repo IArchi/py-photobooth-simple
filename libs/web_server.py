@@ -10,7 +10,7 @@ from kivy.logger import Logger
 class WebServer:
     """Flask web server for photo gallery with captive portal."""
     
-    def __init__(self, save_directory, host='0.0.0.0', port=80):
+    def __init__(self, save_directory, host='0.0.0.0', port=5000):
         self.save_directory = save_directory
         self.host = host
         self.port = port
