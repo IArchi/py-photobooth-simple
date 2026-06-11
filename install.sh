@@ -276,8 +276,8 @@ if is_raspberry_pi; then
         print_info "Configuring WiFi Access Point..."
         
         # Install required packages
-        print_info "Installing hostapd, dnsmasq, and iptables-persistent..."
-        sudo apt-get install -y hostapd dnsmasq iptables-persistent
+        print_info "Installing hostapd and dnsmasq..."
+        sudo apt-get install -y hostapd dnsmasq
         
         # Stop services during configuration
         print_info "Stopping services..."
@@ -289,16 +289,45 @@ if is_raspberry_pi; then
         sudo cp /etc/dhcpcd.conf /etc/dhcpcd.conf.backup 2>/dev/null || true
         sudo cp /etc/dnsmasq.conf /etc/dnsmasq.conf.backup 2>/dev/null || true
         sudo cp /etc/hostapd/hostapd.conf /etc/hostapd/hostapd.conf.backup 2>/dev/null || true
+        sudo cp /etc/NetworkManager/conf.d/unmanaged-wlan0.conf /etc/NetworkManager/conf.d/unmanaged-wlan0.conf.backup 2>/dev/null || true
+        sudo cp /etc/systemd/system/photobooth-ap-network.service /etc/systemd/system/photobooth-ap-network.service.backup 2>/dev/null || true
         
-        # Configure static IP for wlan0
-        print_info "Configuring static IP for wlan0..."
-        sudo bash -c 'cat >> /etc/dhcpcd.conf << EOF
+        # Configure static IP for wlan0 using the active network manager
+        if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+            print_info "Configuring NetworkManager to ignore wlan0..."
+            sudo mkdir -p /etc/NetworkManager/conf.d
+            sudo bash -c 'cat > /etc/NetworkManager/conf.d/unmanaged-wlan0.conf << EOF
+[keyfile]
+unmanaged-devices=interface-name:wlan0
+EOF'
+
+            print_info "Creating static IP service for wlan0..."
+            sudo bash -c 'cat > /etc/systemd/system/photobooth-ap-network.service << EOF
+[Unit]
+Description=Static IP for PhotoBooth AP
+Before=hostapd.service dnsmasq.service
+Wants=hostapd.service dnsmasq.service
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/ip link set wlan0 up
+ExecStart=/sbin/ip addr flush dev wlan0
+ExecStart=/sbin/ip addr add 192.168.4.1/24 dev wlan0
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+        else
+            print_info "Configuring static IP for wlan0 via dhcpcd..."
+            sudo bash -c 'cat >> /etc/dhcpcd.conf << EOF
 
 # PhotoBooth WiFi AP Configuration
 interface wlan0
     static ip_address=192.168.4.1/24
     nohook wpa_supplicant
 EOF'
+        fi
         
         # Configure dnsmasq (DHCP and DNS server)
         print_info "Configuring dnsmasq..."
@@ -311,6 +340,8 @@ address=/#/192.168.4.1
 
 # Captive Portal - Redirect all DNS queries to AP
 address=/captive.apple.com/192.168.4.1
+address=/www.apple.com/192.168.4.1
+address=/apple.com/192.168.4.1
 address=/connectivitycheck.gstatic.com/192.168.4.1
 address=/www.msftconnecttest.com/192.168.4.1
 address=/detectportal.firefox.com/192.168.4.1
@@ -364,36 +395,31 @@ EOF'
 DAEMON_CONF="/etc/hostapd/hostapd.conf"
 EOF'
         
-        # Enable IP forwarding
-        print_info "Enabling IP forwarding..."
-        sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
-        sudo sysctl -w net.ipv4.ip_forward=1 2>/dev/null || true
-        
-        # Configure iptables for NAT
-        print_info "Configuring iptables..."
-        sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null || true
-        sudo iptables -A FORWARD -i eth0 -o wlan0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
-        sudo iptables -A FORWARD -i wlan0 -o eth0 -j ACCEPT 2>/dev/null || true
-        
-        # Save iptables rules
-        sudo netfilter-persistent save 2>/dev/null || true
-        
         # Unmask and enable services
         print_info "Enabling services..."
         sudo systemctl unmask hostapd
         sudo systemctl enable hostapd
         sudo systemctl enable dnsmasq
+        if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+            sudo systemctl daemon-reload
+            sudo systemctl enable photobooth-ap-network.service
+        fi
         
         # Start services
         print_info "Starting services..."
-        sudo systemctl start hostapd 2>/dev/null || true
-        sudo systemctl start dnsmasq 2>/dev/null || true
-        sudo systemctl restart dhcpcd 2>/dev/null || true
+        if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+            sudo systemctl restart NetworkManager
+            sudo systemctl start photobooth-ap-network.service
+        else
+            sudo systemctl restart dhcpcd 2>/dev/null || true
+        fi
+        sudo systemctl start hostapd
+        sudo systemctl start dnsmasq
         
         print_success "WiFi Access Point configured"
         print_info "SSID: PhotoBooth"
         print_info "IP Address: 192.168.4.1"
-        print_info "Web Server: http://192.168.4.1:5000"
+        print_info "Web Server: http://192.168.4.1"
         NEED_REBOOT=true
     else
         print_info "Skipping WiFi Access Point configuration"
