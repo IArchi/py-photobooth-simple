@@ -1770,14 +1770,23 @@ class QRCodePopup(FloatLayout):
         
         self.bind(pos=self._update_bg, size=self._update_bg)
         
-        # Calculate responsive card size (max 60% of window width, 70% of height)
-        max_width = Window.width * 0.6
-        max_height = Window.height * 0.7
-        card_width = min(max_width, 600)
-        card_height = min(max_height, 750)
-        
-        # Calculate QR code size based on card dimensions
-        qr_size = min(card_width * 0.7, card_height * 0.5)
+        # Keep enough room for the title and actions even on small screens.
+        card_width = min(max(Window.width * 0.85, 280), 600)
+        card_height = min(max(Window.height * 0.85, 360), 750)
+
+        card_padding = max(12, min(30, int(card_width * 0.05)))
+        card_spacing = max(8, min(20, int(card_height * 0.025)))
+        label_height = max(36, min(60, int(card_height * 0.1)))
+        hint_height = max(30, min(50, int(card_height * 0.08)))
+        button_height = max(70, min(100, int(card_height * 0.14)))
+        qr_size = min(card_width * 0.72, card_height * 0.42)
+
+        # Ensure the QR image never consumes all vertical space.
+        fixed_height = (card_padding * 2) + label_height + hint_height + button_height + (card_spacing * 3)
+        qr_size = min(qr_size, max(120, card_height - fixed_height))
+
+        scan_font_size = '24sp' if Window.height < 700 else SMALL_FONT
+        hint_font_size = '13sp' if Window.height < 700 else TINY_FONT
         
         # White card container with responsive size using BoxLayout for better positioning
         from kivy.graphics import RoundedRectangle
@@ -1787,8 +1796,8 @@ class QRCodePopup(FloatLayout):
             size_hint=(None, None),
             size=(card_width, card_height),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
-            padding=30,
-            spacing=20,
+            padding=card_padding,
+            spacing=card_spacing,
         )
         
         with self.card.canvas.before:
@@ -1801,8 +1810,8 @@ class QRCodePopup(FloatLayout):
         scan_label = Label(
             text='SCAN ME',
             size_hint=(1, None),
-            height=60,
-            font_size=SMALL_FONT,
+            height=label_height,
+            font_size=scan_font_size,
             bold=True,
             color=(0, 0, 0, 1),
             halign='center',
@@ -1830,8 +1839,8 @@ class QRCodePopup(FloatLayout):
         hint_label = Label(
             text='Go to http://192.168.4.1',
             size_hint=(1, None),
-            height=60,
-            font_size=TINY_FONT,
+            height=hint_height,
+            font_size=hint_font_size,
             bold=True,
             color=(0, 0, 0, 1),
             halign='center',
@@ -1843,7 +1852,7 @@ class QRCodePopup(FloatLayout):
         # Close button positioned below QR code
         btn_container = AnchorLayout(
             size_hint=(1, None),
-            height=100,
+            height=button_height,
             anchor_x='center',
             anchor_y='center',
         )
