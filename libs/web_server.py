@@ -4,6 +4,7 @@ import re
 import threading
 from datetime import datetime
 from flask import Flask, jsonify, request, send_file, render_template_string, redirect
+from werkzeug.serving import make_server
 from kivy.logger import Logger
 
 class WebServer:
@@ -15,6 +16,7 @@ class WebServer:
         self.port = port
         self.app = Flask(__name__)
         self.server_thread = None
+        self.server = None
         self.stats_file = os.path.join(save_directory, '.stats.json')
         self.stats_lock = threading.Lock()
         self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -654,15 +656,37 @@ class WebServer:
         """Start the web server in a separate thread."""
         if self.server_thread and self.server_thread.is_alive():
             Logger.warning('WebServer: Server already running')
-            return
-        
+            return True
+
+        startup_event = threading.Event()
+        startup_state = {'error': None}
+
         def run_server():
-            Logger.info(f'WebServer: Starting on {self.host}:{self.port}')
-            self.app.run(host=self.host, port=self.port, debug=False, threaded=True)
-        
+            try:
+                Logger.info(f'WebServer: Starting on {self.host}:{self.port}')
+                self.server = make_server(self.host, self.port, self.app, threaded=True)
+                startup_event.set()
+                self.server.serve_forever()
+            except Exception as e:
+                startup_state['error'] = e
+                startup_event.set()
+                Logger.error(f'WebServer: Failed to start on {self.host}:{self.port}: {e}')
+            finally:
+                self.server = None
+
         self.server_thread = threading.Thread(target=run_server, daemon=True)
         self.server_thread.start()
+        startup_event.wait(timeout=5)
+
+        if not startup_event.is_set():
+            Logger.error('WebServer: Server startup timed out')
+            return False
+
+        if startup_state['error'] is not None:
+            return False
+
         Logger.info('WebServer: Server started successfully')
+        return True
     
     def track_photo_taken(self, session_id=None):
         """Public method to track when a photo is taken.
@@ -688,4 +712,8 @@ class WebServer:
     
     def stop(self):
         """Stop the web server."""
-        Logger.info('WebServer: Stop requested (requires app restart)')
+        if self.server is not None:
+            self.server.shutdown()
+            Logger.info('WebServer: Server stopped')
+        else:
+            Logger.info('WebServer: Stop requested but server is not running')

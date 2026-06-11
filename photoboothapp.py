@@ -92,8 +92,10 @@ class PhotoboothApp(App):
         if self.SHARE:
             abs_save_directory = os.path.abspath(self.save_directory)
             self.web_server = WebServer(abs_save_directory, host='0.0.0.0', port=80)
-            self.web_server.start()
-            Logger.info(f'PhotoboothApp: Web server started for photo gallery at {abs_save_directory}')
+            if self.web_server.start():
+                Logger.info(f'PhotoboothApp: Web server started for photo gallery at {abs_save_directory}')
+            else:
+                Logger.error('PhotoboothApp: Web server failed to start; gallery sharing is unavailable')
         else:
             self.web_server = None
             Logger.info('PhotoboothApp: Web server disabled (SHARE=False)')
