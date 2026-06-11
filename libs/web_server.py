@@ -1,8 +1,9 @@
 import os
 import json
+import re
 import threading
 from datetime import datetime
-from flask import Flask, send_file, render_template_string, redirect
+from flask import Flask, jsonify, request, send_file, render_template_string, redirect
 from kivy.logger import Logger
 
 class WebServer:
@@ -16,7 +17,65 @@ class WebServer:
         self.server_thread = None
         self.stats_file = os.path.join(save_directory, '.stats.json')
         self.stats_lock = threading.Lock()
+        self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.templates_directory = os.path.join(self.project_root, 'templates')
+        self.template_editor_path = os.path.join(self.project_root, 'tools', 'template_editor.html')
         self._setup_routes()
+
+    def _sanitize_template_filename(self, filename=None, template_name='template'):
+        """Return a safe JSON filename for template storage."""
+        source = filename or template_name or 'template'
+        safe_name = os.path.basename(source).strip()
+
+        if safe_name.lower().endswith('.json'):
+            safe_name = safe_name[:-5]
+
+        safe_name = safe_name.replace(' ', '_')
+        safe_name = re.sub(r'[^A-Za-z0-9._-]', '', safe_name)
+        safe_name = safe_name.strip('._-') or 'template'
+
+        return f'{safe_name}.json'
+
+    def _get_unique_template_filename(self, filename):
+        """Return a non-conflicting filename in the templates directory."""
+        base_name, extension = os.path.splitext(filename)
+        candidate = filename
+        counter = 1
+
+        while os.path.exists(os.path.join(self.templates_directory, candidate)):
+            candidate = f'{base_name}_{counter}{extension}'
+            counter += 1
+
+        return candidate
+
+    def _load_template_definitions(self):
+        """Load all template JSON files from the templates directory."""
+        templates = []
+
+        if not os.path.isdir(self.templates_directory):
+            return templates
+
+        for filename in sorted(os.listdir(self.templates_directory)):
+            if not filename.lower().endswith('.json'):
+                continue
+
+            template_path = os.path.join(self.templates_directory, filename)
+            if not os.path.isfile(template_path):
+                continue
+
+            try:
+                with open(template_path, 'r', encoding='utf-8') as handle:
+                    template_data = json.load(handle)
+
+                if isinstance(template_data, dict):
+                    templates.append({
+                        'filename': filename,
+                        'template': template_data,
+                    })
+            except Exception as e:
+                Logger.error(f'WebServer: Error loading template {filename}: {e}')
+
+        return templates
     
     def _load_stats(self):
         """Load statistics from JSON file."""
@@ -97,6 +156,72 @@ class WebServer:
     
     def _setup_routes(self):
         """Setup Flask routes."""
+
+        @self.app.route('/editor')
+        def template_editor():
+            """Expose the browser-based template editor."""
+            if not os.path.exists(self.template_editor_path):
+                return 'Template editor not found', 404
+
+            return send_file(self.template_editor_path, mimetype='text/html')
+
+        @self.app.route('/api/templates', methods=['GET'])
+        def list_templates():
+            """List templates stored on disk."""
+            return jsonify({'templates': self._load_template_definitions()})
+
+        @self.app.route('/api/templates', methods=['POST'])
+        def save_template():
+            """Save a template into the templates directory."""
+            payload = request.get_json(silent=True)
+            if not isinstance(payload, dict):
+                return jsonify({'error': 'Invalid JSON payload'}), 400
+
+            template_data = payload.get('template')
+            if not isinstance(template_data, dict):
+                return jsonify({'error': 'Missing template object'}), 400
+
+            if 'name' not in template_data or 'page' not in template_data:
+                return jsonify({'error': 'Template must include at least name and page'}), 400
+
+            requested_filename = payload.get('filename')
+            filename = self._sanitize_template_filename(
+                requested_filename,
+                template_data.get('name', 'template')
+            )
+
+            try:
+                os.makedirs(self.templates_directory, exist_ok=True)
+
+                if not requested_filename:
+                    filename = self._get_unique_template_filename(filename)
+
+                template_path = os.path.join(self.templates_directory, filename)
+                with open(template_path, 'w', encoding='utf-8') as handle:
+                    json.dump(template_data, handle, indent=2, ensure_ascii=False)
+                    handle.write('\n')
+            except Exception as e:
+                Logger.error(f'WebServer: Error saving template {filename}: {e}')
+                return jsonify({'error': 'Unable to save template'}), 500
+
+            return jsonify({'saved': True, 'filename': filename})
+
+        @self.app.route('/api/templates/<path:filename>', methods=['DELETE'])
+        def delete_template(filename):
+            """Delete a stored template from the templates directory."""
+            safe_filename = self._sanitize_template_filename(filename)
+            template_path = os.path.join(self.templates_directory, safe_filename)
+
+            if not os.path.isfile(template_path):
+                return jsonify({'error': 'Template not found'}), 404
+
+            try:
+                os.remove(template_path)
+            except Exception as e:
+                Logger.error(f'WebServer: Error deleting template {safe_filename}: {e}')
+                return jsonify({'error': 'Unable to delete template'}), 500
+
+            return jsonify({'deleted': True, 'filename': safe_filename})
         
         @self.app.route('/')
         def index():

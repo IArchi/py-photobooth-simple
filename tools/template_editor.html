@@ -66,6 +66,15 @@
             background: #218838;
         }
 
+        .btn-warning {
+            background: #fd7e14;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #dc6a0b;
+        }
+
         .btn-danger {
             background: #dc3545;
             color: white;
@@ -129,6 +138,29 @@
         .template-item-actions button {
             padding: 4px 8px;
             font-size: 12px;
+        }
+
+        .template-item-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .template-item-meta {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .template-item-name,
+        .template-item-desc {
+            overflow-wrap: anywhere;
+        }
+
+        .template-item-icon-btn {
+            padding: 4px 8px;
+            min-width: 32px;
+            line-height: 1;
         }
 
         .main-content {
@@ -400,6 +432,9 @@
             <button class="btn btn-success" onclick="exportTemplate()" style="width: 100%; margin-top: 10px;">
                 📥 Export JSON
             </button>
+            <button class="btn btn-warning" onclick="saveTemplateToServer()" style="width: 100%; margin-top: 10px;">
+                💾 Save to server
+            </button>
         </div>
         <div class="template-list" id="templateList"></div>
     </div>
@@ -562,6 +597,8 @@
         let scale = 1;
         let backgroundImage = null;
         let foregroundImage = null;
+        let templateSourceFiles = [];
+        let builtInTemplateCount = 0;
 
         // Canvas
         const canvas = document.getElementById('canvas');
@@ -569,7 +606,7 @@
         const canvasWrapper = document.getElementById('canvasWrapper');
 
         // Initialize with sample templates
-        function init() {
+        async function init() {
             templates = [
                 {
                     "name": "(Empty)",
@@ -646,8 +683,36 @@
                 }
             ];
 
+            builtInTemplateCount = templates.length;
+            templateSourceFiles = new Array(templates.length).fill(null);
+
+            await loadTemplatesFromServer();
+
             renderTemplateList();
             selectTemplate(0);
+        }
+
+        async function loadTemplatesFromServer() {
+            try {
+                const response = await fetch('/api/templates');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const payload = await response.json();
+                const serverTemplates = Array.isArray(payload.templates) ? payload.templates : [];
+
+                serverTemplates.forEach((entry) => {
+                    if (!entry || typeof entry !== 'object' || !entry.template) {
+                        return;
+                    }
+
+                    templates.push(entry.template);
+                    templateSourceFiles.push(entry.filename || null);
+                });
+            } catch (error) {
+                console.warn('Could not load templates from server:', error);
+            }
         }
 
         function renderTemplateList() {
@@ -655,13 +720,22 @@
             listEl.innerHTML = '';
 
             templates.forEach((template, index) => {
+                const isBuiltInTemplate = index < builtInTemplateCount;
                 const item = document.createElement('div');
                 item.className = 'template-item' + (index === currentTemplateIndex ? ' active' : '');
                 item.onclick = () => selectTemplate(index);
 
                 item.innerHTML = `
-                    <div class="template-item-name">${template.name}</div>
-                    <div class="template-item-desc">${template.description}</div>
+                    <div class="template-item-row">
+                        <div class="template-item-meta">
+                            <div class="template-item-name">${template.name}</div>
+                            <div class="template-item-desc">${template.description}</div>
+                        </div>
+                        <div class="template-item-actions">
+                            <button class="btn btn-secondary template-item-icon-btn" title="Duplicate template" onclick="event.stopPropagation(); duplicateTemplate(${index})">⧉</button>
+                            ${isBuiltInTemplate ? '' : `<button class="btn btn-danger template-item-icon-btn" title="Delete template" onclick="event.stopPropagation(); deleteTemplate(${index})">×</button>`}
+                        </div>
+                    </div>
                 `;
 
                 listEl.appendChild(item);
@@ -1358,23 +1432,59 @@
             const template = JSON.parse(JSON.stringify(templates[index]));
             template.name = template.name + ' (copy)';
             templates.push(template);
+            templateSourceFiles.push(null);
             renderTemplateList();
             selectTemplate(templates.length - 1);
         }
 
         function deleteTemplate(index) {
+            if (index < builtInTemplateCount) {
+                alert('Default templates cannot be deleted.');
+                return;
+            }
+
             if (templates.length <= 1) {
                 alert('You must keep at least one template.');
                 return;
             }
-            
-            if (confirm(`Delete template "${templates[index].name}"?`)) {
+
+            deleteTemplateAtIndex(index);
+        }
+
+        async function deleteTemplateAtIndex(index) {
+            const template = templates[index];
+            const sourceFilename = templateSourceFiles[index];
+            const confirmMessage = sourceFilename
+                ? `Delete template "${template.name}" and remove templates/${sourceFilename} from server?`
+                : `Delete template "${template.name}"?`;
+
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+
+            try {
+                if (sourceFilename) {
+                    const response = await fetch(`/api/templates/${encodeURIComponent(sourceFilename)}`, {
+                        method: 'DELETE'
+                    });
+
+                    const payload = await response.json();
+                    if (!response.ok) {
+                        throw new Error(payload.error || `HTTP ${response.status}`);
+                    }
+                }
+
                 templates.splice(index, 1);
+                templateSourceFiles.splice(index, 1);
+
                 if (currentTemplateIndex >= templates.length) {
                     currentTemplateIndex = templates.length - 1;
                 }
+
                 renderTemplateList();
                 loadTemplate();
+            } catch (error) {
+                alert('Error deleting template: ' + error.message);
             }
         }
 
@@ -1421,9 +1531,40 @@
             };
             
             templates.push(newTemplate);
+            templateSourceFiles.push(null);
             renderTemplateList();
             selectTemplate(templates.length - 1);
             closeNewTemplateModal();
+        }
+
+        async function saveTemplateToServer() {
+            if (currentTemplateIndex < 0) return;
+
+            const template = templates[currentTemplateIndex];
+            const sourceFilename = templateSourceFiles[currentTemplateIndex];
+
+            try {
+                const response = await fetch('/api/templates', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        filename: sourceFilename,
+                        template: template
+                    })
+                });
+
+                const payload = await response.json();
+                if (!response.ok) {
+                    throw new Error(payload.error || `HTTP ${response.status}`);
+                }
+
+                templateSourceFiles[currentTemplateIndex] = payload.filename || sourceFilename;
+                alert(`Template saved to templates/${templateSourceFiles[currentTemplateIndex]}`);
+            } catch (error) {
+                alert('Error saving template: ' + error.message);
+            }
         }
 
         function exportTemplate() {
@@ -1466,6 +1607,7 @@
                     
                     // Add the imported template to the list
                     templates.push(importedTemplate);
+                    templateSourceFiles.push(null);
                     renderTemplateList();
                     selectTemplate(templates.length - 1);
                     
