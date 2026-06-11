@@ -1827,8 +1827,9 @@ class QRCodePopup(FloatLayout):
         hint_label = Label(
             text='Go to http://192.168.4.1',
             size_hint=(1, None),
-            height=80,
+            height=60,
             font_size=TINY_FONT,
+            bold=True,
             color=(0, 0, 0, 1),
             halign='center',
             valign='middle',
