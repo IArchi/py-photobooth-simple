@@ -1410,6 +1410,8 @@ class ConfirmSaveScreen(ColorScreen):
         # Reset timeout when opening QR code popup
         Clock.unschedule(self.auto_confirm)
         self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
+        if hasattr(self, 'qr_popup') and self.qr_popup.parent:
+            return
         # Show QR code popup
         self.qr_popup = QRCodePopup(on_dismiss=self._dismiss_qr_popup)
         self.layout.add_widget(self.qr_popup)
@@ -1533,6 +1535,8 @@ class ConfirmPrintScreen(ColorScreen):
         # Reset timeout when opening QR code popup
         Clock.unschedule(self.auto_decline)
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
+        if hasattr(self, 'qr_popup') and self.qr_popup.parent:
+            return
         # Show QR code popup
         self.qr_popup = QRCodePopup(on_dismiss=self._dismiss_qr_popup)
         self.layout.add_widget(self.qr_popup)
@@ -1762,6 +1766,7 @@ class QRCodePopup(FloatLayout):
     def __init__(self, on_dismiss=None, **kwargs):
         super(QRCodePopup, self).__init__(**kwargs)
         self.on_dismiss = on_dismiss
+        self._close_scheduled = False
         
         # Semi-transparent overlay that blocks all touch events
         with self.canvas.before:
@@ -1774,7 +1779,8 @@ class QRCodePopup(FloatLayout):
         is_small_screen = Window.width < 700 or Window.height < 700
         card_width_ratio = 0.72 if is_small_screen else 0.6
         card_width = min(max(Window.width * card_width_ratio, 220), 600)
-        card_height = min(max(Window.height * 0.85, 360), 750)
+        card_height_ratio = 0.78 if is_small_screen else 0.85
+        card_height = min(max(Window.height * card_height_ratio, 360), 750)
 
         card_padding = max(8, min(24, int(card_width * 0.035)))
         card_spacing = max(4 , min(12, int(card_height * 0.015)))
@@ -1797,7 +1803,7 @@ class QRCodePopup(FloatLayout):
             orientation='vertical',
             size_hint=(None, None),
             size=(card_width, card_height),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            pos_hint={'center_x': 0.5, 'center_y': 0.53 if is_small_screen else 0.5},
             padding=card_padding,
             spacing=card_spacing,
         )
@@ -1808,7 +1814,6 @@ class QRCodePopup(FloatLayout):
         
         self.card.bind(pos=self._update_card, size=self._update_card)
         
-        # "SCAN ME" label
         scan_label = Label(
             text='SCAN ME',
             size_hint=(1, None),
@@ -1851,14 +1856,15 @@ class QRCodePopup(FloatLayout):
         hint_label.bind(size=hint_label.setter('text_size'))
         self.card.add_widget(hint_label)
 
-        # Close button positioned below QR code
+        # Keep the close button at the bottom, but the popup is slightly smaller
+        # and raised on small screens so it no longer overlaps the SHARE button.
         btn_container = AnchorLayout(
             size_hint=(1, None),
             height=button_height,
             anchor_x='center',
             anchor_y='center',
         )
-        
+
         btn_close = make_icon_button(
             ICON_CANCEL,
             size=0.07,
@@ -1870,7 +1876,7 @@ class QRCodePopup(FloatLayout):
         )
         btn_container.add_widget(btn_close)
         self.card.add_widget(btn_container)
-        
+
         self.add_widget(self.card)
         
         # Generate QR code
@@ -1929,5 +1935,8 @@ class QRCodePopup(FloatLayout):
     
     def _close(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if self._close_scheduled:
+            return
+        self._close_scheduled = True
         if self.on_dismiss:
-            self.on_dismiss()
+            Clock.schedule_once(lambda dt: self.on_dismiss(), 0)
