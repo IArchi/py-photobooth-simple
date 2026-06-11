@@ -457,6 +457,10 @@ class CircularProgressCounter(FloatLayout):
     progress_color = ColorProperty([1, 1, 1, 1])
     circle_size = NumericProperty(300)
     line_width = NumericProperty(8)
+    min_circle_size = NumericProperty(180)
+    max_circle_size = NumericProperty(350)
+    size_ratio = NumericProperty(0.55)
+    outer_padding = NumericProperty(50)
     
     def __init__(self, **kwargs):
         super(CircularProgressCounter, self).__init__(**kwargs)
@@ -464,11 +468,27 @@ class CircularProgressCounter(FloatLayout):
             text='',
             halign='center',
             valign='middle',
-            font_size='120sp',
+            font_size=sp(120),
             size_hint=(1, 1),
             pos_hint={'center_x': 0.5, 'center_y': 0.5}
         )
         self.add_widget(self.label)
+        self.bind(circle_size=self._update_label_size)
+        Window.bind(size=self._on_window_resize)
+        Clock.schedule_once(self._update_responsive_size, 0)
+
+    def _on_window_resize(self, *args):
+        self._update_responsive_size()
+
+    def _update_responsive_size(self, *args):
+        window_min = min(Window.size)
+        responsive_circle_size = min(self.max_circle_size, window_min * self.size_ratio)
+        self.circle_size = max(self.min_circle_size, responsive_circle_size)
+        widget_size = self.circle_size + self.outer_padding
+        self.size = (widget_size, widget_size)
+
+    def _update_label_size(self, *args):
+        self.label.font_size = max(sp(72), min(sp(120), self.circle_size * 0.34))
     
     def set_text(self, text):
         self.label.text = str(text)
