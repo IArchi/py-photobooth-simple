@@ -33,7 +33,7 @@ BLUR_COLLAGE = False
 # Colors
 BACKGROUND_COLOR = hex_to_rgba('#26495c')
 BORDER_COLOR = hex_to_rgba('#c4a35a')
-BORDER_THINKNESS = (Window.dpi / 160) * 10
+BORDER_THINKNESS = 0#(Window.dpi / 160) * 10
 PROGRESS_COLOR = hex_to_rgba('#e5e5e5')
 CONFIRM_COLOR = hex_to_rgba('#538a64')
 CANCEL_COLOR = hex_to_rgba('#8b4846')
@@ -123,19 +123,22 @@ class ColorScreen(Screen):
         super(ColorScreen, self).__init__(**kwargs)
         with self.canvas.before:
             # Border
-            #Color(*BORDER_COLOR)
-            #self.border_rect = Rectangle(pos=self.pos, size=self.size)
+            if BORDER_THINKNESS > 0:
+                Color(*BORDER_COLOR)
+                self.border_rect = Rectangle(pos=self.pos, size=self.size)
+            else:
+                self.border_rect = None
 
             # Background
             Color(*BACKGROUND_COLOR)
             self.background_rect = Rectangle(pos=(self.x + BORDER_THINKNESS, self.y + BORDER_THINKNESS), size=(self.width - BORDER_THINKNESS*2, self.height - BORDER_THINKNESS*2))
 
     def on_pos(self, *args):
-        #self.border_rect.pos = self.pos
+        if self.border_rect: self.border_rect.pos = self.pos
         self.background_rect.pos = (self.x + BORDER_THINKNESS, self.y + BORDER_THINKNESS)
 
     def on_size(self, *args):
-        #self.border_rect.size = self.size
+        if self.border_rect: self.border_rect.size = self.size
         self.background_rect.size = (self.width - BORDER_THINKNESS*2, self.height - BORDER_THINKNESS*2)
 
     def on_update(self, kwargs={}):
