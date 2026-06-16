@@ -30,6 +30,15 @@ BLUR_CAMERA = True
 BLUR_IMAGES = False
 BLUR_COLLAGE = False
 
+def hex_to_rgba(hex_color):
+    hex_color = hex_color.lstrip('#')
+    return (
+        int(hex_color[0:2], 16) / 255.0,
+        int(hex_color[2:4], 16) / 255.0,
+        int(hex_color[4:6], 16) / 255.0,
+        1.0,
+    )
+
 # Colors
 BACKGROUND_COLOR = hex_to_rgba('#26495c')
 BORDER_COLOR = hex_to_rgba('#c4a35a')

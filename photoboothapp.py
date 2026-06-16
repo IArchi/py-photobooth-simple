@@ -109,6 +109,10 @@ class PhotoboothApp(App):
     def on_stop(self):
         if self.ringled:
             self.ringled.clear()
+        if getattr(self, 'web_server', None):
+            self.web_server.stop()
+        if getattr(self, 'devices', None):
+            self.devices.close()
 
     def request_transition_to(self, new_state, **kwargs):
         """

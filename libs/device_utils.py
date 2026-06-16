@@ -2,6 +2,7 @@ import os
 import subprocess
 import threading
 import time
+import traceback
 import numpy as np
 from kivy.logger import Logger
 
@@ -44,6 +45,9 @@ class CaptureDevice:
 
     def has_physical_flash(self):
         return False
+
+    def close(self):
+        pass
 
     def _crop_to_aspect_ratio(self, image, aspect_ratio):
         """
@@ -137,6 +141,11 @@ class Cv2Camera(CaptureDevice):
             cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
         except Exception as e:
             Logger.error(f'Error creating small preview: {e}')
+
+    def close(self):
+        if self._instance is not None:
+            self._instance.release()
+            self._instance = None
 
 class Gphoto2Camera(CaptureDevice):
     def __init__(self, dslr_liveview_params=None, dslr_capture_params=None):
@@ -299,16 +308,31 @@ class Gphoto2Camera(CaptureDevice):
         except Exception as e:
             Logger.error(f'Error creating small preview: {e}')
 
+    def close(self):
+        self._preview_stop = True
+        if self._preview_thread is not None and self._preview_thread.is_alive():
+            self._preview_thread.join(timeout=1)
+        if self._instance is not None:
+            try:
+                self._instance.close()
+            except Exception as e:
+                Logger.warning('Gphoto2Camera: could not close camera cleanly: %s', e)
+            self._instance = None
+
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
         if Picamera2:
-            self._instance = Picamera2(camera_num=port)
-
-            self._preview_config = self._instance.create_preview_configuration(main={'format': 'RGB888', 'size': (2304, 1296)}, controls={'FrameRate': 30})
-            self._still_config = self._instance.create_still_configuration(main={"size": (2304, 1296), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
-            self._instance.configure(self._preview_config)
-            self._instance.set_controls({'AfMode': controls.AfModeEnum.Continuous, 'AfSpeed': controls.AfSpeedEnum.Fast})
-            self._instance.start()
+            try:
+                self._instance = Picamera2(camera_num=port)
+                self._preview_config = self._instance.create_preview_configuration(main={'format': 'RGB888', 'size': (2304, 1296)}, controls={'FrameRate': 30})
+                self._still_config = self._instance.create_still_configuration(main={"size": (2304, 1296), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
+                self._instance.configure(self._preview_config)
+                self._instance.set_controls({'AfMode': controls.AfModeEnum.Continuous, 'AfSpeed': controls.AfSpeedEnum.Fast})
+                self._instance.start()
+            except Exception as e:
+                Logger.error('Picamera2Camera: initialization failed: %s', e)
+                Logger.error(traceback.format_exc())
+                self.close()
         if not self._instance: raise Exception('Cannot find any Picamera2 or picamera2 is not installed.')
 
     def get_preview(self, aspect_ratio=None, zoom=None):
@@ -341,6 +365,18 @@ class Picamera2Camera(CaptureDevice):
             cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
         except Exception as e:
             Logger.error(f'Error creating small preview: {e}')
+
+    def close(self):
+        if self._instance is not None:
+            try:
+                self._instance.stop()
+            except Exception:
+                pass
+            try:
+                self._instance.close()
+            except Exception:
+                pass
+            self._instance = None
 
 class CupsPrinter(PrintDevice):
     _name = None
@@ -385,22 +421,26 @@ class DeviceUtils:
 
         try:
             self._printer = CupsPrinter(printer_name)
-        except:
+        except Exception as e:
+            Logger.warning('DeviceUtils: printer initialization failed: %s', e)
             self._printer = None
 
         # Try to load cameras
         try:
             pi2_camera = Picamera2Camera(picamera2_port)
-        except:
+        except Exception as e:
+            Logger.warning('DeviceUtils: Picamera2 unavailable: %s', e)
             pi2_camera = None
         try:
             g2_camera = Gphoto2Camera(dslr_liveview_params=dslr_liveview_params,
                                       dslr_capture_params=dslr_capture_params)
-        except:
+        except Exception as e:
+            Logger.warning('DeviceUtils: gPhoto2 unavailable: %s', e)
             g2_camera = None
         try:
             cv2_camera = Cv2Camera(cv2_port)
-        except:
+        except Exception as e:
+            Logger.warning('DeviceUtils: OpenCV camera unavailable: %s', e)
             cv2_camera = None
 
         # Switch to the best option
@@ -466,3 +506,12 @@ class DeviceUtils:
     def get_print_status(self, task_id):
         if not self._printer: return 'done'
         return self._printer.get_print_status(task_id)
+
+    def close(self):
+        for device in (self._preview, self._capture):
+            if device is None:
+                continue
+            try:
+                device.close()
+            except Exception as e:
+                Logger.warning('DeviceUtils: could not close device cleanly: %s', e)
