@@ -91,7 +91,13 @@ class PhotoboothApp(App):
         # Initialize web server for photo gallery (convert to absolute path) only if SHARE is enabled
         if self.SHARE:
             abs_save_directory = os.path.abspath(self.save_directory)
-            self.web_server = WebServer(abs_save_directory, host='0.0.0.0', port=5000)
+            self.web_server = WebServer(
+                abs_save_directory,
+                host='0.0.0.0',
+                port=5000,
+                admin_password=config.get_admin_password(),
+                restart_callback=self.request_restart,
+            )
             if self.web_server.start():
                 Logger.info(f'PhotoboothApp: Web server started for photo gallery at {abs_save_directory}')
             else:
@@ -113,6 +119,12 @@ class PhotoboothApp(App):
             self.web_server.stop()
         if getattr(self, 'devices', None):
             self.devices.close()
+
+    def request_restart(self):
+        """Request a clean application restart from a background thread."""
+        global autorestart
+        autorestart = True
+        Clock.schedule_once(lambda dt: self.stop(), 0)
 
     def request_transition_to(self, new_state, **kwargs):
         """

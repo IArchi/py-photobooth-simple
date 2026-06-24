@@ -1,25 +1,41 @@
 import os
+import hmac
+import io
 import json
 import re
+import shutil
 import threading
+import zipfile
 from datetime import datetime
-from flask import Flask, jsonify, request, send_file, render_template_string, redirect
+from flask import Flask, jsonify, request, send_file, render_template_string, redirect, session
 from werkzeug.serving import make_server
 from kivy.logger import Logger
 
 class WebServer:
     """Flask web server for photo gallery with captive portal."""
+
+    SESSION_PATTERN = re.compile(r'^\d{8}_\d{6}$')
+    IMAGE_FILENAME_PATTERN = re.compile(r'^(?:collage|capture-\d+)\.jpg$', re.IGNORECASE)
+    ADMIN_PASSWORD_PLACEHOLDER = '__HIDDEN__'
     
-    def __init__(self, save_directory, host='0.0.0.0', port=5000):
+    def __init__(self, save_directory, host='0.0.0.0', port=5000, admin_password=None, restart_callback=None):
         self.save_directory = save_directory
         self.host = host
         self.port = port
+        self.admin_password = admin_password.strip() if isinstance(admin_password, str) and admin_password.strip() else None
+        self.restart_callback = restart_callback
         self.app = Flask(__name__)
+        self.app.secret_key = os.urandom(32)
+        self.app.config.update(
+            SESSION_COOKIE_HTTPONLY=True,
+            SESSION_COOKIE_SAMESITE='Lax',
+        )
         self.server_thread = None
         self.server = None
         self.stats_file = os.path.join(save_directory, '.stats.json')
         self.stats_lock = threading.Lock()
         self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.config_file = os.path.join(self.project_root, 'config.ini')
         self.templates_directory = os.path.join(self.project_root, 'templates')
         self.template_editor_path = os.path.join(self.project_root, 'tools', 'template_editor.html')
         self._setup_routes()
@@ -78,6 +94,36 @@ class WebServer:
                 Logger.error(f'WebServer: Error loading template {filename}: {e}')
 
         return templates
+
+    def _is_valid_session(self, session):
+        """Return True when session matches expected timestamp format."""
+        if not isinstance(session, str):
+            return False
+
+        return bool(self.SESSION_PATTERN.fullmatch(session))
+
+    def _is_valid_image_filename(self, filename):
+        """Return True when filename matches expected JPEG photo names."""
+        if not isinstance(filename, str):
+            return False
+
+        return bool(self.IMAGE_FILENAME_PATTERN.fullmatch(filename))
+
+    def _get_safe_photo_path(self, session, filename):
+        """Return canonical photo path when request targets allowed JPEG file."""
+        if not self._is_valid_session(session) or not self._is_valid_image_filename(filename):
+            return None
+
+        base_path = os.path.realpath(self.save_directory)
+        requested_path = os.path.realpath(os.path.join(base_path, session, filename))
+
+        if not requested_path.startswith(base_path + os.sep):
+            return None
+
+        if not os.path.isfile(requested_path):
+            return None
+
+        return requested_path
     
     def _load_stats(self):
         """Load statistics from JSON file."""
@@ -155,6 +201,484 @@ class WebServer:
             Logger.error(f'WebServer: Error getting collages: {e}')
         
         return collages
+
+    def _get_all_downloadable_photos(self):
+        """Get all downloadable photos sorted by session and filename."""
+        photos = []
+
+        try:
+            if not os.path.exists(self.save_directory):
+                return photos
+
+            for session_dir in sorted(os.listdir(self.save_directory), reverse=True):
+                session_path = os.path.join(self.save_directory, session_dir)
+                if not os.path.isdir(session_path) or not self._is_valid_session(session_dir):
+                    continue
+
+                for filename in sorted(os.listdir(session_path)):
+                    if not self._is_valid_image_filename(filename):
+                        continue
+
+                    photo_path = os.path.join(session_path, filename)
+                    if not os.path.isfile(photo_path):
+                        continue
+
+                    photos.append({
+                        'session': session_dir,
+                        'filename': filename,
+                        'path': photo_path,
+                        'archive_name': os.path.join(session_dir, filename),
+                    })
+        except Exception as e:
+            Logger.error(f'WebServer: Error getting downloadable photos: {e}')
+
+        return photos
+
+    def _delete_all_sessions(self):
+        """Delete all valid session directories and reset photo-related stats."""
+        deleted_sessions = 0
+
+        try:
+            if os.path.isdir(self.save_directory):
+                for session_dir in os.listdir(self.save_directory):
+                    session_path = os.path.join(self.save_directory, session_dir)
+                    if not os.path.isdir(session_path) or not self._is_valid_session(session_dir):
+                        continue
+
+                    shutil.rmtree(session_path)
+                    deleted_sessions += 1
+
+            stats = self._load_stats()
+            stats['photos_taken'] = 0
+            stats['downloads'] = 0
+            stats['gallery_views'] = 0
+            stats['collage_views'] = 0
+            stats['image_views'] = 0
+            stats['first_photo_date'] = None
+            stats['last_photo_date'] = None
+            stats['last_download_date'] = None
+            stats['sessions'] = []
+            self._save_stats(stats)
+        except Exception as e:
+            Logger.error(f'WebServer: Error deleting sessions: {e}')
+            raise
+
+        return deleted_sessions
+
+    def _load_config_text(self):
+        """Return config.ini content as text."""
+        try:
+            with open(self.config_file, 'r', encoding='utf-8') as handle:
+                return handle.read()
+        except Exception as e:
+            Logger.error(f'WebServer: Error loading config file: {e}')
+            raise
+
+    def _save_config_text(self, content):
+        """Persist config.ini content to disk."""
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as handle:
+                handle.write(content)
+        except Exception as e:
+            Logger.error(f'WebServer: Error saving config file: {e}')
+            raise
+
+    def _is_admin_password_valid(self, password):
+        """Validate provided admin password."""
+        if self.admin_password is None:
+            return False
+
+        return hmac.compare_digest((password or '').strip(), self.admin_password)
+
+    def _is_admin_authenticated(self):
+        """Return True when current session is authenticated."""
+        return bool(session.get('is_admin_authenticated'))
+
+    def _require_admin_auth(self):
+        """Redirect unauthenticated users to admin login page."""
+        if self._is_admin_authenticated():
+            return None
+
+        return redirect('/admin/login')
+
+    def _mask_admin_password_in_config(self, content):
+        """Hide admin password before rendering config.ini to browser."""
+        return re.sub(
+            r'^(\s*ADMIN_PASSWORD\s*=\s*).*$' ,
+            rf'\1{self.ADMIN_PASSWORD_PLACEHOLDER}',
+            content,
+            flags=re.MULTILINE,
+        )
+
+    def _merge_masked_admin_password(self, content):
+        """Restore in-memory admin password when masked placeholder is submitted."""
+        def replace_password(match):
+            configured_password = match.group(2).strip()
+            if configured_password != self.ADMIN_PASSWORD_PLACEHOLDER:
+                return match.group(0)
+
+            restored_password = self.admin_password if self.admin_password is not None else 'None'
+            return f'{match.group(1)}{restored_password}'
+
+        return re.sub(
+            r'^(\s*ADMIN_PASSWORD\s*=\s*)(.*?)\s*$' ,
+            replace_password,
+            content,
+            flags=re.MULTILINE,
+        )
+
+    def _refresh_admin_password_from_config(self, content):
+        """Refresh in-memory admin password from config text."""
+        self.admin_password = None
+        password_match = re.search(r'^\s*ADMIN_PASSWORD\s*=\s*(.*?)\s*$', content, re.MULTILINE)
+        if not password_match:
+            return
+
+        configured_password = password_match.group(1).strip()
+        if configured_password and configured_password.upper() != 'NONE':
+            self.admin_password = configured_password
+
+    def _render_admin_login_page(self, error_message=None, success_message=None):
+        """Render admin login page."""
+        admin_enabled = self.admin_password is not None
+
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>PhotoBooth - Admin Login</title>
+            <style>
+                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                    background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                }}
+                .card {{
+                    width: 100%;
+                    max-width: 420px;
+                    background: white;
+                    border-radius: 20px;
+                    padding: 32px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+                }}
+                h1 {{
+                    color: #111827;
+                    margin-bottom: 12px;
+                    font-size: 30px;
+                }}
+                p {{
+                    color: #4b5563;
+                    line-height: 1.5;
+                    margin-bottom: 18px;
+                }}
+                .status {{
+                    border-radius: 12px;
+                    padding: 14px 16px;
+                    margin-bottom: 16px;
+                }}
+                .status.error {{
+                    background: #fff5f5;
+                    color: #b91c1c;
+                    border: 1px solid #fecaca;
+                }}
+                .status.success {{
+                    background: #f0fdf4;
+                    color: #15803d;
+                    border: 1px solid #bbf7d0;
+                }}
+                label {{
+                    display: block;
+                    color: #111827;
+                    font-weight: 600;
+                    margin-bottom: 8px;
+                }}
+                input[type="password"] {{
+                    width: 100%;
+                    padding: 14px 16px;
+                    border: 1px solid #d1d5db;
+                    border-radius: 12px;
+                    font-size: 16px;
+                    margin-bottom: 16px;
+                }}
+                .actions {{
+                    display: flex;
+                    gap: 12px;
+                    flex-wrap: wrap;
+                }}
+                .btn {{
+                    display: inline-block;
+                    padding: 14px 24px;
+                    border-radius: 999px;
+                    text-decoration: none;
+                    font-weight: 700;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 15px;
+                }}
+                .btn-primary {{
+                    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+                    color: white;
+                }}
+                .btn-secondary {{
+                    background: #e5e7eb;
+                    color: #111827;
+                }}
+                .btn-disabled {{
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>🔐 Admin login</h1>
+                <p>Authentication required before opening admin panel.</p>
+                {f'<div class="status error">{error_message}</div>' if error_message else ''}
+                {f'<div class="status success">{success_message}</div>' if success_message else ''}
+                {'<div class="status error">ADMIN_PASSWORD is not set in config.ini. Admin access is disabled.</div>' if not admin_enabled else ''}
+                <form method="post" action="/admin/login">
+                    <label for="password">Admin password</label>
+                    <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" {'disabled' if not admin_enabled else ''}>
+                    <div class="actions">
+                        <button type="submit" class="btn btn-primary{' btn-disabled' if not admin_enabled else ''}" {'disabled' if not admin_enabled else ''}>Sign in</button>
+                        <a href="/stats" class="btn btn-secondary">Back to stats</a>
+                    </div>
+                </form>
+            </div>
+        </body>
+        </html>
+        """
+
+        return render_template_string(html)
+
+    def _render_admin_page(self, error_message=None, success_message=None, config_content=None):
+        """Render admin page used to delete all saved photos."""
+        sessions_count = len(self._get_all_collages())
+        files_count = len(self._get_all_downloadable_photos())
+        admin_enabled = self.admin_password is not None
+        if config_content is None:
+            try:
+                config_content = self._mask_admin_password_in_config(self._load_config_text())
+            except Exception:
+                config_content = 'Unable to load config.ini'
+
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>PhotoBooth - Admin</title>
+            <style>
+                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+                    background: linear-gradient(135deg, #1f1f1f 0%, #3a3a3a 100%);
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                }}
+                .card {{
+                    width: 100%;
+                    max-width: 560px;
+                    background: white;
+                    border-radius: 20px;
+                    padding: 32px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+                }}
+                h1 {{
+                    color: #111;
+                    margin-bottom: 12px;
+                    font-size: 32px;
+                }}
+                p {{
+                    color: #555;
+                    line-height: 1.5;
+                    margin-bottom: 18px;
+                }}
+                .warning {{
+                    background: #fff5f5;
+                    border: 1px solid #fecaca;
+                    color: #b91c1c;
+                    border-radius: 12px;
+                    padding: 16px;
+                    margin-bottom: 20px;
+                }}
+                .status {{
+                    border-radius: 12px;
+                    padding: 14px 16px;
+                    margin-bottom: 16px;
+                }}
+                .status.error {{
+                    background: #fff5f5;
+                    color: #b91c1c;
+                    border: 1px solid #fecaca;
+                }}
+                .status.success {{
+                    background: #f0fdf4;
+                    color: #15803d;
+                    border: 1px solid #bbf7d0;
+                }}
+                .stats {{
+                    display: grid;
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                    gap: 12px;
+                    margin-bottom: 24px;
+                }}
+                .stat {{
+                    background: #f8fafc;
+                    border-radius: 12px;
+                    padding: 16px;
+                }}
+                .stat-label {{
+                    color: #64748b;
+                    font-size: 13px;
+                    margin-bottom: 8px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                }}
+                .stat-value {{
+                    color: #111827;
+                    font-size: 28px;
+                    font-weight: 700;
+                }}
+                label {{
+                    display: block;
+                    color: #111827;
+                    font-weight: 600;
+                    margin-bottom: 8px;
+                }}
+                input[type="password"] {{
+                    width: 100%;
+                    padding: 14px 16px;
+                    border: 1px solid #d1d5db;
+                    border-radius: 12px;
+                    font-size: 16px;
+                    margin-bottom: 16px;
+                }}
+                .actions {{
+                    display: flex;
+                    gap: 12px;
+                    flex-wrap: wrap;
+                }}
+                .section {{
+                    margin-top: 24px;
+                    padding-top: 24px;
+                    border-top: 1px solid #e5e7eb;
+                }}
+                .section h2 {{
+                    color: #111827;
+                    margin-bottom: 12px;
+                    font-size: 22px;
+                }}
+                textarea {{
+                    width: 100%;
+                    min-height: 320px;
+                    padding: 16px;
+                    border: 1px solid #d1d5db;
+                    border-radius: 12px;
+                    font-size: 14px;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                    resize: vertical;
+                    margin-bottom: 16px;
+                }}
+                .btn {{
+                    display: inline-block;
+                    padding: 14px 24px;
+                    border-radius: 999px;
+                    text-decoration: none;
+                    font-weight: 700;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 15px;
+                }}
+                .btn-danger {{
+                    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+                    color: white;
+                }}
+                .btn-primary {{
+                    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+                    color: white;
+                }}
+                .btn-warning {{
+                    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                    color: white;
+                }}
+                .btn-secondary {{
+                    background: #e5e7eb;
+                    color: #111827;
+                }}
+                .btn-disabled {{
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }}
+                @media (max-width: 520px) {{
+                    .stats {{
+                        grid-template-columns: 1fr;
+                    }}
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>Administration</h1>
+                <p>Protected page used to delete all saved photos and sessions.</p>
+                <div class="warning">Destructive action. All images and all session folders will be permanently deleted.</div>
+                {f'<div class="status error">{error_message}</div>' if error_message else ''}
+                {f'<div class="status success">{success_message}</div>' if success_message else ''}
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-label">Sessions</div>
+                        <div class="stat-value">{sessions_count}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Files</div>
+                        <div class="stat-value">{files_count}</div>
+                    </div>
+                </div>
+                {'<div class="status error">ADMIN_PASSWORD is not set in config.ini. Admin actions are disabled.</div>' if not admin_enabled else ''}
+                <form method="post" action="/admin/delete-all">
+                    <div class="actions">
+                        <button type="submit" class="btn btn-danger{' btn-disabled' if not admin_enabled else ''}" {'disabled' if not admin_enabled else ''}>Delete all photos</button>
+                        <a href="/stats" class="btn btn-secondary">Back to stats</a>
+                        <a href="/admin/logout" class="btn btn-secondary">Log out</a>
+                    </div>
+                </form>
+                <div class="section">
+                    <h2>Configuration</h2>
+                    <p>View and edit <code>config.ini</code>. ADMIN_PASSWORD is hidden in browser.</p>
+                    <form method="post" action="/admin/config">
+                        <label for="config_content">config.ini</label>
+                        <textarea id="config_content" name="config_content" spellcheck="false" {'disabled' if not admin_enabled else ''}>{config_content}</textarea>
+                        <div class="actions">
+                            <button type="submit" class="btn btn-primary{' btn-disabled' if not admin_enabled else ''}" {'disabled' if not admin_enabled else ''}>Save config.ini</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="section">
+                    <h2>Application</h2>
+                    <p>Restart PhotoBooth application to apply configuration changes.</p>
+                    <form method="post" action="/admin/restart">
+                        <div class="actions">
+                            <button type="submit" class="btn btn-warning{' btn-disabled' if not admin_enabled else ''}" {'disabled' if not admin_enabled else ''}>Restart app</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        return render_template_string(html)
     
     def _setup_routes(self):
         """Setup Flask routes."""
@@ -360,9 +884,9 @@ class WebServer:
         @self.app.route('/collage/<session>')
         def view_collage(session):
             """View a single collage fullscreen."""
-            collage_path = os.path.join(self.save_directory, session, 'collage.jpg')
+            collage_path = self._get_safe_photo_path(session, 'collage.jpg')
             
-            if not os.path.exists(collage_path):
+            if collage_path is None:
                 return redirect('/')
             
             self._track_event('collage_view', session)
@@ -432,9 +956,9 @@ class WebServer:
         @self.app.route('/image/<session>/<filename>')
         def serve_image(session, filename):
             """Serve an image file."""
-            image_path = os.path.join(self.save_directory, session, filename)
+            image_path = self._get_safe_photo_path(session, filename)
             
-            if not os.path.exists(image_path):
+            if image_path is None:
                 return "Not found", 404
             
             self._track_event('image_view', session)
@@ -443,9 +967,9 @@ class WebServer:
         @self.app.route('/download/<session>/<filename>')
         def download_image(session, filename):
             """Download an image file."""
-            image_path = os.path.join(self.save_directory, session, filename)
+            image_path = self._get_safe_photo_path(session, filename)
             
-            if not os.path.exists(image_path):
+            if image_path is None:
                 return "Not found", 404
             
             self._track_event('download', session)
@@ -455,12 +979,151 @@ class WebServer:
                 as_attachment=True,
                 download_name=f'photobooth_{session}.jpg'
             )
+
+        @self.app.route('/download/all-photos')
+        def download_all_photos():
+            """Download all photos as a ZIP archive."""
+            photos = self._get_all_downloadable_photos()
+
+            if not photos:
+                return 'No photos found', 404
+
+            archive_buffer = io.BytesIO()
+
+            try:
+                with zipfile.ZipFile(archive_buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+                    for photo in photos:
+                        archive.write(photo['path'], arcname=photo['archive_name'])
+            except Exception as e:
+                Logger.error(f'WebServer: Error creating photo archive: {e}')
+                return 'Unable to create archive', 500
+
+            archive_buffer.seek(0)
+            self._track_event('download')
+
+            return send_file(
+                archive_buffer,
+                mimetype='application/zip',
+                as_attachment=True,
+                download_name='photobooth_photos.zip'
+            )
+
+        @self.app.route('/admin')
+        def admin_page():
+            """Protected admin page."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
+            return self._render_admin_page()
+
+        @self.app.route('/admin/login')
+        def admin_login_page():
+            """Admin login page."""
+            if self._is_admin_authenticated():
+                return redirect('/admin')
+
+            logout_flag = request.args.get('logout') == '1'
+            return self._render_admin_login_page(success_message='Logged out successfully.' if logout_flag else None)
+
+        @self.app.route('/admin/login', methods=['POST'])
+        def admin_login():
+            """Authenticate admin user."""
+            if self.admin_password is None:
+                return self._render_admin_login_page(error_message='Admin access is disabled. Configure ADMIN_PASSWORD in config.ini.'), 403
+
+            provided_password = request.form.get('password') or ''
+            if not self._is_admin_password_valid(provided_password):
+                session.clear()
+                return self._render_admin_login_page(error_message='Invalid password.'), 403
+
+            session.clear()
+            session['is_admin_authenticated'] = True
+            return redirect('/admin')
+
+        @self.app.route('/admin/logout')
+        def admin_logout():
+            """Log out admin user."""
+            session.clear()
+            return redirect('/admin/login?logout=1')
+
+        @self.app.route('/admin/delete-all', methods=['POST'])
+        def delete_all_sessions():
+            """Delete all saved sessions after password validation."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
+            if self.admin_password is None:
+                session.clear()
+                return self._render_admin_login_page(error_message='Admin access is disabled. Configure ADMIN_PASSWORD in config.ini.'), 403
+
+            try:
+                deleted_sessions = self._delete_all_sessions()
+            except Exception:
+                return self._render_admin_page(error_message='Error while deleting files.'), 500
+
+            return self._render_admin_page(success_message=f'{deleted_sessions} session(s) deleted.')
+
+        @self.app.route('/admin/config', methods=['POST'])
+        def save_admin_config():
+            """Save config.ini after password validation."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
+            if self.admin_password is None:
+                session.clear()
+                return self._render_admin_login_page(error_message='Admin access is disabled. Configure ADMIN_PASSWORD in config.ini.'), 403
+
+            config_content = request.form.get('config_content') or ''
+            config_content = self._merge_masked_admin_password(config_content)
+
+            try:
+                self._save_config_text(config_content)
+            except Exception:
+                return self._render_admin_page(error_message='Error while saving config.ini.', config_content=self._mask_admin_password_in_config(config_content)), 500
+
+            try:
+                updated_config = self._load_config_text()
+                self._refresh_admin_password_from_config(updated_config)
+            except Exception:
+                return self._render_admin_page(success_message='config.ini saved. Restart app to apply all changes.', config_content=self._mask_admin_password_in_config(config_content))
+
+            if self.admin_password is None:
+                session.clear()
+                return self._render_admin_login_page(success_message='config.ini saved. Admin password disabled. Sign in is now disabled.')
+
+            return self._render_admin_page(success_message='config.ini saved. Restart app to apply all changes.', config_content=self._mask_admin_password_in_config(updated_config))
+
+        @self.app.route('/admin/restart', methods=['POST'])
+        def restart_app():
+            """Restart application after password validation."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
+            if self.admin_password is None:
+                session.clear()
+                return self._render_admin_login_page(error_message='Admin access is disabled. Configure ADMIN_PASSWORD in config.ini.'), 403
+
+            if not callable(self.restart_callback):
+                return self._render_admin_page(error_message='Restart callback is unavailable.'), 500
+
+            try:
+                self.restart_callback()
+            except Exception as e:
+                Logger.error(f'WebServer: Error restarting app: {e}')
+                return self._render_admin_page(error_message='Error while restarting app.'), 500
+
+            return self._render_admin_page(success_message='Application restart requested. Page may become unavailable for a few seconds.')
         
         @self.app.route('/stats')
         def statistics():
             """Hidden statistics page - shows usage analytics."""
             stats = self._load_stats()
             collages = self._get_all_collages()
+            downloadable_photos = self._get_all_downloadable_photos()
             
             # Calculate photos taken from number of sessions
             stats['photos_taken'] = len(collages)
@@ -471,7 +1134,7 @@ class WebServer:
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>PhotoBooth - Statistiques</title>
+                <title>PhotoBooth - Statistics</title>
                 <style>
                     * {{ margin: 0; padding: 0; box-sizing: border-box; }}
                     body {{
@@ -551,9 +1214,9 @@ class WebServer:
                     .info-value {{
                         color: #667eea;
                     }}
-                    .back-btn {{
-                        display: inline-block;
-                        margin-top: 30px;
+                     .back-btn {{
+                         display: inline-block;
+                         margin-top: 30px;
                         padding: 15px 40px;
                         background: white;
                         color: #667eea;
@@ -563,12 +1226,29 @@ class WebServer:
                         box-shadow: 0 5px 20px rgba(0,0,0,0.2);
                         transition: transform 0.2s;
                     }}
-                    .back-btn:hover {{
-                        transform: scale(1.05);
-                    }}
-                    @media (max-width: 768px) {{
-                        .stats-grid {{
-                            grid-template-columns: 1fr;
+                     .back-btn:hover {{
+                         transform: scale(1.05);
+                     }}
+                     .actions {{
+                         display: flex;
+                         justify-content: center;
+                         gap: 20px;
+                         flex-wrap: wrap;
+                         margin-top: 30px;
+                     }}
+                     .download-btn {{
+                         background: linear-gradient(135deg, #34c759 0%, #28a745 100%);
+                         color: white;
+                     }}
+                     .download-btn.disabled {{
+                         background: #d1d1d6;
+                         color: #666;
+                         cursor: not-allowed;
+                         pointer-events: none;
+                     }}
+                     @media (max-width: 768px) {{
+                         .stats-grid {{
+                             grid-template-columns: 1fr;
                         }}
                         h1 {{
                             font-size: 32px;
@@ -578,7 +1258,7 @@ class WebServer:
             </head>
             <body>
                 <div class="container">
-                    <h1>📊 PhotoBooth Statistics</h1>
+                    <h1>PhotoBooth Statistics</h1>
                     
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -616,22 +1296,28 @@ class WebServer:
                             <span class="info-label">Last Download:</span>
                             <span class="info-value">{stats['last_download_date'] or 'None'}</span>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Total Sessions:</span>
-                            <span class="info-value">{len(collages)}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label">Stats File:</span>
-                            <span class="info-value" style="font-size: 12px; word-break: break-all;">{self.stats_file}</span>
-                        </div>
-                    </div>
-                    
-                    <center>
-                        <a href="/gallery" class="back-btn">← Back to gallery</a>
-                    </center>
-                </div>
-            </body>
-            </html>
+                         <div class="info-row">
+                             <span class="info-label">Total Sessions:</span>
+                             <span class="info-value">{len(collages)}</span>
+                         </div>
+                         <div class="info-row">
+                             <span class="info-label">Total Files:</span>
+                             <span class="info-value">{len(downloadable_photos)}</span>
+                         </div>
+                         <div class="info-row">
+                             <span class="info-label">Stats File:</span>
+                             <span class="info-value" style="font-size: 12px; word-break: break-all;">{self.stats_file}</span>
+                         </div>
+                     </div>
+                     
+                     <div class="actions">
+                          <a href="/download/all-photos" class="back-btn download-btn{' disabled' if not downloadable_photos else ''}">Download all photos</a>
+                          <a href="/admin" class="back-btn" style="background: #111827; color: white;">Administration</a>
+                          <a href="/gallery" class="back-btn">← Back to gallery</a>
+                      </div>
+                  </div>
+             </body>
+             </html>
             """
             
             return render_template_string(html)

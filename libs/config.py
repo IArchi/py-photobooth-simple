@@ -17,6 +17,10 @@ class Config:
     def get_ringled(self):
         return self.config.getboolean('Global', 'RINGLED')
 
+    def get_admin_password(self):
+        password = self.config.get('Global', 'ADMIN_PASSWORD', fallback='').strip()
+        return password if password and password.upper() != 'NONE' else None
+
     def get_countdown(self):
         return self.config.getint('Picture', 'COUNTDOWN')
 
