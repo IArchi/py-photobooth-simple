@@ -166,7 +166,7 @@ class Gphoto2Camera(CaptureDevice):
                 self._imread_preview = getattr(cv2, 'IMREAD_REDUCED_COLOR_2', cv2.IMREAD_COLOR)
 
                 try:
-                    self._set_parameters(self._dslr_liveview_params)
+                    self._set_parameters(self.dslr_liveview_params)
                 except Exception:
                     Logger.info('Could not set default DSLR settings, maybe unsupported camera model.')
 
@@ -272,7 +272,7 @@ class Gphoto2Camera(CaptureDevice):
     def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
         # Apply capture parameters (config.ini [DSLR_Capture]) right before capture
         try:
-            self._set_parameters(self._dslr_capture_params or {})
+            self._set_parameters(self.dslr_capture_params or {})
         except Exception as e:
             Logger.debug('Gphoto2Camera: could not apply capture params: %s', e)
 
@@ -296,7 +296,7 @@ class Gphoto2Camera(CaptureDevice):
 
         # Set DSLR back to liveview
         try:
-            self.__set_parameters(self._dslr_liveview_params)
+            self._set_parameters(self.dslr_liveview_params)
         except Exception as e:
             Logger.debug('Gphoto2Camera: could not apply liveview params: %s', e)
     

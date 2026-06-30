@@ -4,6 +4,7 @@ import os
 import sys
 import signal
 import threading
+import time
 import traceback
 from pathlib import Path
 from datetime import datetime
@@ -72,6 +73,14 @@ class PhotoboothApp(App):
         self._requested_screen = None
         self._requested_kwargs = None
         self.processes = []
+        self._process_lock = threading.Lock()
+        self._process_state = {
+            'kind': None,
+            'error': None,
+            'traceback': None,
+            'started_at': None,
+            'finished_at': None,
+        }
         self.ringled = RINGLED
         self.devices = DeviceUtils(
             printer_name=self.PRINTER,
@@ -164,13 +173,69 @@ class PhotoboothApp(App):
         """Get the aspect ratio (width/height) for the given format."""
         return self.print_formats[format_idx].get_aspect_ratio()
 
+    def _start_background_process(self, kind, target, *args, **kwargs):
+        with self._process_lock:
+            self._process_state = {
+                'kind': kind,
+                'error': None,
+                'traceback': None,
+                'started_at': time.monotonic(),
+                'finished_at': None,
+            }
+
+        def run_target():
+            error = None
+            tb = None
+            try:
+                target(*args, **kwargs)
+            except Exception as exc:
+                error = str(exc) or exc.__class__.__name__
+                tb = traceback.format_exc()
+                Logger.error('PhotoboothApp: background %s failed: %s', kind, error)
+                Logger.error(tb)
+            finally:
+                with self._process_lock:
+                    if self._process_state.get('kind') == kind:
+                        self._process_state['error'] = error
+                        self._process_state['traceback'] = tb
+                        self._process_state['finished_at'] = time.monotonic()
+
+        process = threading.Thread(target=run_target)
+        process.start()
+        self.processes = [process]
+
+    def _get_process_state(self):
+        with self._process_lock:
+            return dict(self._process_state)
+
+    def has_process_failed(self, kind=None):
+        state = self._get_process_state()
+        if kind is not None and state.get('kind') != kind:
+            return False
+        return state.get('error') is not None
+
+    def get_process_error(self, kind=None):
+        state = self._get_process_state()
+        if kind is not None and state.get('kind') != kind:
+            return None
+        return state.get('traceback') or state.get('error')
+
+    def has_process_timed_out(self, kind, timeout_seconds):
+        state = self._get_process_state()
+        if state.get('kind') != kind:
+            return False
+        if state.get('finished_at') is not None:
+            return False
+        started_at = state.get('started_at')
+        if started_at is None:
+            return False
+        return (time.monotonic() - started_at) >= timeout_seconds
+
     def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
         aspect_ratio = self.get_format_aspect_ratio(format_idx)
         flash_callback = self.ringled.flash if self.ringled else None
-        t = threading.Thread(target=self.devices.capture, args=(self.get_shot(shot_idx), aspect_ratio, flash_callback))
-        t.start()
-        self.processes = [t]
+        self._start_background_process('shot', self.devices.capture, self.get_shot(shot_idx), aspect_ratio, flash_callback)
 
     def is_shot_completed(self, shot_idx):
         if any(process.is_alive() for process in self.processes): return False
@@ -181,9 +246,13 @@ class PhotoboothApp(App):
         photos = []
         for i in range(0, self.get_shots_to_take(format)): photos.append(self.get_shot(i))
         # Pass for_print=True to enable horizontal duplication for strip formats
-        t = threading.Thread(target=self.print_formats[format].assemble, kwargs={'output_path':self.get_collage(), 'image_paths':photos, 'for_print':True})
-        t.start()
-        self.processes = [t]
+        self._start_background_process(
+            'collage',
+            self.print_formats[format].assemble,
+            output_path=self.get_collage(),
+            image_paths=photos,
+            for_print=True,
+        )
 
     def is_collage_completed(self):
         if any(process.is_alive() for process in self.processes): return False

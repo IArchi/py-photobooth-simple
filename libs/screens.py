@@ -29,6 +29,7 @@ TINY_FONT = '15sp'
 BLUR_CAMERA = True
 BLUR_IMAGES = False
 BLUR_COLLAGE = False
+SHOT_TIMEOUT_SECONDS = 10
 
 def hex_to_rgba(hex_color):
     hex_color = hex_color.lstrip('#')
@@ -680,8 +681,18 @@ class CountdownScreen(ColorScreen):
 
     def timer_trigger(self, obj):
         if not(self.app.is_shot_completed(self._current_shot)):
-            # Retry after 1sec
-            self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
+            if self.app.has_process_timed_out('shot', SHOT_TIMEOUT_SECONDS):
+                Logger.error('CountdownScreen: capture timed out after countdown.')
+                self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_TRIGGER, error2=ICON_ERROR_TOOLONG)
+            else:
+                # Retry after 1sec
+                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
+        elif self.app.has_process_failed('shot'):
+            Logger.error('CountdownScreen: capture failed after countdown.')
+            error_details = self.app.get_process_error('shot')
+            if error_details:
+                Logger.error(error_details)
+            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_TRIGGER, error2=ICON_ERROR_DISCONNECTED)
         else:
             # Display photo for validation
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
@@ -1328,6 +1339,12 @@ class ProcessingScreen(ColorScreen):
         Logger.info('ProcessingScreen: timer_event().')
         if not(self.app.is_collage_completed()):
             self._clock = Clock.schedule_once(self.timer_event, 1)
+        elif self.app.has_process_failed('collage'):
+            Logger.error('ProcessingScreen: collage generation failed.')
+            error_details = self.app.get_process_error('collage')
+            if error_details:
+                Logger.error(error_details)
+            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR, error2=ICON_ERROR_TRIGGER)
         elif self.app.has_printer():
             self.app.transition_to(ScreenMgr.CONFIRM_PRINT, format=self._current_format)
         else:
