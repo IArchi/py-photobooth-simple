@@ -5,9 +5,19 @@ import sys
 import signal
 import threading
 import traceback
+from pathlib import Path
 from datetime import datetime
 
-#os.environ['KIVY_NO_CONSOLELOG'] = '1'
+PROJECT_ROOT = Path(__file__).resolve().parent
+LOG_DIRECTORY = PROJECT_ROOT / 'logs'
+LOG_DIRECTORY.mkdir(exist_ok=True)
+
+from kivy.config import Config as KivyConfig
+KivyConfig.set('kivy', 'log_enable', '1')
+KivyConfig.set('kivy', 'log_dir', str(LOG_DIRECTORY))
+KivyConfig.set('kivy', 'log_name', 'photobooth_%y-%m-%d_%_.txt')
+
+# os.environ['KIVY_NO_CONSOLELOG'] = '1'
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.logger import Logger
