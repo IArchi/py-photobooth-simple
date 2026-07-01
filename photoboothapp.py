@@ -147,10 +147,9 @@ class PhotoboothApp(App):
 
     def request_transition_to(self, new_state, **kwargs):
         """
-        Request a screen transition. 
-        OPTIMIZED: Direct call instead of polling for better performance.
+        Request a screen transition from any thread.
         """
-        self.transition_to(new_state, **kwargs)
+        Clock.schedule_once(lambda dt: self.transition_to(new_state, **kwargs), 0)
 
     def transition_to(self, new_state, **kwargs):
         self.sm.current_screen.on_exit()

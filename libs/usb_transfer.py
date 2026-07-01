@@ -2,14 +2,18 @@ import os
 import time
 import psutil
 import shutil
+import traceback
 from pathlib import Path
 
 from threading import Event, Thread
+from kivy.clock import Clock
 from kivy.logger import Logger
 
 from libs.screens import ScreenMgr
 
 class UsbTransfer:
+    REMOVABLE_MOUNT_ROOTS = ('/media', '/run/media', '/Volumes')
+
     def __init__(self, app, folder):
         Logger.info('UsbTransfer: __init__().')
         self._app = app
@@ -52,8 +56,9 @@ class UsbTransfer:
             try:
                 self.copy_without_overwrite(self._folder, device.mountpoint)
                 #self.copy_folders_to_usb(device.mountpoint)
-            except:
+            except Exception:
                 Logger.error('UsbTransfer: Failed to perform folder copy.')
+                Logger.error(traceback.format_exc())
             finally:
                 self._app.request_transition_to(ScreenMgr.WAITING)
         else:
@@ -64,7 +69,27 @@ class UsbTransfer:
 
     @staticmethod
     def get_current_removable_media():
-        return {device for device in psutil.disk_partitions(all=False)}
+        return {
+            device
+            for device in psutil.disk_partitions(all=False)
+            if UsbTransfer.is_removable_partition(device)
+        }
+
+    @classmethod
+    def is_removable_partition(cls, device: psutil._common.sdiskpart):
+        mountpoint = Path(device.mountpoint or '')
+        opts = {opt.strip() for opt in (device.opts or '').split(',') if opt.strip()}
+
+        if not device.mountpoint or device.mountpoint == '/':
+            return False
+
+        if 'rootfs' in opts or 'dontbrowse' in opts or 'ro' in opts:
+            return False
+
+        return any(
+            mountpoint == Path(root) or mountpoint.is_relative_to(root)
+            for root in cls.REMOVABLE_MOUNT_ROOTS
+        )
 
     def copy_folders_to_usb(self, usb_path):
         Logger.info("UsbTransfer: copy_folders_to_usb()")
@@ -96,5 +121,5 @@ class UsbTransfer:
                 self.copy_without_overwrite(s, d)
             else:
                 if not d.exists():
-                    self._app.sm.current_screen.on_update({'label' : item.name})
+                    Clock.schedule_once(lambda dt, label=item.name: self._app.sm.get_screen(ScreenMgr.COPYING).on_update({'label': label}), 0)
                     shutil.copy2(s, d)
