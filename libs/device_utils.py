@@ -98,6 +98,12 @@ class PrintDevice:
 
 class Cv2Camera(CaptureDevice):
     def __init__(self, port=-1):
+        self._preview_lock = threading.Lock()
+        self._camera_lock = threading.Lock()
+        self._preview_frame = None
+        self._preview_thread = None
+        self._preview_stop = False
+        self._preview_fps = 30
         if cv2:
             if port > -1:
                 camera = cv2.VideoCapture(port)
@@ -110,18 +116,41 @@ class Cv2Camera(CaptureDevice):
                         break
         if not self._instance: raise Exception('Cannot find any CV2 camera or CV2 is not installed.')
 
+    def _preview_loop(self):
+        """Read webcam frames continuously so Kivy never waits on camera I/O."""
+        while not self._preview_stop:
+            try:
+                with self._camera_lock:
+                    ret, buf = self._instance.read()
+                if ret:
+                    im = cv2.flip(buf, 0)
+                    im = cv2.flip(im, 1)
+                    with self._preview_lock:
+                        self._preview_frame = im
+                time.sleep(1.0 / self._preview_fps)
+            except Exception as e:
+                Logger.debug('Cv2Camera preview thread: %s', e)
+
+    def _start_preview_thread(self):
+        if self._preview_thread is not None and self._preview_thread.is_alive():
+            return
+        self._preview_stop = False
+        self._preview_thread = threading.Thread(target=self._preview_loop, daemon=True)
+        self._preview_thread.start()
+
     def get_preview(self, aspect_ratio=None, zoom=None):
-        ret, buf = self._instance.read()
-        if not ret: return None
-        im = cv2.flip(buf, 0)
-        im = cv2.flip(im, 1)
+        self._start_preview_thread()
+        with self._preview_lock:
+            im = self._preview_frame.copy() if self._preview_frame is not None else None
+        if im is None: return None
         im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
 
     def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
         if flash_fn and not self.has_physical_flash(): flash_fn()
-        ret, im = self._instance.read()
+        with self._camera_lock:
+            ret, im = self._instance.read()
         if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
         if not ret: return
         #im = cv2.flip(im, 0)
@@ -143,6 +172,9 @@ class Cv2Camera(CaptureDevice):
             Logger.error(f'Error creating small preview: {e}')
 
     def close(self):
+        self._preview_stop = True
+        if self._preview_thread is not None and self._preview_thread.is_alive():
+            self._preview_thread.join(timeout=1)
         if self._instance is not None:
             self._instance.release()
             self._instance = None
@@ -321,10 +353,16 @@ class Gphoto2Camera(CaptureDevice):
 
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
+        self._preview_lock = threading.Lock()
+        self._camera_lock = threading.Lock()
+        self._preview_frame = None
+        self._preview_thread = None
+        self._preview_stop = False
+        self._preview_fps = 30
         if Picamera2:
             try:
                 self._instance = Picamera2(camera_num=port)
-                self._preview_config = self._instance.create_preview_configuration(main={'format': 'RGB888', 'size': (2304, 1296)}, controls={'FrameRate': 30})
+                self._preview_config = self._instance.create_preview_configuration(main={'format': 'RGB888', 'size': (1280, 720)}, controls={'FrameRate': 30})
                 self._still_config = self._instance.create_still_configuration(main={"size": (2304, 1296), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
                 self._instance.configure(self._preview_config)
                 self._instance.set_controls({'AfMode': controls.AfModeEnum.Continuous, 'AfSpeed': controls.AfSpeedEnum.Fast})
@@ -335,21 +373,47 @@ class Picamera2Camera(CaptureDevice):
                 self.close()
         if not self._instance: raise Exception('Cannot find any Picamera2 or picamera2 is not installed.')
 
+    def _preview_loop(self):
+        """Read PiCamera frames continuously so Kivy never waits on camera I/O."""
+        while not self._preview_stop:
+            try:
+                with self._camera_lock:
+                    im = self._instance.capture_array()
+                im = cv2.rotate(im, cv2.ROTATE_180)
+                with self._preview_lock:
+                    self._preview_frame = im
+                time.sleep(1.0 / self._preview_fps)
+            except Exception as e:
+                Logger.debug('Picamera2Camera preview thread: %s', e)
+
+    def _start_preview_thread(self):
+        if self._preview_thread is not None and self._preview_thread.is_alive():
+            return
+        self._preview_stop = False
+        self._preview_thread = threading.Thread(target=self._preview_loop, daemon=True)
+        self._preview_thread.start()
+
+    def get_preview_fps(self):
+        return self._preview_fps
+
     def get_preview(self, aspect_ratio=None, zoom=None):
-        im = self._instance.capture_array()
-        im = cv2.rotate(im, cv2.ROTATE_180)
+        self._start_preview_thread()
+        with self._preview_lock:
+            im = self._preview_frame.copy() if self._preview_frame is not None else None
+        if im is None: return None
         im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
 
     def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
-        self._instance.switch_mode(self._still_config)
-        if flash_fn and not self.has_physical_flash(): flash_fn()
-        im = self._instance.capture_array()
-        if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
-        #im = cv2.rotate(im, cv2.ROTATE_180)
-        im = self._crop_to_aspect_ratio(im, aspect_ratio)
-        self._instance.switch_mode(self._preview_config)
+        with self._camera_lock:
+            self._instance.switch_mode(self._still_config)
+            if flash_fn and not self.has_physical_flash(): flash_fn()
+            im = self._instance.capture_array()
+            if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
+            #im = cv2.rotate(im, cv2.ROTATE_180)
+            im = self._crop_to_aspect_ratio(im, aspect_ratio)
+            self._instance.switch_mode(self._preview_config)
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
         # Dump to file
@@ -367,6 +431,9 @@ class Picamera2Camera(CaptureDevice):
             Logger.error(f'Error creating small preview: {e}')
 
     def close(self):
+        self._preview_stop = True
+        if self._preview_thread is not None and self._preview_thread.is_alive():
+            self._preview_thread.join(timeout=1)
         if self._instance is not None:
             try:
                 self._instance.stop()
@@ -394,10 +461,10 @@ class CupsPrinter(PrintDevice):
 
             # Cannot find any printer
             if printer_found:
-                self._name = name
+                self._name = printer_found
                 self._instance = cups_conn
-                Logger.info('CupsPrinter: Connected to printer \'%s\'', name)
-            elif name.lower() == 'default':
+                Logger.info('CupsPrinter: Connected to printer \'%s\'', printer_found)
+            elif not name or name.lower() == 'default':
                 Logger.warning('CupsPrinter: No printer configured in CUPS (see http://localhost:631)')
             else:
                 Logger.warning('CupsPrinter: No printer named \'%s\' in CUPS (see http://localhost:631)', name)
