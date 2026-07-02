@@ -81,6 +81,7 @@ class PhotoboothApp(App):
             'started_at': None,
             'finished_at': None,
         }
+        self.usb_transfer = None
         self.ringled = RINGLED
         self.devices = DeviceUtils(
             printer_name=self.PRINTER,
@@ -105,7 +106,8 @@ class PhotoboothApp(App):
         if not os.path.exists(self.save_directory): os.makedirs(self.save_directory)
 
         # Start USB transfer
-        UsbTransfer(self, self.save_directory).start()
+        self.usb_transfer = UsbTransfer(self, self.save_directory)
+        self.usb_transfer.start()
         
         # Initialize web server for photo gallery (convert to absolute path) only if SHARE is enabled
         if self.SHARE:
@@ -136,6 +138,8 @@ class PhotoboothApp(App):
             self.ringled.clear()
         if getattr(self, 'web_server', None):
             self.web_server.stop()
+        if getattr(self, 'usb_transfer', None):
+            self.usb_transfer.stop()
         if getattr(self, 'devices', None):
             self.devices.close()
 
