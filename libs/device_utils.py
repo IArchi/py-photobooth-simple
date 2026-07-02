@@ -189,6 +189,7 @@ class Gphoto2Camera(CaptureDevice):
                 self.dslr_liveview_params = dslr_liveview_params or {}
                 self.dslr_capture_params = dslr_capture_params or {}
                 self._preview_lock = threading.Lock()
+                self._camera_lock = threading.Lock()
                 self._preview_frame = None
                 self._preview_frame_back = None
                 self._preview_thread = None
@@ -265,7 +266,8 @@ class Gphoto2Camera(CaptureDevice):
         """Dedicated thread: continuous capture + decode so as not to block the UI."""
         while not self._preview_stop:
             try:
-                cfile = self._instance.capture_preview()
+                with self._camera_lock:
+                    cfile = self._instance.capture_preview()
                 buf = np.frombuffer(cfile.get_data(auto_clean=False), dtype=np.uint8)
                 im = cv2.imdecode(buf, self._imread_preview)
                 if im is not None:
@@ -302,16 +304,23 @@ class Gphoto2Camera(CaptureDevice):
         return im
 
     def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
-        # Apply capture parameters (config.ini [DSLR_Capture]) right before capture
-        try:
-            self._set_parameters(self.dslr_capture_params or {})
-        except Exception as e:
-            Logger.debug('Gphoto2Camera: could not apply capture params: %s', e)
+        with self._camera_lock:
+            # Apply capture parameters (config.ini [DSLR_Capture]) right before capture
+            try:
+                self._set_parameters(self.dslr_capture_params or {})
+            except Exception as e:
+                Logger.debug('Gphoto2Camera: could not apply capture params: %s', e)
 
-        # Capture photo
-        if flash_fn and not self.has_physical_flash(): flash_fn()
-        cfile = self._instance.capture_image()
-        if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
+            # Capture photo
+            if flash_fn and not self.has_physical_flash(): flash_fn()
+            cfile = self._instance.capture_image()
+            if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
+
+            # Set DSLR back to liveview before the preview thread can resume.
+            try:
+                self._set_parameters(self.dslr_liveview_params)
+            except Exception as e:
+                Logger.debug('Gphoto2Camera: could not apply liveview params: %s', e)
 
         # Rotate and crop if necessary
         buf = np.frombuffer(cfile.get_data(), dtype=np.uint8)
@@ -326,12 +335,7 @@ class Gphoto2Camera(CaptureDevice):
         # Create small preview in background thread (non-blocking)
         threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
 
-        # Set DSLR back to liveview
-        try:
-            self._set_parameters(self.dslr_liveview_params)
-        except Exception as e:
-            Logger.debug('Gphoto2Camera: could not apply liveview params: %s', e)
-    
+
     def _create_small_async(self, image, output_name):
         """Create small preview image asynchronously to avoid blocking capture."""
         try:
