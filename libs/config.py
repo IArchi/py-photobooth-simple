@@ -1,4 +1,5 @@
 import configparser
+import ast
 
 class Config:
     def __init__(self):
@@ -33,7 +34,7 @@ class Config:
 
     def get_calibration(self):
         calibration = self.config.get('Picture', 'CALIBRATION')
-        return eval(calibration) if calibration != 'None' else None
+        return ast.literal_eval(calibration) if calibration != 'None' else None
 
     def get_filters(self):
         return self.config.getboolean('Picture', 'FILTERS')
