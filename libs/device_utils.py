@@ -363,6 +363,7 @@ class Picamera2Camera(CaptureDevice):
         self._preview_thread = None
         self._preview_stop = False
         self._preview_fps = 30
+        self._capturing = False
         if Picamera2:
             try:
                 self._instance = Picamera2(camera_num=port)
@@ -381,6 +382,9 @@ class Picamera2Camera(CaptureDevice):
         """Read PiCamera frames continuously so Kivy never waits on camera I/O."""
         while not self._preview_stop:
             try:
+                if self._capturing:
+                    time.sleep(1.0 / self._preview_fps)
+                    continue
                 with self._camera_lock:
                     im = self._instance.capture_array()
                 im = cv2.rotate(im, cv2.ROTATE_180)
@@ -410,14 +414,18 @@ class Picamera2Camera(CaptureDevice):
         return im
 
     def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
-        with self._camera_lock:
-            self._instance.switch_mode(self._still_config)
-            if flash_fn and not self.has_physical_flash(): flash_fn()
-            im = self._instance.capture_array()
-            if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
-            #im = cv2.rotate(im, cv2.ROTATE_180)
-            im = self._crop_to_aspect_ratio(im, aspect_ratio)
-            self._instance.switch_mode(self._preview_config)
+        self._capturing = True
+        try:
+            with self._camera_lock:
+                self._instance.switch_mode(self._still_config)
+                if flash_fn and not self.has_physical_flash(): flash_fn()
+                im = self._instance.capture_array()
+                if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
+                #im = cv2.rotate(im, cv2.ROTATE_180)
+                im = self._crop_to_aspect_ratio(im, aspect_ratio)
+                self._instance.switch_mode(self._preview_config)
+        finally:
+            self._capturing = False
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
         # Dump to file
