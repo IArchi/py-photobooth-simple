@@ -333,13 +333,26 @@ EOF'
         # Configure dnsmasq (DHCP and DNS server)
         print_info "Configuring dnsmasq..."
         sudo bash -c 'cat > /etc/dnsmasq.conf << EOF
-# PhotoBooth WiFi AP - DHCP Configuration
+# PhotoBooth WiFi AP - DHCP/DNS/Captive Portal Configuration
 interface=wlan0
+bind-interfaces
+dhcp-authoritative
 dhcp-range=192.168.4.10,192.168.4.100,255.255.255.0,24h
 domain=photobooth.local
+
+# Tell phones to use the PhotoBooth as gateway and DNS server.
+# Without this, some phones keep routing through 4G/5G instead of opening the local portal.
+dhcp-option=3,192.168.4.1
+dhcp-option=6,192.168.4.1
+
+# RFC 8910 captive portal hint, supported by recent Android/iOS versions.
+dhcp-option=114,http://192.168.4.1/
+
+# Captive Portal DNS - resolve every domain to the PhotoBooth.
+# Phones probe public domains to detect captive portals; this makes those probes hit Flask locally.
 address=/#/192.168.4.1
 
-# Captive Portal - Redirect all DNS queries to AP
+# Explicit captive portal probe domains kept for readability/debugging.
 address=/captive.apple.com/192.168.4.1
 address=/www.apple.com/192.168.4.1
 address=/apple.com/192.168.4.1
@@ -446,6 +459,7 @@ EOF'
         print_info "SSID: PhotoBooth"
         print_info "IP Address: 192.168.4.1"
         print_info "Web Server: http://192.168.4.1 (redirected to port 5000)"
+        print_info "Captive Portal: DNS wildcard + DHCP option 114 configured"
         NEED_REBOOT=true
     else
         print_info "Skipping WiFi Access Point configuration"
