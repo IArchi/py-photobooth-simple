@@ -50,6 +50,10 @@ is_raspberry_pi() {
     return 1
 }
 
+escape_systemd_value() {
+    printf '%s' "$1" | sed 's/[[:space:]]/\\x20/g'
+}
+
 # Banner
 echo ""
 echo "╔═══════════════════════════════════════════════════════╗"
@@ -475,27 +479,49 @@ echo ""
 if is_raspberry_pi; then
     echo ""
     if ask_yes_no "Do you want the photobooth to start automatically on boot?"; then
-        print_info "Configuring autostart..."
-        
+        print_info "Configuring systemd photobooth service..."
+
         PHOTOBOOTH_DIR=$(pwd)
-        
-        # Create autostart configuration
-        mkdir -p ~/.config
-        if ! grep -q "photobooth" ~/.config/wayfire.ini 2>/dev/null; then
-            echo '[autostart]' >> ~/.config/wayfire.ini
-            echo "photobooth = $HOME/photobooth.sh" >> ~/.config/wayfire.ini
-        fi
-        
-        # Create startup script
-        cat > $HOME/photobooth.sh << EOF
-#!/bin/bash
-cd $PHOTOBOOTH_DIR
-python3 photoboothapp.py
-EOF
-        chmod +x $HOME/photobooth.sh
-        
-        print_success "Autostart configured"
-        print_info "Photobooth will start automatically on boot"
+        PHOTOBOOTH_USER=$(id -un)
+        PHOTOBOOTH_GROUP=$(id -gn)
+        PHOTOBOOTH_DIR_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_DIR")
+        DISPLAY_TARGET="$(loginctl show-user "$PHOTOBOOTH_USER" -p Display --value 2>/dev/null || true)"
+        DISPLAY_TARGET=${DISPLAY_TARGET:-:0}
+
+        sudo bash -c "cat > /etc/systemd/system/photobooth.service << EOF
+[Unit]
+Description=Simple PhotoBooth application
+After=network-online.target display-manager.service graphical.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$PHOTOBOOTH_USER
+Group=$PHOTOBOOTH_GROUP
+WorkingDirectory=$PHOTOBOOTH_DIR_ESCAPED
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=$DISPLAY_TARGET
+ExecStart=/usr/bin/python3 $PHOTOBOOTH_DIR_ESCAPED/photoboothapp.py
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=20
+KillMode=control-group
+TimeoutStopSec=15
+StandardOutput=append:/var/log/photobooth.log
+StandardError=append:/var/log/photobooth.log
+
+[Install]
+WantedBy=graphical.target
+EOF"
+
+        sudo touch /var/log/photobooth.log
+        sudo chown "$PHOTOBOOTH_USER:$PHOTOBOOTH_GROUP" /var/log/photobooth.log
+        sudo systemctl daemon-reload
+        sudo systemctl enable photobooth.service
+
+        print_success "systemd service configured"
+        print_info "Photobooth will start automatically on boot and restart on crash"
     else
         print_info "Skipping autostart configuration"
     fi
