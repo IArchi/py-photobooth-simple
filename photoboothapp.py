@@ -163,6 +163,15 @@ class PhotoboothApp(App):
         self.sm.current = new_state
         self.sm.current_screen.on_entry(kwargs)
 
+    def get_current_screen_name(self):
+        if self.sm is None:
+            return None
+        return self.sm.current
+
+    def is_usb_copy_allowed(self):
+        current_screen = self.get_current_screen_name()
+        return current_screen == ScreenMgr.WAITING
+
     def get_shot(self, shot_idx):
         return os.path.join(self.tmp_directory, "capture-{}.jpg".format(shot_idx))
 

@@ -20,6 +20,7 @@ class UsbTransfer:
         self._folder = folder
         self._worker_thread: Thread = None
         self._stop_event = Event()
+        self._pending_mounts = {}
 
     def start(self):
         Logger.info('UsbTransfer: start().')
@@ -43,6 +44,8 @@ class UsbTransfer:
 
             for device in added: self.handle_mount(device)
             for device in removed: self.handle_unmount(device)
+            if self._pending_mounts:
+                self._process_pending_mounts()
             _previous_devices = current_devices
 
             # poll every 1 seconds
@@ -51,21 +54,42 @@ class UsbTransfer:
     def handle_mount(self, device: psutil._common.sdiskpart):
         Logger.info("UsbTransfer: handle_mount({})".format(device.device))
 
-        if device.mountpoint:
+        if not device.mountpoint:
+            Logger.error("USB device {} not correctly mounted".format(device.device))
+            return
+
+        self._pending_mounts[device.device] = device
+        if not self._app.is_usb_copy_allowed():
+            Logger.info('UsbTransfer: deferring copy for %s until waiting screen', device.device)
+            return
+
+        self._process_pending_mounts()
+
+    def handle_unmount(self, device: psutil._common.sdiskpart):
+        Logger.info("UsbTransfer: handle_unmount({})".format(device.device))
+        self._pending_mounts.pop(device.device, None)
+
+    def _process_pending_mounts(self):
+        if not self._app.is_usb_copy_allowed():
+            return
+
+        pending_devices = list(self._pending_mounts.values())
+        for device in pending_devices:
+            if self._stop_event.is_set():
+                return
+            if not device.mountpoint:
+                self._pending_mounts.pop(device.device, None)
+                continue
+
             self._app.request_transition_to(ScreenMgr.COPYING)
             try:
                 self.copy_without_overwrite(self._folder, device.mountpoint)
-                #self.copy_folders_to_usb(device.mountpoint)
             except Exception:
                 Logger.error('UsbTransfer: Failed to perform folder copy.')
                 Logger.error(traceback.format_exc())
             finally:
+                self._pending_mounts.pop(device.device, None)
                 self._app.request_transition_to(ScreenMgr.WAITING)
-        else:
-            Logger.error("USB device {} not correctly mounted".format(device.device))
-
-    def handle_unmount(self, device: psutil._common.sdiskpart):
-        Logger.info("UsbTransfer: handle_unmount({})".format(device.device))
 
     @staticmethod
     def get_current_removable_media():
