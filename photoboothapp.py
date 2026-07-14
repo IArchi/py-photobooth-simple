@@ -26,6 +26,7 @@ from kivy.uix.screenmanager import NoTransition
 
 from libs.config import Config
 from libs.device_utils import DeviceUtils
+from libs.file_utils import FileUtils
 from libs.screens import ScreenMgr
 from libs.ringled import RingLed
 from libs.template_collage import load_templates
@@ -307,7 +308,13 @@ class PhotoboothApp(App):
             if '_small' in f or '_print' in f: continue
             src_path = os.path.join(self.tmp_directory, f)
             dst_path = os.path.join(destination, f)
-            os.rename(src_path, dst_path)
+            try:
+                FileUtils.move_file(src_path, dst_path)
+            except FileNotFoundError:
+                Logger.warning('PhotoboothApp: file disappeared before save: %s', src_path)
+            except Exception as exc:
+                Logger.error('PhotoboothApp: failed to save %s to %s: %s', src_path, dst_path, exc)
+                raise
 
     def purge_tmp(self):
         # List existing files and delete (including _print versions)
@@ -316,7 +323,10 @@ class PhotoboothApp(App):
         for f in all_files:
             src_path = os.path.join(self.tmp_directory, f)
             if os.path.isfile(src_path):
-                os.remove(src_path)
+                try:
+                    FileUtils.remove_file(src_path)
+                except Exception as exc:
+                    Logger.warning('PhotoboothApp: failed to purge temp file %s: %s', src_path, exc)
 
 if __name__ == '__main__':
     # Auto restart app on crash

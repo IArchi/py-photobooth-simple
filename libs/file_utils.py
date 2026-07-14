@@ -38,6 +38,43 @@ class FileUtils:
         return path
 
     @staticmethod
+    def move_file(src_path, dst_path):
+        """Move a file and raise with context on failure."""
+        src_path = os.fspath(src_path)
+        dst_path = os.fspath(dst_path)
+
+        if not os.path.isfile(src_path):
+            raise FileNotFoundError(f'Source file does not exist: {src_path}')
+
+        dst_dir = os.path.dirname(dst_path) or '.'
+        os.makedirs(dst_dir, exist_ok=True)
+
+        try:
+            os.replace(src_path, dst_path)
+        except Exception as exc:
+            raise OSError(f'Failed to move {src_path} to {dst_path}: {exc}') from exc
+
+        return dst_path
+
+    @staticmethod
+    def remove_file(path, missing_ok=True):
+        """Remove a file with optional tolerance for missing paths."""
+        path = os.fspath(path)
+
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            if missing_ok:
+                return False
+            raise
+        except IsADirectoryError as exc:
+            raise OSError(f'Expected file but found directory: {path}') from exc
+        except Exception as exc:
+            raise OSError(f'Failed to remove file {path}: {exc}') from exc
+
+        return True
+
+    @staticmethod
     def resize(image, max_height=1080, max_width=1920):
         # Get original dimensions
         height, width = image.shape[:2]
