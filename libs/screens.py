@@ -1192,15 +1192,9 @@ class ConfirmCaptureScreen(ColorScreen):
         # Apply filter to preview
         if self._original_image is not None:
             filtered_image = self._apply_filter(self._original_image.copy(), self._selected_filter)
-            
-            # Save filtered image temporarily
-            import tempfile
-            temp_path = tempfile.mktemp(suffix='.jpg')
-            FileUtils.write_image(temp_path, filtered_image)
-            
-            # Update preview
-            self.preview.filepath = temp_path
-            self.preview.reload()
+
+            # Update preview directly in memory to avoid temp files.
+            self.preview.set_image(filtered_image)
 
     def on_entry(self, kwargs={}):
         Logger.info('ConfirmCaptureScreen: on_entry().')
