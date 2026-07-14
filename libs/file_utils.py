@@ -109,12 +109,17 @@ class FileUtils:
         Add blurry borders to an image.
         OPTIMIZED: Reduced blur kernel size from (101,101) to (51,51) for 4x faster performance.
         """
-        width, height = size
+        width, height = (max(1, int(size[0])), max(1, int(size[1])))
         im_height, im_width = im.shape[:2]
+
+        if im_width <= 0 or im_height <= 0:
+            return im
 
         # Resize image to match screen
         scale_factor = min(height / im_height, width / im_width)
         new_size = (int(im_width * scale_factor), int(im_height * scale_factor))
+        if new_size[0] <= 0 or new_size[1] <= 0:
+            return im
         im = cv2.resize(im, new_size, interpolation=cv2.INTER_AREA)
 
         # Generate blur on sides (OPTIMIZED: reduced kernel from 101 to 51)

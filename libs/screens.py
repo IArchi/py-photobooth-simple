@@ -14,15 +14,16 @@ from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.input.providers.mouse import MouseMotionEvent
 from kivy.core.window import Window
 from kivy.graphics.texture import Texture
+from kivy.metrics import dp, sp
 
 from libs.kivywidgets import *
 from libs.file_utils import FileUtils
 
-XLARGE_FONT = '200sp'
-LARGE_FONT = '60sp'
-NORMAL_FONT = '50sp'
-SMALL_FONT = '30sp'
-TINY_FONT = '15sp'
+XLARGE_FONT = sp(200)
+LARGE_FONT = sp(60)
+NORMAL_FONT = sp(50)
+SMALL_FONT = sp(30)
+TINY_FONT = sp(15)
 
 # Add or not blurry borders to make images match the size of the window
 # OPTIMIZED: Disabled by default for better performance (blurring is CPU intensive)
@@ -43,7 +44,7 @@ def hex_to_rgba(hex_color):
 # Colors
 BACKGROUND_COLOR = hex_to_rgba('#26495c')
 BORDER_COLOR = hex_to_rgba('#c4a35a')
-BORDER_THINKNESS = 0#(Window.dpi / 160) * 10
+BORDER_THINKNESS = dp(0)#dp(10)
 PROGRESS_COLOR = hex_to_rgba('#e5e5e5')
 CONFIRM_COLOR = hex_to_rgba('#538a64')
 CANCEL_COLOR = hex_to_rgba('#8b4846')
@@ -174,9 +175,9 @@ class WaitingScreen(BackgroundScreen):
             text='PHOTO BOOTH',
             font_size=LARGE_FONT,
             border_color=(1,1,1,1),
-            border_width=5,
+            border_width=dp(5),
             size_hint=(0.7, 0.2),
-            padding=(30,30,30,30),
+            padding=(dp(30), dp(30), dp(30), dp(30)),
             pos_hint={'x': 0.15, 'y': 0.4},
         )
         overlay_layout.add_widget(start)
@@ -233,10 +234,10 @@ class SelectFormatScreen(ColorScreen):
     +-----------------+
     """
     # Minimum and maximum card dimensions
-    MIN_CARD_WIDTH = 300
-    MIN_CARD_HEIGHT = 450
-    MAX_CARD_WIDTH = 500
-    MAX_CARD_HEIGHT = 800
+    MIN_CARD_WIDTH = dp(300)
+    MIN_CARD_HEIGHT = dp(450)
+    MAX_CARD_WIDTH = dp(500)
+    MAX_CARD_HEIGHT = dp(800)
     
     def __init__(self, app, **kwargs):
         Logger.info('SelectFormatScreen: __init__().')
@@ -256,8 +257,8 @@ class SelectFormatScreen(ColorScreen):
         # Grid for format cards (centered)
         self.cards_grid = GridLayout(
             cols=3,
-            spacing=30,
-            padding=20,
+            spacing=dp(30),
+            padding=dp(20),
             size_hint=(None, None),
         )
         self.cards_grid.bind(minimum_height=self.cards_grid.setter('height'))
@@ -290,14 +291,14 @@ class SelectFormatScreen(ColorScreen):
     def _calculate_card_size(self):
         """Calculate card size based on window dimensions while maintaining minimum and maximum sizes."""
         # Available width considering padding, spacing, and 3 columns
-        available_width = Window.width - (2 * 20) - (2 * 30) - (2 * BORDER_THINKNESS)
+        available_width = Window.width - (2 * dp(20)) - (2 * dp(30)) - (2 * BORDER_THINKNESS)
         card_width = max(self.MIN_CARD_WIDTH, min(self.MAX_CARD_WIDTH, available_width / 3))
         
         # Card height proportional to width (1.5 aspect ratio) but respecting minimum and maximum
         card_height = max(self.MIN_CARD_HEIGHT, min(self.MAX_CARD_HEIGHT, card_width * 1.5))
         
         # Also check against window height to avoid cards that are too tall
-        max_card_height = Window.height - (2 * 20) - (2 * BORDER_THINKNESS) - 100
+        max_card_height = Window.height - (2 * dp(20)) - (2 * BORDER_THINKNESS) - dp(100)
         card_height = min(card_height, max_card_height)
         
         # Ensure aspect ratio is maintained even with max height constraint
@@ -339,8 +340,8 @@ class SelectFormatScreen(ColorScreen):
             orientation='vertical',
             size_hint=(None, None),
             size=(self.MIN_CARD_WIDTH, self.MIN_CARD_HEIGHT),
-            padding=20,
-            spacing=10,
+            padding=dp(20),
+            spacing=dp(10),
         )
         
         # Draw rounded card background using canvas
@@ -349,7 +350,7 @@ class SelectFormatScreen(ColorScreen):
             card_bg = RoundedRectangle(
                 pos=card.pos,
                 size=card.size,
-                radius=[20,]
+                radius=[dp(20),]
             )
         
         # Bind to update background when card size/pos changes
@@ -363,7 +364,7 @@ class SelectFormatScreen(ColorScreen):
             size_hint=(1, 0.75),
             anchor_x='center',
             anchor_y='center',
-            padding=20,
+            padding=dp(20),
         )
         
         # Draw rounded preview background
@@ -372,7 +373,7 @@ class SelectFormatScreen(ColorScreen):
             preview_bg = RoundedRectangle(
                 pos=preview_container.pos,
                 size=preview_container.size,
-                radius=[15,]
+                radius=[dp(15),]
             )
         
         # Bind to update preview background
@@ -390,10 +391,10 @@ class SelectFormatScreen(ColorScreen):
         
         # Update image size to fit within container
         def update_image_size(instance, *args):
-            if preview_container.width <= 40 or preview_container.height <= 40:
+            if preview_container.width <= dp(40) or preview_container.height <= dp(40):
                 return
-            max_width = preview_container.width - 40
-            max_height = preview_container.height - 40
+            max_width = preview_container.width - dp(40)
+            max_height = preview_container.height - dp(40)
             preview_image.size = (max_width, max_height)
         
         preview_container.bind(size=update_image_size)
@@ -533,10 +534,10 @@ class CountdownScreen(ColorScreen):
         # Display countdown with circular progress
         self.circular_counter = CircularProgressCounter(
             size_hint=(None, None),
-            size=(400, 400),
+            size=(dp(400), dp(400)),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
-            circle_size=350,
-            line_width=6,
+            circle_size=dp(350),
+            line_width=dp(6),
             progress_color=BORDER_COLOR
         )
 
@@ -824,7 +825,7 @@ class ConfirmCaptureScreen(ColorScreen):
         # Add counter
         self.counter_layout = BoxLayout(
             orientation='horizontal',
-            spacing=20,
+            spacing=dp(20),
             size_hint=(0.25, 0.1),
             pos_hint={'x': 0.375, 'y':0.85},
         )
@@ -859,8 +860,8 @@ class ConfirmCaptureScreen(ColorScreen):
         
         self.filter_container = BoxLayout(
             orientation='horizontal',
-            spacing=15,
-            padding=(20, 10, 20, 10),
+            spacing=dp(15),
+            padding=(dp(20), dp(10), dp(20), dp(10)),
             size_hint=(None, 1),
         )
         self.filter_container.bind(minimum_width=self.filter_container.setter('width'))
@@ -932,12 +933,12 @@ class ConfirmCaptureScreen(ColorScreen):
         class ClickableCard(ButtonBehavior, BoxLayout):
             pass
         
-        card_size = 160
+        card_size = dp(160)
         card = ClickableCard(
             orientation='vertical',
             size_hint=(None, None),
             size=(card_size, card_size),
-            padding=8,
+            padding=dp(8),
         )
         
         # Draw rounded card background
@@ -946,14 +947,14 @@ class ConfirmCaptureScreen(ColorScreen):
             card_bg = RoundedRectangle(
                 pos=card.pos,
                 size=card.size,
-                radius=[15,]
+                radius=[dp(15),]
             )
             # Selection indicator (initially hidden)
             card.selection_color = Color(0, 0, 0, 0)
             card.selection_rect = RoundedRectangle(
                 pos=card.pos,
                 size=card.size,
-                radius=[15,]
+                radius=[dp(15),]
             )
         
         # Bind to update background when card size/pos changes
@@ -974,7 +975,7 @@ class ConfirmCaptureScreen(ColorScreen):
         # Thumbnail image (will be generated on entry)
         card.thumbnail = Image(
             size_hint=(None, None),
-            size=(card_size - 10, card_size - 10),
+            size=(card_size - dp(10), card_size - dp(10)),
             allow_stretch=True,
             keep_ratio=True,
         )
@@ -1135,8 +1136,10 @@ class ConfirmCaptureScreen(ColorScreen):
         
         return img
     
-    def _generate_thumbnail(self, img, filter_key, size=(110, 110)):
+    def _generate_thumbnail(self, img, filter_key, size=None):
         """Generate a thumbnail with the filter applied."""
+        if size is None:
+            size = (int(dp(110)), int(dp(110)))
         # Resize image for thumbnail
         h, w = img.shape[:2]
         aspect = w / h
@@ -1802,25 +1805,25 @@ class QRCodePopup(FloatLayout):
         self.bind(pos=self._update_bg, size=self._update_bg)
         
         # Keep enough room for the title and actions without making the card too wide.
-        is_small_screen = Window.width < 700 or Window.height < 700
+        is_small_screen = Window.width < dp(700) or Window.height < dp(700)
         card_width_ratio = 0.72 if is_small_screen else 0.6
-        card_width = min(max(Window.width * card_width_ratio, 220), 600)
+        card_width = min(max(Window.width * card_width_ratio, dp(220)), dp(600))
         card_height_ratio = 0.78 if is_small_screen else 0.85
-        card_height = min(max(Window.height * card_height_ratio, 360), 750)
+        card_height = min(max(Window.height * card_height_ratio, dp(360)), dp(750))
 
-        card_padding = max(8, min(24, int(card_width * 0.035)))
-        card_spacing = max(4 , min(12, int(card_height * 0.015)))
-        label_height = max(36, min(60, int(card_height * 0.1)))
-        hint_height = max(30, min(50, int(card_height * 0.08)))
-        button_height = max(70, min(100, int(card_height * 0.14)))
+        card_padding = max(dp(8), min(dp(24), card_width * 0.035))
+        card_spacing = max(dp(4), min(dp(12), card_height * 0.015))
+        label_height = max(dp(36), min(dp(60), card_height * 0.1))
+        hint_height = max(dp(30), min(dp(50), card_height * 0.08))
+        button_height = max(dp(70), min(dp(100), card_height * 0.14))
         qr_size = min(card_width * 0.8, card_height * 0.42)
 
         # Ensure the QR image never consumes all vertical space.
         fixed_height = (card_padding * 2) + label_height + hint_height + button_height + (card_spacing * 3)
-        qr_size = min(qr_size, max(120, card_height - fixed_height))
+        qr_size = min(qr_size, max(dp(120), card_height - fixed_height))
 
-        scan_font_size = '24sp' if Window.height < 700 else SMALL_FONT
-        hint_font_size = '20sp' if Window.height < 700 else TINY_FONT
+        scan_font_size = sp(24) if Window.height < dp(700) else SMALL_FONT
+        hint_font_size = sp(20) if Window.height < dp(700) else TINY_FONT
         
         # White card container with responsive size using BoxLayout for better positioning
         from kivy.graphics import RoundedRectangle
@@ -1836,7 +1839,7 @@ class QRCodePopup(FloatLayout):
         
         with self.card.canvas.before:
             Color(1, 1, 1, 1)
-            self.card_rect = RoundedRectangle(pos=self.card.pos, size=self.card.size, radius=[20,])
+            self.card_rect = RoundedRectangle(pos=self.card.pos, size=self.card.size, radius=[dp(20),])
         
         self.card.bind(pos=self._update_card, size=self._update_card)
         

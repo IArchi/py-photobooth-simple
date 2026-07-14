@@ -8,7 +8,7 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.progressbar import ProgressBar
 from kivy.graphics.texture import Texture
 from kivy.properties import ColorProperty, StringProperty, ListProperty, NumericProperty, BooleanProperty
-from kivy.metrics import sp
+from kivy.metrics import dp, sp
 from kivy.logger import Logger
 from kivy.core.window import Window
 import numpy as np
@@ -39,7 +39,7 @@ class KivyCamera(Image):
         self._reuse_texture = None
 
     def create_empty_texture(self):
-        width, height = self.size
+        width, height = max(1, int(self.size[0])), max(1, int(self.size[1]))
         # Create a numpy array in 'bgr' format
         black_color = np.zeros((height, width, 3), dtype=np.uint8)
 
@@ -53,10 +53,13 @@ class KivyCamera(Image):
     def _update(self, args):
         try:
             im = self._app.devices.get_preview(self._aspect_ratio)
-            if im is None: return
+            if im is None:
+                return
 
             # Generate blurry borders (réduire la résolution avant blur pour plus de fluidité)
             if self._blur:
+                if self.width <= 1 or self.height <= 1:
+                    return
                 max_w, max_h = 1280, 720
                 h, w = im.shape[:2]
                 if w > max_w or h > max_h:
@@ -78,9 +81,9 @@ class KivyCamera(Image):
         except Exception as e:
             Logger.error('Cannot read camera stream.')
             Logger.error(e)
-
-        if not self._stop:
-            self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)
+        finally:
+            if not self._stop:
+                self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)
 
 class BlurredImage(Image):
     filepath = StringProperty('')
@@ -94,7 +97,7 @@ class BlurredImage(Image):
             self.create_empty_texture()
 
     def create_empty_texture(self):
-        width, height = self.size
+        width, height = max(1, int(self.size[0])), max(1, int(self.size[1]))
         black_color = np.zeros((height, width, 3), dtype=np.uint8)
         texture = Texture.create(size=(width, height), colorfmt='bgr')
         texture.blit_buffer(black_color.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
@@ -106,8 +109,8 @@ class BlurredImage(Image):
         if self.filepath and self._blur:
             current_size = (int(self.size[0]), int(self.size[1]))
             if self._last_size is None or \
-               abs(current_size[0] - self._last_size[0]) > 10 or \
-               abs(current_size[1] - self._last_size[1]) > 10:
+               abs(current_size[0] - self._last_size[0]) > dp(10) or \
+               abs(current_size[1] - self._last_size[1]) > dp(10):
                 self._last_size = current_size
                 self.reload()
 
@@ -224,7 +227,7 @@ class SquareFloatLayout(FloatLayout):
     def _update_size_from_parent(self, *args):
         # Use parent size for buttons in BoxLayouts
         if self.parent:
-            parent_min = min(self.parent.size) if self.parent.size[0] > 0 and self.parent.size[1] > 0 else 150
+            parent_min = min(self.parent.size) if self.parent.size[0] > 0 and self.parent.size[1] > 0 else dp(150)
             button_size = parent_min * self.size_square
             self.size = (button_size, button_size)
 
@@ -295,7 +298,7 @@ Builder.load_string("""
 """)
 class BreezyBorderedLabel(Label):
     border_color = ColorProperty([0, 0, 0, 1])
-    border_width = NumericProperty(0.1)
+    border_width = NumericProperty(dp(0.1))
     breeze_width = NumericProperty(0)
     breeze_alpha = NumericProperty(0)
     
@@ -319,9 +322,9 @@ class BreezyBorderedLabel(Label):
             self.breeze_alpha = 0
     
     def _update_breeze(self, dt):
-        max_width = 100
+        max_width = dp(100)
         min_alpha = 0.4
-        speed = 30
+        speed = dp(30)
         
         self.breeze_width += speed * dt
         
@@ -349,7 +352,7 @@ Builder.load_string("""
             rgba: 1, 1, 1, 1
 """)
 class ShadowLabel(Label):
-    decal = ListProperty([7, -7])
+    decal = ListProperty([dp(7), -dp(7)])
     tint = ListProperty([.5, .5, 1, .5])
 
 Builder.load_string('''
@@ -456,13 +459,13 @@ class CircularProgressCounter(FloatLayout):
     progress = NumericProperty(0)  # 0 à 1
     progress_color = ColorProperty([1, 1, 1, 1])
     circle_size = NumericProperty(300)
-    line_width = NumericProperty(8)
-    min_circle_size = NumericProperty(180)
-    max_circle_size = NumericProperty(350)
+    line_width = NumericProperty(dp(8))
+    min_circle_size = NumericProperty(dp(180))
+    max_circle_size = NumericProperty(dp(350))
     size_ratio = NumericProperty(0.55)
     small_screen_ratio = NumericProperty(0.38)
-    outer_padding = NumericProperty(50)
-    small_screen_padding = NumericProperty(30)
+    outer_padding = NumericProperty(dp(50))
+    small_screen_padding = NumericProperty(dp(30))
     
     def __init__(self, **kwargs):
         super(CircularProgressCounter, self).__init__(**kwargs)
@@ -484,7 +487,7 @@ class CircularProgressCounter(FloatLayout):
 
     def _update_responsive_size(self, *args):
         window_min = min(Window.size)
-        is_small_screen = Window.width < 700 or Window.height < 700
+        is_small_screen = Window.width < dp(700) or Window.height < dp(700)
         size_ratio = self.small_screen_ratio if is_small_screen else self.size_ratio
         responsive_circle_size = min(self.max_circle_size, window_min * size_ratio)
         self.circle_size = max(self.min_circle_size, responsive_circle_size)
@@ -516,7 +519,7 @@ Builder.load_string("""
 class RoundedButton(ButtonBehavior, Label):
     background_color = ListProperty([1, 1, 1, 1])
 
-def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=10, bgcolor=(1,1,1,1), badge=None, badge_font_size=10, badge_color=(1,0,0,1), on_release=None):
+def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=sp(10), bgcolor=(1,1,1,1), badge=None, badge_font_size=sp(10), badge_color=(1,0,0,1), on_release=None):
     # If size >= 1, use parent size (for buttons in BoxLayouts), otherwise use Window size
     use_parent = (size >= 1.0)
     parent = SquareFloatLayout(
@@ -563,7 +566,7 @@ Builder.load_string("""
 class IconTextButton(ButtonBehavior, BoxLayout):
     background_color = ListProperty([1, 1, 1, 1])
 
-def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_font='Roboto', text_font='Roboto', icon_font_size='50sp', text_font_size='30sp', bgcolor=(1,1,1,1), on_release=None):
+def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_font='Roboto', text_font='Roboto', icon_font_size=sp(50), text_font_size=sp(30), bgcolor=(1,1,1,1), on_release=None):
     """
     Create a horizontal button with icon on left and text on right
     
@@ -591,7 +594,7 @@ def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_
     # Icon container with padding
     icon_container = BoxLayout(
         size_hint=(0.4, 1),
-        padding=(0, 10, 0, 10),  # Add vertical padding
+        padding=(0, dp(10), 0, dp(10)),  # Add vertical padding
     )
     
     # Icon label
