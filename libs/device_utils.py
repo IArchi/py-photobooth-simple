@@ -486,11 +486,32 @@ class CupsPrinter(PrintDevice):
         if not self._instance: raise Exception('Cannot find any CUPS printer or cups is not installed.')
 
     def print(self, file_path, print_params={}):
+        if not self.is_available():
+            raise RuntimeError(f"Printer '{self._name}' is not available")
         return self._instance.printFile(self._name, os.path.abspath(file_path), os.path.basename(file_path), print_params)
 
     def get_print_status(self, task_id):
         status = self._instance.getJobAttributes(task_id)['job-state']
         return 'pending' if status < 6 else 'done'
+
+    def is_available(self):
+        if self._instance is None or not self._name:
+            return False
+
+        try:
+            printers = self._instance.getPrinters()
+            printer = printers.get(self._name)
+            if not printer:
+                return False
+
+            if printer.get('printer-is-accepting-jobs') is False:
+                return False
+
+            # CUPS states: 3=idle, 4=printing, 5=stopped
+            return printer.get('printer-state') != 5
+        except Exception as e:
+            Logger.warning('CupsPrinter: availability check failed for %s: %s', self._name, e)
+            return False
 
 class DeviceUtils:
     _preview = None
@@ -565,21 +586,7 @@ class DeviceUtils:
     def has_printer(self):
         if self._printer is None:
             return False
-        if getattr(self, '_has_printer_usb', None) is not None:
-            return self._has_printer_usb
-        try:
-            result = subprocess.run(['lsusb'], stdout=subprocess.PIPE, text=True, timeout=2)
-            lsusb_output = result.stdout or ''
-            printer_keywords = [
-                'Print', 'Epson', 'HP', 'Brother', 'Samsung', 'Lexmark',
-                'Xerox', 'Ricoh', 'Kyocera', 'OKI', 'Konica', 'Sharp', 'Toshiba',
-            ]
-            lower = lsusb_output.lower()
-            self._has_printer_usb = any(kw.lower() in lower for kw in printer_keywords)
-        except Exception as e:
-            Logger.error("An error occurred while checking for printers: %s", str(e))
-            self._has_printer_usb = False
-        return self._has_printer_usb
+        return self._printer.is_available()
 
     def print(self, file_path, print_params={}):
         if not self._printer: return
