@@ -1440,3 +1440,7 @@ class WebServer:
         if self.server_thread and self.server_thread.is_alive():
             self.server_thread.join(timeout=5)
         self.server_thread = None
+
+        if self._watchdog_thread and self._watchdog_thread.is_alive():
+            self._watchdog_thread.join(timeout=5)
+        self._watchdog_thread = None

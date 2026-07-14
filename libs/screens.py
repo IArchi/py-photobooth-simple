@@ -1,5 +1,6 @@
 import random
 import threading
+import time
 import cv2
 import numpy as np
 from kivy.clock import Clock
@@ -75,6 +76,7 @@ ICON_USB = '\u49ba'
 ICON_TRIGGER = '\u3d3e'
 ICON_QRCODE = '\u45f4'
 ICON_SHARE = '\u46d4'
+ICON_MAINTENANCE = '\u413a'
 
 
 class ScreenMgr(ScreenManager):
@@ -83,6 +85,7 @@ class ScreenMgr(ScreenManager):
     READY = 'ready'
     SELECT_FORMAT = 'select_format'
     ERROR = 'error'
+    MAINTENANCE = 'maintenance'
     COUNTDOWN = 'countdown'
     CONFIRM_CAPTURE = 'confirm_capture'
     PROCESSING = 'processing'
@@ -100,6 +103,7 @@ class ScreenMgr(ScreenManager):
             self.WAITING            : WaitingScreen(app, name=self.WAITING),
             self.SELECT_FORMAT      : SelectFormatScreen(app, name=self.SELECT_FORMAT),
             self.ERROR              : ErrorScreen(app, name=self.ERROR),
+            self.MAINTENANCE        : MaintenanceScreen(app, name=self.MAINTENANCE),
             self.COUNTDOWN          : CountdownScreen(app, name=self.COUNTDOWN),
             self.CONFIRM_CAPTURE    : ConfirmCaptureScreen(app, name=self.CONFIRM_CAPTURE),
             self.PROCESSING         : ProcessingScreen(app, name=self.PROCESSING),
@@ -385,8 +389,7 @@ class SelectFormatScreen(ColorScreen):
         preview_image = Image(
             source=preview_path,
             size_hint=(None, None),
-            allow_stretch=True,
-            keep_ratio=True,
+            fit_mode='contain',
         )
         
         # Update image size to fit within container
@@ -500,6 +503,85 @@ class ErrorScreen(ColorScreen):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ErrorScreen: on_click().')
         self.app.transition_to(ScreenMgr.WAITING)
+
+class MaintenanceScreen(ColorScreen):
+    """Operational maintenance screen for infrastructure incidents."""
+
+    def __init__(self, app, **kwargs):
+        Logger.info('MaintenanceScreen: __init__().')
+        super(MaintenanceScreen, self).__init__(**kwargs)
+
+        self.app = app
+
+        layout = BoxLayout(orientation='vertical', padding=dp(30), spacing=dp(20))
+
+        self.icon = ResizeLabel(
+            size_hint=(1, 0.35),
+            font_name=ICON_TTF,
+            text=ICON_MAINTENANCE,
+            max_font_size=XLARGE_FONT,
+        )
+        layout.add_widget(self.icon)
+
+        self.title = Label(
+            size_hint=(1, 0.12),
+            text='MAINTENANCE',
+            font_size=LARGE_FONT,
+            bold=True,
+            halign='center',
+            valign='middle',
+        )
+        self.title.bind(size=self.title.setter('text_size'))
+        layout.add_widget(self.title)
+
+        self.message = Label(
+            size_hint=(1, 0.25),
+            text='Please call an operator.',
+            font_size=SMALL_FONT,
+            halign='center',
+            valign='middle',
+        )
+        self.message.bind(size=self.message.setter('text_size'))
+        layout.add_widget(self.message)
+
+        self.details = Label(
+            size_hint=(1, 0.18),
+            text='-',
+            font_size=TINY_FONT,
+            halign='center',
+            valign='middle',
+        )
+        self.details.bind(size=self.details.setter('text_size'))
+        layout.add_widget(self.details)
+
+        self.btn_restart = make_icon_text_button(
+            icon=ICON_LOADING,
+            text='RESTART',
+            size_hint=(0.22, 0.12),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            icon_font=ICON_TTF,
+            icon_font_size=SMALL_FONT,
+            text_font_size=SMALL_FONT,
+            bgcolor=CONFIRM_COLOR,
+            on_release=self.restart_event,
+        )
+        layout.add_widget(self.btn_restart)
+
+        self.add_widget(layout)
+
+    def on_entry(self, kwargs={}):
+        Logger.info('MaintenanceScreen: on_entry().')
+        self.title.text = str(kwargs.get('title', 'MAINTENANCE'))
+        self.message.text = str(kwargs.get('message', 'Please call an operator.'))
+        self.details.text = str(kwargs.get('details', '-'))
+
+    def on_exit(self, kwargs={}):
+        Logger.info('MaintenanceScreen: on_exit().')
+
+    def restart_event(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        Logger.info('MaintenanceScreen: restart_event().')
+        self.app.request_restart()
 
 class CountdownScreen(ColorScreen):
     """
@@ -976,8 +1058,7 @@ class ConfirmCaptureScreen(ColorScreen):
         card.thumbnail = Image(
             size_hint=(None, None),
             size=(card_size - dp(10), card_size - dp(10)),
-            allow_stretch=True,
-            keep_ratio=True,
+            fit_mode='contain',
         )
         
         preview_container.add_widget(card.thumbnail)
@@ -1603,6 +1684,8 @@ class PrintingScreen(ColorScreen):
 
         self.app = app
         self._current_format = 0
+        self._printer_wait_started_at = None
+        self._printer_wait_timeout = 45
 
         layout = BoxLayout(orientation='vertical')
 
@@ -1615,6 +1698,17 @@ class PrintingScreen(ColorScreen):
             max_font_size=XLARGE_FONT,
         )
         layout.add_widget(icon)
+        self.icon = icon
+
+        self.status_label = Label(
+            size_hint=(0.9, 0.15),
+            text='Printing...',
+            font_size=SMALL_FONT,
+            halign='center',
+            valign='middle',
+        )
+        self.status_label.bind(size=self.status_label.setter('text_size'))
+        layout.add_widget(self.status_label)
 
         # Display loading spinner
         loading = RotatingLabel(
@@ -1636,6 +1730,8 @@ class PrintingScreen(ColorScreen):
             self.app.ringled.start_rainbow()
         self._current_copies = kwargs.get('copies') if 'copies' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self._printer_wait_started_at = None
+        self.status_label.text = 'Printing...'
 
         # Trigger print
         try:
@@ -1655,6 +1751,31 @@ class PrintingScreen(ColorScreen):
 
     def timer_event(self, obj):
         Logger.info('PrintingScreen: timer_event().')
+        if not self.app.has_printer():
+            if self._printer_wait_started_at is None:
+                self._printer_wait_started_at = time.monotonic()
+                Logger.warning('PrintingScreen: printer unavailable, entering recovery wait')
+
+            waited = time.monotonic() - self._printer_wait_started_at
+            remaining = max(0, int(self._printer_wait_timeout - waited))
+            self.status_label.text = f'Printer unavailable. Waiting for reconnection... {remaining}s'
+
+            if waited >= self._printer_wait_timeout:
+                self.app.enter_maintenance_mode(
+                    title='PRINTER',
+                    message='Printer did not recover. Please call an operator.',
+                    details=f'Unavailable for {int(waited)}s',
+                )
+                return
+
+            self._clock = Clock.schedule_once(self.timer_event, 1)
+            return
+
+        if self._printer_wait_started_at is not None:
+            Logger.info('PrintingScreen: printer recovered after %.2fs', time.monotonic() - self._printer_wait_started_at)
+            self._printer_wait_started_at = None
+            self.status_label.text = 'Printing...'
+
         if not self.app.is_print_completed(self._print_task_id):
             self._clock = Clock.schedule_once(self.timer_event, 1)
         else:
@@ -1874,7 +1995,7 @@ class QRCodePopup(FloatLayout):
         self.qr_image = Image(
             size_hint=(None, None),
             size=(qr_size, qr_size),
-            allow_stretch=True,
+            fit_mode='contain',
         )
         qr_container.add_widget(self.qr_image)
         self.card.add_widget(qr_container)

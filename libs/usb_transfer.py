@@ -59,6 +59,7 @@ class UsbTransfer:
             return
 
         self._pending_mounts[device.device] = device
+        Logger.info('UsbTransfer: pending exports=%s', len(self._pending_mounts))
         if not self._app.is_usb_copy_allowed():
             Logger.info('UsbTransfer: deferring copy for %s until waiting screen', device.device)
             return
@@ -83,13 +84,22 @@ class UsbTransfer:
 
             self._app.request_transition_to(ScreenMgr.COPYING)
             try:
+                Logger.info('UsbTransfer: starting export device=%s mountpoint=%s', device.device, device.mountpoint)
                 self.copy_without_overwrite(self._folder, device.mountpoint)
+                Logger.info('UsbTransfer: export completed device=%s mountpoint=%s', device.device, device.mountpoint)
             except Exception:
                 Logger.error('UsbTransfer: Failed to perform folder copy.')
                 Logger.error(traceback.format_exc())
+                self._app.request_transition_to(
+                    ScreenMgr.MAINTENANCE,
+                    title='USB EXPORT',
+                    message='USB copy failed. Please call an operator.',
+                    details=f'{device.device} {device.mountpoint}',
+                )
             finally:
                 self._pending_mounts.pop(device.device, None)
-                self._app.request_transition_to(ScreenMgr.WAITING)
+                if self._app.get_current_screen_name() == ScreenMgr.COPYING:
+                    self._app.request_transition_to(ScreenMgr.WAITING)
 
     @staticmethod
     def get_current_removable_media():
@@ -134,6 +144,7 @@ class UsbTransfer:
     def copy_without_overwrite(self, src, dest):
         src_path = Path(src)
         dest_path = Path(dest)
+        copied_files = 0
 
         if not src_path.exists(): raise ValueError("Source directory does not exist")
         dest_path.mkdir(parents=True, exist_ok=True)
@@ -142,8 +153,11 @@ class UsbTransfer:
             s = src_path / item.name
             d = dest_path / item.name
             if s.is_dir():
-                self.copy_without_overwrite(s, d)
+                copied_files += self.copy_without_overwrite(s, d)
             else:
                 if not d.exists():
                     Clock.schedule_once(lambda dt, label=item.name: self._app.sm.get_screen(ScreenMgr.COPYING).on_update({'label': label}), 0)
                     shutil.copy2(s, d)
+                    copied_files += 1
+
+        return copied_files

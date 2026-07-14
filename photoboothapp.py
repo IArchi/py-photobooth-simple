@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import os
+import shutil
 import sys
 import signal
 import threading
@@ -122,17 +123,31 @@ class PhotoboothApp(App):
                 Logger.info(f'PhotoboothApp: Web server started for photo gallery at {abs_save_directory}')
             else:
                 Logger.error('PhotoboothApp: Web server failed to start; gallery sharing is unavailable')
+                self._requested_screen = ScreenMgr.MAINTENANCE
+                self._requested_kwargs = {
+                    'title': 'WEB SERVER',
+                    'message': 'Gallery sharing is unavailable. Please call an operator.',
+                    'details': 'Server failed to start on port 5000.',
+                }
         else:
             self.web_server = None
             Logger.info('PhotoboothApp: Web server disabled (SHARE=False)')
 
+        self._log_disk_space('startup')
+        self._log_runtime_snapshot('startup')
+
     def build(self):
         Logger.info('PhotoboothApp: build().')
         self.sm = ScreenMgr(self, transition=NoTransition())
+        if self._requested_screen:
+            self.sm.current = self._requested_screen
         self.sm.current_screen.on_entry()
+        if self._requested_screen and self._requested_kwargs:
+            self.sm.current_screen.on_entry(self._requested_kwargs)
         return self.sm
 
     def on_stop(self):
+        self._log_runtime_snapshot('shutdown')
         if self.ringled:
             self.ringled.clear()
         if getattr(self, 'web_server', None):
@@ -144,6 +159,8 @@ class PhotoboothApp(App):
 
     def request_restart(self):
         """Request a clean application restart from a background thread."""
+        Logger.warning('PhotoboothApp: restart requested')
+        self._log_runtime_snapshot('restart_requested')
         Clock.schedule_once(lambda dt: self.stop(), 0)
 
     def request_transition_to(self, new_state, **kwargs):
@@ -156,6 +173,15 @@ class PhotoboothApp(App):
         self.sm.current_screen.on_exit()
         self.sm.current = new_state
         self.sm.current_screen.on_entry(kwargs)
+
+    def enter_maintenance_mode(self, title, message, details='-'):
+        Logger.error('PhotoboothApp: entering maintenance mode title=%s details=%s', title, details)
+        self.request_transition_to(
+            ScreenMgr.MAINTENANCE,
+            title=title,
+            message=message,
+            details=details,
+        )
 
     def get_current_screen_name(self):
         if self.sm is None:
@@ -182,6 +208,33 @@ class PhotoboothApp(App):
         """Get the aspect ratio (width/height) for the given format."""
         return self.print_formats[format_idx].get_aspect_ratio()
 
+    def _log_disk_space(self, context):
+        try:
+            usage = shutil.disk_usage(self.DCIM_DIRECTORY)
+            free_gb = usage.free / (1024 ** 3)
+            total_gb = usage.total / (1024 ** 3)
+            used_percent = 0 if usage.total == 0 else ((usage.total - usage.free) / usage.total) * 100
+            Logger.info(
+                'PhotoboothApp: disk usage [%s] free=%.2fGB total=%.2fGB used=%.1f%% path=%s',
+                context,
+                free_gb,
+                total_gb,
+                used_percent,
+                self.DCIM_DIRECTORY,
+            )
+        except Exception as exc:
+            Logger.warning('PhotoboothApp: disk usage check failed [%s]: %s', context, exc)
+
+    def _log_runtime_snapshot(self, context):
+        Logger.info(
+            'PhotoboothApp: runtime snapshot [%s] threads=%d current_screen=%s share=%s printer=%s',
+            context,
+            len(threading.enumerate()),
+            self.get_current_screen_name(),
+            self.SHARE,
+            self.PRINTER,
+        )
+
     def _start_background_process(self, kind, target, *args, **kwargs):
         with self._process_lock:
             self._process_token += 1
@@ -194,6 +247,8 @@ class PhotoboothApp(App):
                 'started_at': time.monotonic(),
                 'finished_at': None,
             }
+
+        Logger.info('PhotoboothApp: background %s started token=%s', kind, process_token)
 
         def run_target():
             error = None
@@ -211,6 +266,13 @@ class PhotoboothApp(App):
                         self._process_state['error'] = error
                         self._process_state['traceback'] = tb
                         self._process_state['finished_at'] = time.monotonic()
+
+                duration = time.monotonic() - self._process_state['started_at'] if self._process_state.get('token') == process_token else None
+                if error is None:
+                    Logger.info('PhotoboothApp: background %s completed token=%s duration=%.2fs', kind, process_token, duration or 0)
+                else:
+                    Logger.error('PhotoboothApp: background %s finished with error token=%s duration=%.2fs', kind, process_token, duration or 0)
+                self._log_runtime_snapshot(f'background_{kind}_done')
 
         process = threading.Thread(target=run_target, name=f'photobooth-{kind}-{process_token}', daemon=True)
         process.start()
@@ -246,6 +308,8 @@ class PhotoboothApp(App):
     def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
         aspect_ratio = self.get_format_aspect_ratio(format_idx)
+        Logger.info('PhotoboothApp: shot request idx=%s format=%s aspect_ratio=%.4f', shot_idx, format_idx, aspect_ratio)
+        self._log_disk_space('before_shot')
         flash_callback = self.ringled.flash if self.ringled else None
         self._start_background_process('shot', self.devices.capture, self.get_shot(shot_idx), aspect_ratio, flash_callback)
 
@@ -257,6 +321,8 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_collage().')
         photos = []
         for i in range(0, self.get_shots_to_take(format)): photos.append(self.get_shot(i))
+        Logger.info('PhotoboothApp: collage request format=%s photos=%s', format, len(photos))
+        self._log_disk_space('before_collage')
         # Pass for_print=True to enable horizontal duplication for strip formats
         self._start_background_process(
             'collage',
@@ -280,6 +346,8 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: trigger_print().')
         options = self.print_formats[format].get_print_params()
         options['copies'] = str(copies)
+        Logger.info('PhotoboothApp: print request format=%s copies=%s printer_available=%s', format, copies, self.has_printer())
+        self._log_disk_space('before_print')
         
         # Check if a print version exists (for duplicated templates)
         print_collage = self.get_collage().replace('.jpg', '_print.jpg')
@@ -291,9 +359,12 @@ class PhotoboothApp(App):
 
     def is_print_completed(self, print_task_id):
         try:
-            return self.devices.get_print_status(print_task_id) == 'done'
-        except:
-            return True
+            status = self.devices.get_print_status(print_task_id)
+            Logger.info('PhotoboothApp: print status task=%s status=%s', print_task_id, status)
+            return status == 'done'
+        except Exception as exc:
+            Logger.error('PhotoboothApp: print status check failed task=%s error=%s', print_task_id, exc)
+            return False
 
     def save_collage(self):
         Logger.info('PhotoboothApp: save_collage().')
@@ -307,29 +378,41 @@ class PhotoboothApp(App):
         os.makedirs(destination, exist_ok=True)
 
         # Move to save_directory (exclude small previews and print versions)
+        moved_files = 0
         for f in all_files:
             if '_small' in f or '_print' in f: continue
             src_path = os.path.join(self.tmp_directory, f)
             dst_path = os.path.join(destination, f)
             try:
                 FileUtils.move_file(src_path, dst_path)
+                moved_files += 1
             except FileNotFoundError:
                 Logger.warning('PhotoboothApp: file disappeared before save: %s', src_path)
             except Exception as exc:
                 Logger.error('PhotoboothApp: failed to save %s to %s: %s', src_path, dst_path, exc)
                 raise
 
+        Logger.info('PhotoboothApp: saved session destination=%s files=%s', destination, moved_files)
+        self._log_disk_space('after_save')
+        if getattr(self, 'web_server', None):
+            session_id = os.path.basename(destination)
+            for _ in range(moved_files):
+                self.web_server.track_photo_taken(session_id=session_id)
+
     def purge_tmp(self):
         # List existing files and delete (including _print versions)
         all_files = os.listdir(self.tmp_directory)
         if len(all_files) == 0: return
+        removed_files = 0
         for f in all_files:
             src_path = os.path.join(self.tmp_directory, f)
             if os.path.isfile(src_path):
                 try:
-                    FileUtils.remove_file(src_path)
+                    if FileUtils.remove_file(src_path):
+                        removed_files += 1
                 except Exception as exc:
                     Logger.warning('PhotoboothApp: failed to purge temp file %s: %s', src_path, exc)
+        Logger.info('PhotoboothApp: purged tmp directory removed_files=%s', removed_files)
 
 if __name__ == '__main__':
     PhotoboothApp().run()
