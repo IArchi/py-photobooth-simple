@@ -1384,10 +1384,21 @@ class WebServer:
                     self.server = make_server(self.host, self.port, self.app, threaded=True)
                     startup_event.set()
                     self.server.serve_forever()
-                except Exception as e:
+                except BaseException as e:
                     startup_state['error'] = e
-                    startup_event.set()
-                    Logger.error(f'WebServer: Failed to start on {self.host}:{self.port}: {e}')
+                    if not startup_event.is_set():
+                        startup_event.set()
+
+                    # werkzeug can abort startup with SystemExit on bind errors
+                    # (for example "Address already in use"). Catch it here so
+                    # the Kivy app does not block for the full timeout.
+                    if isinstance(e, SystemExit):
+                        Logger.error(
+                            f'WebServer: Failed to start on {self.host}:{self.port}: '
+                            f'process exited during startup (likely port already in use)'
+                        )
+                    else:
+                        Logger.error(f'WebServer: Failed to start on {self.host}:{self.port}: {e}')
                 finally:
                     self.server = None
 
