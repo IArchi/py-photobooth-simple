@@ -12,9 +12,6 @@ class Config:
         if not loaded_files:
             raise FileNotFoundError(f'Cannot load configuration file: {CONFIG_PATH}')
 
-    def get_autorestart(self):
-        return self.config.getboolean('Global', 'AUTORESTART')
-
     def get_fullscreen(self):
         return self.config.getboolean('Global', 'FULLSCREEN')
 

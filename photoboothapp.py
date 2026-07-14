@@ -34,12 +34,9 @@ from libs.usb_transfer import UsbTransfer
 from libs.web_server import WebServer
 
 RINGLED = None
-autorestart = True
 
 def signal_handler(sig, frame):
-    global autorestart
     print("\nCtrl+C detected. Exiting gracefully...")
-    autorestart = False
     if RINGLED:
         RINGLED.clear()
     sys.exit(0)
@@ -47,13 +44,12 @@ signal.signal(signal.SIGINT, signal_handler)
 
 class PhotoboothApp(App):
     def __init__(self, **kwargs):
-        global autorestart, RINGLED
+        global RINGLED
         Logger.info('PhotoboothApp: __init__().')
         super(PhotoboothApp, self).__init__(**kwargs)
 
         # Load configuration
         config = Config()
-        autorestart = config.get_autorestart()
         self.FULLSCREEN = config.get_fullscreen()
         self.SHARE = config.get_share()
         self.FILTERS = config.get_filters()
@@ -148,8 +144,6 @@ class PhotoboothApp(App):
 
     def request_restart(self):
         """Request a clean application restart from a background thread."""
-        global autorestart
-        autorestart = True
         Clock.schedule_once(lambda dt: self.stop(), 0)
 
     def request_transition_to(self, new_state, **kwargs):
@@ -338,12 +332,4 @@ class PhotoboothApp(App):
                     Logger.warning('PhotoboothApp: failed to purge temp file %s: %s', src_path, exc)
 
 if __name__ == '__main__':
-    # Auto restart app on crash
-    while autorestart:
-        try:
-            PhotoboothApp().run()
-            break # stop the loop if the app completes sucessfully
-        except Exception as e:
-            print("Application errored out!", e)
-            print(traceback.format_exc())
-            print("Retrying ... ")
+    PhotoboothApp().run()

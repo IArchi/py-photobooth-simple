@@ -153,7 +153,6 @@ python3 photoboothapp.py
 ### Configuration File
 
 You can edit `config.ini` to change various parameters such as:
- - **AUTORESTART:** Automatically restart on failure
  - **FULLSCREEN:** Full screen window mode
  - **WEBSERVER:** Enable/disable share buttons and web server (gallery and editor)
  - **RINGLED:** Enable/disable RingLed functionality (set to `False` if you don't have RingLed hardware)
