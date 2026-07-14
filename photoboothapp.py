@@ -76,11 +76,13 @@ class PhotoboothApp(App):
         self._process_lock = threading.Lock()
         self._process_state = {
             'kind': None,
+            'token': 0,
             'error': None,
             'traceback': None,
             'started_at': None,
             'finished_at': None,
         }
+        self._process_token = 0
         self.usb_transfer = None
         self.ringled = RINGLED
         self.devices = DeviceUtils(
@@ -178,8 +180,11 @@ class PhotoboothApp(App):
 
     def _start_background_process(self, kind, target, *args, **kwargs):
         with self._process_lock:
+            self._process_token += 1
+            process_token = self._process_token
             self._process_state = {
                 'kind': kind,
+                'token': process_token,
                 'error': None,
                 'traceback': None,
                 'started_at': time.monotonic(),
@@ -198,12 +203,12 @@ class PhotoboothApp(App):
                 Logger.error(tb)
             finally:
                 with self._process_lock:
-                    if self._process_state.get('kind') == kind:
+                    if self._process_state.get('token') == process_token:
                         self._process_state['error'] = error
                         self._process_state['traceback'] = tb
                         self._process_state['finished_at'] = time.monotonic()
 
-        process = threading.Thread(target=run_target)
+        process = threading.Thread(target=run_target, name=f'photobooth-{kind}-{process_token}', daemon=True)
         process.start()
         self.processes = [process]
 
