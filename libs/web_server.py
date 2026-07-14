@@ -32,6 +32,9 @@ class WebServer:
         )
         self.server_thread = None
         self.server = None
+        self._server_lock = threading.Lock()
+        self._watchdog_thread = None
+        self._watchdog_stop = threading.Event()
         self.stats_file = os.path.join(save_directory, '.stats.json')
         self.stats_lock = threading.Lock()
         self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,6 +42,27 @@ class WebServer:
         self.templates_directory = os.path.join(self.project_root, 'templates')
         self.template_editor_path = os.path.join(self.project_root, 'tools', 'template_editor.html')
         self._setup_routes()
+
+    def _watchdog_loop(self):
+        while not self._watchdog_stop.wait(timeout=5):
+            if self.server_thread is None:
+                continue
+            if self.server_thread.is_alive():
+                continue
+
+            Logger.error('WebServer: watchdog detected stopped server thread, attempting restart')
+            try:
+                if not self.start(force_restart=True):
+                    Logger.error('WebServer: watchdog restart failed')
+            except Exception as e:
+                Logger.error(f'WebServer: watchdog restart exception: {e}')
+
+    def _ensure_watchdog(self):
+        if self._watchdog_thread and self._watchdog_thread.is_alive():
+            return
+        self._watchdog_stop.clear()
+        self._watchdog_thread = threading.Thread(target=self._watchdog_loop, name='webserver-watchdog', daemon=True)
+        self._watchdog_thread.start()
 
     def _sanitize_template_filename(self, filename=None, template_name='template'):
         """Return a safe JSON filename for template storage."""
@@ -1337,41 +1361,50 @@ class WebServer:
         def captive():
             return redirect('/')
     
-    def start(self):
+    def start(self, force_restart=False):
         """Start the web server in a separate thread."""
-        if self.server_thread and self.server_thread.is_alive():
-            Logger.warning('WebServer: Server already running')
-            return True
+        with self._server_lock:
+            if self.server_thread and self.server_thread.is_alive() and not force_restart:
+                Logger.warning('WebServer: Server already running')
+                return True
 
-        startup_event = threading.Event()
-        startup_state = {'error': None}
-
-        def run_server():
-            try:
-                Logger.info(f'WebServer: Starting on {self.host}:{self.port}')
-                self.server = make_server(self.host, self.port, self.app, threaded=True)
-                startup_event.set()
-                self.server.serve_forever()
-            except Exception as e:
-                startup_state['error'] = e
-                startup_event.set()
-                Logger.error(f'WebServer: Failed to start on {self.host}:{self.port}: {e}')
-            finally:
+            if force_restart and self.server is not None:
+                try:
+                    self.server.shutdown()
+                except Exception as e:
+                    Logger.warning(f'WebServer: shutdown before restart failed: {e}')
                 self.server = None
 
-        self.server_thread = threading.Thread(target=run_server, daemon=True)
-        self.server_thread.start()
-        startup_event.wait(timeout=5)
+            startup_event = threading.Event()
+            startup_state = {'error': None}
 
-        if not startup_event.is_set():
-            Logger.error('WebServer: Server startup timed out')
-            return False
+            def run_server():
+                try:
+                    Logger.info(f'WebServer: Starting on {self.host}:{self.port}')
+                    self.server = make_server(self.host, self.port, self.app, threaded=True)
+                    startup_event.set()
+                    self.server.serve_forever()
+                except Exception as e:
+                    startup_state['error'] = e
+                    startup_event.set()
+                    Logger.error(f'WebServer: Failed to start on {self.host}:{self.port}: {e}')
+                finally:
+                    self.server = None
 
-        if startup_state['error'] is not None:
-            return False
+            self.server_thread = threading.Thread(target=run_server, name='webserver-main', daemon=True)
+            self.server_thread.start()
+            startup_event.wait(timeout=5)
 
-        Logger.info('WebServer: Server started successfully')
-        return True
+            if not startup_event.is_set():
+                Logger.error('WebServer: Server startup timed out')
+                return False
+
+            if startup_state['error'] is not None:
+                return False
+
+            self._ensure_watchdog()
+            Logger.info('WebServer: Server started successfully')
+            return True
     
     def track_photo_taken(self, session_id=None):
         """Public method to track when a photo is taken.
@@ -1397,8 +1430,13 @@ class WebServer:
     
     def stop(self):
         """Stop the web server."""
+        self._watchdog_stop.set()
         if self.server is not None:
             self.server.shutdown()
             Logger.info('WebServer: Server stopped')
         else:
             Logger.info('WebServer: Stop requested but server is not running')
+
+        if self.server_thread and self.server_thread.is_alive():
+            self.server_thread.join(timeout=5)
+        self.server_thread = None
