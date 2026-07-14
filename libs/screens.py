@@ -1249,6 +1249,9 @@ class ConfirmCaptureScreen(ColorScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmCaptureScreen: on_exit().')
+        if hasattr(self, 'auto_leave') and self.auto_leave:
+            Clock.unschedule(self.auto_leave)
+            self.auto_leave = None
 
     def keep_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
@@ -1420,6 +1423,11 @@ class ConfirmSaveScreen(ColorScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmSaveScreen: on_exit().')
+        if hasattr(self, 'auto_confirm') and self.auto_confirm:
+            Clock.unschedule(self.auto_confirm)
+            self.auto_confirm = None
+        if hasattr(self, 'qr_popup') and self.qr_popup.parent:
+            self.layout.remove_widget(self.qr_popup)
         if self.app.ringled:
             self.app.ringled.clear()
 
@@ -1544,6 +1552,11 @@ class ConfirmPrintScreen(ColorScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_exit().')
+        if hasattr(self, 'auto_decline') and self.auto_decline:
+            Clock.unschedule(self.auto_decline)
+            self.auto_decline = None
+        if hasattr(self, 'qr_popup') and self.qr_popup.parent:
+            self.layout.remove_widget(self.qr_popup)
         if self.app.ringled:
             self.app.ringled.clear()
 
