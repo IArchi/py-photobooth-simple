@@ -1,10 +1,16 @@
 import configparser
 import ast
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+CONFIG_PATH = PROJECT_ROOT / 'config.ini'
 
 class Config:
     def __init__(self):
         self.config = configparser.ConfigParser()
-        self.config.read('./config.ini')
+        loaded_files = self.config.read(CONFIG_PATH)
+        if not loaded_files:
+            raise FileNotFoundError(f'Cannot load configuration file: {CONFIG_PATH}')
 
     def get_autorestart(self):
         return self.config.getboolean('Global', 'AUTORESTART')
