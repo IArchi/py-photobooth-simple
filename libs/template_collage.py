@@ -171,7 +171,7 @@ class TemplateCollage:
         
         # Dump to temp file
         _, tmp_output = tempfile.mkstemp(suffix='.jpg')
-        cv2.imwrite(tmp_output, collage)
+        FileUtils.write_image(tmp_output, collage)
         
         # Cache the result
         self._preview_cache = tmp_output
@@ -239,11 +239,11 @@ class TemplateCollage:
         
         # Step 5: Save base collage (without duplication for web gallery)
         if output_path:
-            cv2.imwrite(output_path, canvas)
+            FileUtils.write_image(output_path, canvas)
             
             # Create small preview
             small = FileUtils.resize(canvas)
-            cv2.imwrite(FileUtils.get_small_path(output_path), small)
+            FileUtils.write_image(FileUtils.get_small_path(output_path), small)
         
         # Step 6: Apply duplication for printing if needed
         if for_print:
@@ -255,7 +255,7 @@ class TemplateCollage:
             # Save print version if different from base
             if output_path and (self._duplicate_horizontal or self._duplicate_vertical):
                 print_path = output_path.replace('.jpg', '_print.jpg')
-                cv2.imwrite(print_path, canvas)
+                FileUtils.write_image(print_path, canvas)
                 Logger.info(f'TemplateCollage: Saved print version to {print_path}')
         
         return canvas

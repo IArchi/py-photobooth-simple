@@ -152,13 +152,14 @@ class Cv2Camera(CaptureDevice):
         with self._camera_lock:
             ret, im = self._instance.read()
         if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
-        if not ret: return
+        if not ret:
+            raise IOError('OpenCV camera capture failed')
         #im = cv2.flip(im, 0)
         im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
         # Dump to file
-        cv2.imwrite(output_name, im)
+        FileUtils.write_image(output_name, im)
 
         # Create small preview in background thread (non-blocking)
         threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
@@ -167,7 +168,7 @@ class Cv2Camera(CaptureDevice):
         """Create small preview image asynchronously to avoid blocking capture."""
         try:
             resized_im = FileUtils.resize(image)
-            cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
+            FileUtils.write_image(FileUtils.get_small_path(output_name), resized_im)
         except Exception as e:
             Logger.error(f'Error creating small preview: {e}')
 
@@ -325,12 +326,14 @@ class Gphoto2Camera(CaptureDevice):
         # Rotate and crop if necessary
         buf = np.frombuffer(cfile.get_data(), dtype=np.uint8)
         im = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+        if im is None:
+            raise IOError('gPhoto2 returned an unreadable image buffer')
         #im = cv2.rotate(im, cv2.ROTATE_180)
         im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
         # Dump to file
-        cv2.imwrite(output_name, im)
+        FileUtils.write_image(output_name, im)
 
         # Create small preview in background thread (non-blocking)
         threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
@@ -340,7 +343,7 @@ class Gphoto2Camera(CaptureDevice):
         """Create small preview image asynchronously to avoid blocking capture."""
         try:
             resized_im = FileUtils.resize(image)
-            cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
+            FileUtils.write_image(FileUtils.get_small_path(output_name), resized_im)
         except Exception as e:
             Logger.error(f'Error creating small preview: {e}')
 
@@ -429,7 +432,7 @@ class Picamera2Camera(CaptureDevice):
         if zoom and zoom[0] < 1.0: im = FileUtils.zoom(im, zoom)
 
         # Dump to file
-        cv2.imwrite(output_name, im)
+        FileUtils.write_image(output_name, im)
 
         # Create small preview in background thread (non-blocking)
         threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
@@ -438,7 +441,7 @@ class Picamera2Camera(CaptureDevice):
         """Create small preview image asynchronously to avoid blocking capture."""
         try:
             resized_im = FileUtils.resize(image)
-            cv2.imwrite(FileUtils.get_small_path(output_name), resized_im)
+            FileUtils.write_image(FileUtils.get_small_path(output_name), resized_im)
         except Exception as e:
             Logger.error(f'Error creating small preview: {e}')
 

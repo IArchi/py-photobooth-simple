@@ -1,4 +1,5 @@
 import os
+import tempfile
 import cv2
 import numpy as np
 
@@ -10,6 +11,31 @@ class FileUtils:
         name, ext = os.path.splitext(filename)
         new_filename = f"{name}_small{ext}"
         return os.path.join(directory, new_filename)
+
+    @staticmethod
+    def write_image(path, image):
+        """Write an image atomically and raise on failure."""
+        directory = os.path.dirname(path) or '.'
+        os.makedirs(directory, exist_ok=True)
+
+        fd, tmp_path = tempfile.mkstemp(prefix='.tmp_', suffix=os.path.splitext(path)[1] or '.img', dir=directory)
+        os.close(fd)
+
+        try:
+            if image is None:
+                raise ValueError(f'Cannot write empty image to {path}')
+            if not cv2.imwrite(tmp_path, image):
+                raise IOError(f'cv2.imwrite failed for {path}')
+            os.replace(tmp_path, path)
+        except Exception:
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except OSError:
+                pass
+            raise
+
+        return path
 
     @staticmethod
     def resize(image, max_height=1080, max_width=1920):

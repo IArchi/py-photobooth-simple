@@ -1196,7 +1196,7 @@ class ConfirmCaptureScreen(ColorScreen):
             # Save filtered image temporarily
             import tempfile
             temp_path = tempfile.mktemp(suffix='.jpg')
-            cv2.imwrite(temp_path, filtered_image)
+            FileUtils.write_image(temp_path, filtered_image)
             
             # Update preview
             self.preview.filepath = temp_path
@@ -1258,11 +1258,11 @@ class ConfirmCaptureScreen(ColorScreen):
         if self.app.FILTERS and self._selected_filter != 'color' and self._original_image is not None:
             filtered_image = self._apply_filter(self._original_image.copy(), self._selected_filter)
             shot_path = self.app.get_shot(self._current_shot)
-            cv2.imwrite(shot_path, filtered_image)
+            FileUtils.write_image(shot_path, filtered_image)
             # Also update small version
             small_path = FileUtils.get_small_path(shot_path)
             small_filtered = cv2.resize(filtered_image, (0, 0), fx=0.3, fy=0.3)
-            cv2.imwrite(small_path, small_filtered)
+            FileUtils.write_image(small_path, small_filtered)
         
         if self._current_shot == self.app.get_shots_to_take(self._current_format) - 1:
             self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
