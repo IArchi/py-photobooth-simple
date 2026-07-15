@@ -53,6 +53,7 @@ class PhotoboothApp(App):
         config = Config()
         self.FULLSCREEN = config.get_fullscreen()
         self.SHARE = config.get_share()
+        self.WEB_PORT = config.get_web_port()
         self.FILTERS = config.get_filters()
         self.COUNTDOWN = config.get_countdown()
         self.DCIM_DIRECTORY = config.get_dcim_directory()
@@ -109,29 +110,30 @@ class PhotoboothApp(App):
         self.usb_transfer = UsbTransfer(self, self.save_directory)
         self.usb_transfer.start()
         
-        # Initialize web server for photo gallery (convert to absolute path) only if SHARE is enabled
-        if self.SHARE:
-            abs_save_directory = os.path.abspath(self.save_directory)
-            self.web_server = WebServer(
+        # The web server always runs for gallery/admin access; SHARE only controls UI buttons.
+        abs_save_directory = os.path.abspath(self.save_directory)
+        self.web_server = WebServer(
+            abs_save_directory,
+            host='0.0.0.0',
+            port=self.WEB_PORT,
+            admin_password=config.get_admin_password(),
+            restart_callback=self.request_restart,
+        )
+        if self.web_server.start():
+            Logger.info(
+                'PhotoboothApp: Web server started at %s:%s (share_ui=%s)',
                 abs_save_directory,
-                host='0.0.0.0',
-                port=5000,
-                admin_password=config.get_admin_password(),
-                restart_callback=self.request_restart,
+                self.WEB_PORT,
+                self.SHARE,
             )
-            if self.web_server.start():
-                Logger.info(f'PhotoboothApp: Web server started for photo gallery at {abs_save_directory}')
-            else:
-                Logger.error('PhotoboothApp: Web server failed to start; gallery sharing is unavailable')
-                self._requested_screen = ScreenMgr.MAINTENANCE
-                self._requested_kwargs = {
-                    'title': 'WEB SERVER',
-                    'message': 'Gallery sharing is unavailable. Please call an operator.',
-                    'details': 'Server failed to start on port 5000.',
-                }
         else:
-            self.web_server = None
-            Logger.info('PhotoboothApp: Web server disabled (SHARE=False)')
+            Logger.error('PhotoboothApp: Web server failed to start; gallery and admin are unavailable')
+            self._requested_screen = ScreenMgr.MAINTENANCE
+            self._requested_kwargs = {
+                'title': 'WEB SERVER',
+                'message': 'Web administration is unavailable. Please call an operator.',
+                'details': f'Server failed to start on port {self.WEB_PORT}.',
+            }
 
         self._log_disk_space('startup')
         self._log_runtime_snapshot('startup')

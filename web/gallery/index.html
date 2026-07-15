@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoBooth - Gallery</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+    <style>
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
+        }
+
+        .gallery-card {
+            overflow: hidden;
+        }
+
+        .gallery-card img {
+            display: block;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            background: #e9ecef;
+        }
+
+        .gallery-card-body {
+            padding: 18px;
+        }
+
+        .gallery-card-body h2 {
+            margin: 0 0 8px;
+            font-size: 18px;
+        }
+
+        .gallery-card-body p {
+            margin: 0 0 14px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <main class="page-shell">
+        <div class="page-container">
+            <section class="page-hero">
+                <div>
+                    <span class="eyebrow">Gallery</span>
+                </div>
+                <div class="actions">
+                    <a href="/stats" class="btn btn-primary">Stats</a>
+                    <a href="/admin" class="btn btn-ghost">Admin</a>
+                </div>
+            </section>
+
+            <section class="gallery-grid">
+                {% for collage in collages %}
+                <article class="panel gallery-card">
+                    <a href="/collage/{{ collage.session }}" style="display: block; text-decoration: none;">
+                        <img src="/image/{{ collage.session }}/collage.jpg" alt="Collage {{ collage.session }}">
+                    </a>
+                    <div class="gallery-card-body">
+                        <h2>{{ collage.session }}</h2>
+                        <div class="actions">
+                            <a href="/download/{{ collage.session }}/collage.jpg" class="btn btn-success">Download</a>
+                        </div>
+                    </div>
+                </article>
+                {% endfor %}
+            </section>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoBooth - Admin Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+    <style>
+        .login-shell {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .login-card {
+            width: min(460px, 100%);
+            padding: 28px;
+        }
+
+        .login-card p {
+            margin: 0 0 20px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <main class="login-shell">
+        <section class="panel login-card">
+            <span class="eyebrow">Administration</span>
+            <h1>Admin login</h1>
+            <p>Authentication is required before opening the PhotoBooth administration area.</p>
+
+            {% if error_message %}
+            <div class="status error">{{ error_message }}</div>
+            {% endif %}
+
+            {% if success_message %}
+            <div class="status success">{{ success_message }}</div>
+            {% endif %}
+
+            {% if not admin_enabled %}
+            <div class="status error">ADMIN_PASSWORD is not set in <code>config.ini</code>. Admin access is disabled.</div>
+            {% endif %}
+
+            <form method="post" action="/admin/login">
+                <label class="field-label" for="password">Admin password</label>
+                <input class="field-input" id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" {% if not admin_enabled %}disabled{% endif %}>
+                <div class="actions">
+                    <button type="submit" class="btn btn-primary {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Sign in</button>
+                    <a href="/stats" class="btn btn-ghost">Back to stats</a>
+                </div>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

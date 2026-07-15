@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoBooth - Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+    <style>
+        .admin-stack {
+            display: grid;
+            gap: 20px;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .quick-card {
+            background: var(--panel-muted);
+            border: 1px solid #eeeeee;
+            border-radius: var(--radius-md);
+            padding: 20px;
+        }
+
+        .quick-card h2,
+        .section-card h2 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .quick-card p,
+        .section-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .quick-card p,
+        .section-card p {
+            margin: 10px 0 18px;
+        }
+
+        .section-card {
+            padding: 24px;
+        }
+
+        .status-block {
+            display: grid;
+            gap: 16px;
+        }
+
+        .config-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .config-toolbar p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+
+        .config-note {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: var(--panel-muted);
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .danger-card {
+            border: 1px solid #fecaca;
+            background: #fff7f7;
+        }
+
+        .danger-card .eyebrow {
+            color: #b91c1c;
+        }
+
+        .danger-callout {
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border: 1px solid #fecaca;
+            border-radius: 12px;
+            background: #fff1f2;
+            color: #8f1d2c;
+        }
+
+        @media (max-width: 900px) {
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .config-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page-shell">
+        <div class="page-container">
+            <section class="page-hero">
+                <div>
+                    <span class="eyebrow">Administration</span>
+                    <h1>PhotoBooth control panel</h1>
+                    <p>Everything needed to manage templates, application settings and maintenance is grouped here with the most common actions first.</p>
+                </div>
+                <div class="actions">
+                    <a href="/admin/logout" class="btn btn-secondary">Log out</a>
+                </div>
+            </section>
+
+            <section class="admin-stack" style="margin-bottom: 20px;">
+                <div class="status-block">
+                    {% if error_message %}
+                    <div class="status error">{{ error_message }}</div>
+                    {% endif %}
+
+                    {% if success_message %}
+                    <div class="status success">{{ success_message }}</div>
+                    {% endif %}
+
+                    {% if not admin_enabled %}
+                    <div class="status error">ADMIN_PASSWORD is not set in <code>config.ini</code>. Admin actions are disabled.</div>
+                    {% endif %}
+                </div>
+
+                <div class="quick-actions">
+                    <article class="quick-card">
+                        <span class="eyebrow">1. Templates</span>
+                        <h2>Edit layouts</h2>
+                        <p>Create, duplicate and save print templates from the visual editor.</p>
+                        <a href="/admin/editor" class="btn btn-primary">Open template editor</a>
+                    </article>
+
+                    <article class="quick-card">
+                        <span class="eyebrow">2. Settings</span>
+                        <h2>Adjust configuration</h2>
+                        <p>Update <code>config.ini</code> directly from the browser when a setup value changes.</p>
+                        <a href="#config-section" class="btn btn-ghost">Go to configuration</a>
+                    </article>
+
+                    <article class="quick-card">
+                        <span class="eyebrow">3. Maintenance</span>
+                        <h2>Restart or clean</h2>
+                        <p>Restart the booth after changes, or remove all saved sessions from the danger zone below.</p>
+                        <form method="post" action="/admin/restart">
+                            <div class="actions">
+                                <button type="submit" class="btn btn-warning {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Restart app</button>
+                            </div>
+                        </form>
+                    </article>
+                </div>
+            </section>
+
+            <section class="admin-stack">
+                <article class="panel section-card" id="config-section">
+                    <span class="eyebrow">Configuration</span>
+                    <h2>Edit <code>config.ini</code></h2>
+                    <p>Use this section when a printer, countdown, port or hardware setting must be changed. The admin password stays masked in the browser.</p>
+
+                    <form method="post" action="/admin/config">
+                        <div class="config-toolbar">
+                            <p>Apply your changes here, then restart PhotoBooth so the new configuration is loaded.</p>
+                            <button type="submit" class="btn btn-success {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Save config.ini</button>
+                        </div>
+                        <label class="field-label" for="config_content">Configuration file</label>
+                        <textarea class="field-textarea" id="config_content" name="config_content" spellcheck="false" {% if not admin_enabled %}disabled{% endif %}>{{ config_content }}</textarea>
+                        <div class="config-note">Tip: save first, then use the restart action above to apply the updated configuration to the running application.</div>
+                    </form>
+                </article>
+
+                <article class="panel section-card danger-card">
+                    <span class="eyebrow">Danger Zone</span>
+                    <h2>Delete saved photos</h2>
+                    <p>This permanently removes all saved images, session folders and the web statistics linked to generated photos.</p>
+                    <div class="danger-callout">Only use this action when you intentionally want to clear the booth history.</div>
+                    <form method="post" action="/admin/delete-all">
+                        <div class="actions">
+                            <button type="submit" class="btn btn-danger {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Delete all photos</button>
+                        </div>
+                    </form>
+                </article>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoBooth - Statistics</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+        }
+
+        .stats-grid .stat-card p {
+            margin: 8px 0 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .info-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .info-row {
+            display: grid;
+            grid-template-columns: minmax(180px, 240px) 1fr;
+            gap: 16px;
+            padding: 14px 0;
+            border-top: 1px solid #eeeeee;
+        }
+
+        .info-row:first-child {
+            border-top: none;
+            padding-top: 0;
+        }
+
+        .info-row strong {
+            color: var(--text-primary);
+        }
+
+        .info-row span {
+            color: var(--text-secondary);
+            word-break: break-word;
+        }
+
+        @media (max-width: 720px) {
+            .info-row {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page-shell">
+        <div class="page-container">
+            <section class="page-hero">
+                <div>
+                    <span class="eyebrow">Statistics</span>
+                    <h1>PhotoBooth usage overview</h1>
+                    <p>Review captured sessions, downloads and gallery usage from the embedded web server.</p>
+                </div>
+                <div class="actions">
+                    <a href="/download/all-photos" class="btn btn-success {% if not downloadable_photos %}disabled{% endif %}">Download all photos</a>
+                    <a href="/gallery" class="btn btn-ghost">Gallery</a>
+                </div>
+            </section>
+
+            <section class="panel">
+                <div class="panel-section">
+                    <div class="stats-grid">
+                        <article class="stat-card">
+                            <div class="stat-label">Photos taken</div>
+                            <div class="stat-value">{{ stats.photos_taken }}</div>
+                            <p>Total collages created by the booth.</p>
+                        </article>
+                        <article class="stat-card">
+                            <div class="stat-label">Downloads</div>
+                            <div class="stat-value">{{ stats.downloads }}</div>
+                            <p>Files downloaded by visitors.</p>
+                        </article>
+                        <article class="stat-card">
+                            <div class="stat-label">Gallery views</div>
+                            <div class="stat-value">{{ stats.gallery_views }}</div>
+                            <p>Visits to the gallery listing page.</p>
+                        </article>
+                        <article class="stat-card">
+                            <div class="stat-label">Collage views</div>
+                            <div class="stat-value">{{ stats.collage_views }}</div>
+                            <p>Visits to single collage pages.</p>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <span class="eyebrow">Details</span>
+                    <h2 style="margin-top: 0;">Additional information</h2>
+                    <div class="info-list">
+                        <div class="info-row">
+                            <strong>Last download</strong>
+                            <span>{{ stats.last_download_date or 'None' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <strong>Total sessions</strong>
+                            <span>{{ collages|length }}</span>
+                        </div>
+                        <div class="info-row">
+                            <strong>Total files</strong>
+                            <span>{{ downloadable_photos|length }}</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

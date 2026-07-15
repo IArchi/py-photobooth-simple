@@ -154,17 +154,21 @@ python3 photoboothapp.py
 
 You can edit `config.ini` to change various parameters such as:
  - **FULLSCREEN:** Full screen window mode
- - **WEBSERVER:** Enable/disable share buttons and web server (gallery and editor)
+ - **SHARE:** Enable/disable share buttons using a QRCode
  - **RINGLED:** Enable/disable RingLed functionality (set to `False` if you don't have RingLed hardware)
  - **COUNTDOWN:** Countdown time before photo capture
  - **DCIM_DIRECTORY:** Directory where photos and collages are stored
  - **PRINTER:** Printer's name in CUPS
  - **CALIBRATION:** Calibration matrix for hybrid mode (DSLR + piCamera or DSLR + webcam) from `tools/calibrate_zoom.py`
 
+### Web server
+
+You can edit configuration file and download photos from <localip>:<WEB_PORT>.
+
 ### Template Editor
 
-The application includes a **visual template editor** (`tools/template_editor.html`) - a browser-based tool for creating and customizing photo layouts without coding.
-If you have enabled `WEBSERVER` in configuration, the editor is reachable from `<localip>/editor`.
+The application includes a **visual template editor** - a browser-based tool for creating and customizing photo layouts without coding.
+The editor is reachable from `<localip>:<WEB_PORT>/admin/editor` after admin authentication.
 
 - **Visual Canvas:** Interactive canvas with grid snapping for precise positioning
 - **Photo Frames:** Add, move, resize, and delete photo placeholders

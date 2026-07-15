@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoBooth - Collage</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+    <style>
+        .collage-stage {
+            display: grid;
+            gap: 24px;
+        }
+
+        .collage-frame {
+            padding: 20px;
+        }
+
+        .collage-frame img {
+            display: block;
+            width: 100%;
+            max-height: calc(100vh - 260px);
+            object-fit: contain;
+            border-radius: 14px;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <main class="page-shell">
+        <div class="page-container">
+            <section class="page-hero">
+                <div>
+                    <span class="eyebrow">Collage</span>
+                    <h1>{{ session }}</h1>
+                </div>
+                <div class="actions">
+                    <a href="/gallery" class="btn btn-ghost">Gallery</a>
+                    <a href="/download/{{ session }}/collage.jpg" class="btn btn-success">Download</a>
+                </div>
+            </section>
+
+            <section class="collage-stage">
+                <div class="panel collage-frame">
+                    <img src="/image/{{ session }}/collage.jpg" alt="Collage {{ session }}">
+                </div>
+            </section>
+        </div>
+    </main>
+</body>
+</html>

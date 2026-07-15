@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoBooth</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+    <style>
+        .empty-shell {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .empty-card {
+            width: min(560px, 100%);
+            padding: 32px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            font-size: 72px;
+            line-height: 1;
+            margin-bottom: 18px;
+        }
+
+        .empty-card p {
+            margin: 10px 0 0;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <main class="empty-shell">
+        <section class="panel empty-card">
+            <div class="empty-icon">📸</div>
+            <span class="eyebrow">Gallery</span>
+            <h1>No collage available yet</h1>
+            <p>The web gallery will appear here as soon as the first PhotoBooth session is saved.</p>
+        </section>
+    </main>
+</body>
+</html>

@@ -13,20 +13,23 @@ class Config:
             raise FileNotFoundError(f'Cannot load configuration file: {CONFIG_PATH}')
 
     def get_fullscreen(self):
-        return self.config.getboolean('Global', 'FULLSCREEN')
+        return self.config.getboolean('Global', 'FULLSCREEN', fallback=True)
 
     def get_share(self):
-        return self.config.getboolean('Global', 'WEBSERVER')
+        return self.config.getboolean('Global', 'SHARE', fallback=True)
 
     def get_ringled(self):
-        return self.config.getboolean('Global', 'RINGLED')
+        return self.config.getboolean('Global', 'RINGLED', fallback=False)
 
     def get_admin_password(self):
         password = self.config.get('Global', 'ADMIN_PASSWORD', fallback='').strip()
         return password if password and password.upper() != 'NONE' else None
 
+    def get_web_port(self):
+        return self.config.getint('Global', 'WEB_PORT', fallback=5000)
+
     def get_countdown(self):
-        return self.config.getint('Picture', 'COUNTDOWN')
+        return self.config.getint('Picture', 'COUNTDOWN', fallback=5)
 
     def get_dcim_directory(self):
         return self.config.get('Picture', 'DCIM_DIRECTORY')
@@ -40,7 +43,7 @@ class Config:
         return ast.literal_eval(calibration) if calibration != 'None' else None
 
     def get_filters(self):
-        return self.config.getboolean('Picture', 'FILTERS')
+        return self.config.getboolean('Picture', 'FILTERS', fallback=False)
 
     def _get_dslr_params(self, section):
         """Returns a dict param -> value for the given DSLR section. Empty or None value = do not set."""

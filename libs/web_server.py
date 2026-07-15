@@ -7,7 +7,7 @@ import shutil
 import threading
 import zipfile
 from datetime import datetime
-from flask import Flask, jsonify, request, send_file, render_template_string, redirect, session
+from flask import Flask, jsonify, request, send_file, render_template, redirect, session
 from werkzeug.serving import make_server
 from kivy.logger import Logger
 
@@ -24,7 +24,15 @@ class WebServer:
         self.port = port
         self.admin_password = admin_password.strip() if isinstance(admin_password, str) and admin_password.strip() else None
         self.restart_callback = restart_callback
-        self.app = Flask(__name__)
+        self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.web_directory = os.path.join(self.project_root, 'web')
+        self.web_assets_directory = os.path.join(self.web_directory, 'assets')
+        self.app = Flask(
+            __name__,
+            template_folder=self.web_directory,
+            static_folder=self.web_assets_directory,
+            static_url_path='/web-assets',
+        )
         self.app.secret_key = os.urandom(32)
         self.app.config.update(
             SESSION_COOKIE_HTTPONLY=True,
@@ -37,10 +45,9 @@ class WebServer:
         self._watchdog_stop = threading.Event()
         self.stats_file = os.path.join(save_directory, '.stats.json')
         self.stats_lock = threading.Lock()
-        self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.config_file = os.path.join(self.project_root, 'config.ini')
         self.templates_directory = os.path.join(self.project_root, 'templates')
-        self.template_editor_path = os.path.join(self.project_root, 'tools', 'template_editor.html')
+        self.template_editor_path = os.path.join(self.web_directory, 'editor', 'template_editor.html')
         self._setup_routes()
 
     def _watchdog_loop(self):
@@ -151,15 +158,7 @@ class WebServer:
     
     def _load_stats(self):
         """Load statistics from JSON file."""
-        try:
-            if os.path.exists(self.stats_file):
-                with open(self.stats_file, 'r') as f:
-                    return json.load(f)
-        except Exception as e:
-            Logger.error(f'WebServer: Error loading stats: {e}')
-        
-        # Default stats structure
-        return {
+        default_stats = {
             'photos_taken': 0,
             'downloads': 0,
             'gallery_views': 0,
@@ -170,32 +169,83 @@ class WebServer:
             'last_download_date': None,
             'sessions': []
         }
+
+        try:
+            with self.stats_lock:
+                if os.path.exists(self.stats_file):
+                    with open(self.stats_file, 'r', encoding='utf-8') as f:
+                        loaded_stats = json.load(f)
+
+                    if isinstance(loaded_stats, dict):
+                        default_stats.update(loaded_stats)
+                        return default_stats
+        except Exception as e:
+            Logger.error(f'WebServer: Error loading stats: {e}')
+
+        return default_stats
     
     def _save_stats(self, stats):
         """Save statistics to JSON file."""
         try:
             with self.stats_lock:
-                with open(self.stats_file, 'w') as f:
+                stats_directory = os.path.dirname(self.stats_file)
+                if stats_directory:
+                    os.makedirs(stats_directory, exist_ok=True)
+
+                temp_stats_file = f'{self.stats_file}.tmp'
+                with open(temp_stats_file, 'w', encoding='utf-8') as f:
                     json.dump(stats, f, indent=2)
+                    f.write('\n')
+
+                os.replace(temp_stats_file, self.stats_file)
         except Exception as e:
             Logger.error(f'WebServer: Error saving stats: {e}')
     
     def _track_event(self, event_type, session=None):
         """Track an event in statistics."""
+        default_stats = {
+            'photos_taken': 0,
+            'downloads': 0,
+            'gallery_views': 0,
+            'collage_views': 0,
+            'image_views': 0,
+            'first_photo_date': None,
+            'last_photo_date': None,
+            'last_download_date': None,
+            'sessions': []
+        }
+
         try:
-            stats = self._load_stats()
-            
-            if event_type == 'download':
-                stats['downloads'] += 1
-                stats['last_download_date'] = datetime.now().isoformat()
-            elif event_type == 'gallery_view':
-                stats['gallery_views'] += 1
-            elif event_type == 'collage_view':
-                stats['collage_views'] += 1
-            elif event_type == 'image_view':
-                stats['image_views'] += 1
-            
-            self._save_stats(stats)
+            with self.stats_lock:
+                stats = dict(default_stats)
+
+                if os.path.exists(self.stats_file):
+                    with open(self.stats_file, 'r', encoding='utf-8') as f:
+                        loaded_stats = json.load(f)
+
+                    if isinstance(loaded_stats, dict):
+                        stats.update(loaded_stats)
+
+                if event_type == 'download':
+                    stats['downloads'] += 1
+                    stats['last_download_date'] = datetime.now().isoformat()
+                elif event_type == 'gallery_view':
+                    stats['gallery_views'] += 1
+                elif event_type == 'collage_view':
+                    stats['collage_views'] += 1
+                elif event_type == 'image_view':
+                    stats['image_views'] += 1
+
+                stats_directory = os.path.dirname(self.stats_file)
+                if stats_directory:
+                    os.makedirs(stats_directory, exist_ok=True)
+
+                temp_stats_file = f'{self.stats_file}.tmp'
+                with open(temp_stats_file, 'w', encoding='utf-8') as f:
+                    json.dump(stats, f, indent=2)
+                    f.write('\n')
+
+                os.replace(temp_stats_file, self.stats_file)
         except Exception as e:
             Logger.error(f'WebServer: Error tracking event: {e}')
     
@@ -364,128 +414,15 @@ class WebServer:
 
     def _render_admin_login_page(self, error_message=None, success_message=None):
         """Render admin login page."""
-        admin_enabled = self.admin_password is not None
-
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>PhotoBooth - Admin Login</title>
-            <style>
-                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-                    background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 20px;
-                }}
-                .card {{
-                    width: 100%;
-                    max-width: 420px;
-                    background: white;
-                    border-radius: 20px;
-                    padding: 32px;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-                }}
-                h1 {{
-                    color: #111827;
-                    margin-bottom: 12px;
-                    font-size: 30px;
-                }}
-                p {{
-                    color: #4b5563;
-                    line-height: 1.5;
-                    margin-bottom: 18px;
-                }}
-                .status {{
-                    border-radius: 12px;
-                    padding: 14px 16px;
-                    margin-bottom: 16px;
-                }}
-                .status.error {{
-                    background: #fff5f5;
-                    color: #b91c1c;
-                    border: 1px solid #fecaca;
-                }}
-                .status.success {{
-                    background: #f0fdf4;
-                    color: #15803d;
-                    border: 1px solid #bbf7d0;
-                }}
-                label {{
-                    display: block;
-                    color: #111827;
-                    font-weight: 600;
-                    margin-bottom: 8px;
-                }}
-                input[type="password"] {{
-                    width: 100%;
-                    padding: 14px 16px;
-                    border: 1px solid #d1d5db;
-                    border-radius: 12px;
-                    font-size: 16px;
-                    margin-bottom: 16px;
-                }}
-                .actions {{
-                    display: flex;
-                    gap: 12px;
-                    flex-wrap: wrap;
-                }}
-                .btn {{
-                    display: inline-block;
-                    padding: 14px 24px;
-                    border-radius: 999px;
-                    text-decoration: none;
-                    font-weight: 700;
-                    border: none;
-                    cursor: pointer;
-                    font-size: 15px;
-                }}
-                .btn-primary {{
-                    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-                    color: white;
-                }}
-                .btn-secondary {{
-                    background: #e5e7eb;
-                    color: #111827;
-                }}
-                .btn-disabled {{
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h1>🔐 Admin login</h1>
-                <p>Authentication required before opening admin panel.</p>
-                {f'<div class="status error">{error_message}</div>' if error_message else ''}
-                {f'<div class="status success">{success_message}</div>' if success_message else ''}
-                {'<div class="status error">ADMIN_PASSWORD is not set in config.ini. Admin access is disabled.</div>' if not admin_enabled else ''}
-                <form method="post" action="/admin/login">
-                    <label for="password">Admin password</label>
-                    <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" {'disabled' if not admin_enabled else ''}>
-                    <div class="actions">
-                        <button type="submit" class="btn btn-primary{' btn-disabled' if not admin_enabled else ''}" {'disabled' if not admin_enabled else ''}>Sign in</button>
-                        <a href="/stats" class="btn btn-secondary">Back to stats</a>
-                    </div>
-                </form>
-            </div>
-        </body>
-        </html>
-        """
-
-        return render_template_string(html)
+        return render_template(
+            'admin/login.html',
+            admin_enabled=self.admin_password is not None,
+            error_message=error_message,
+            success_message=success_message,
+        )
 
     def _render_admin_page(self, error_message=None, success_message=None, config_content=None):
         """Render admin page used to delete all saved photos."""
-        sessions_count = len(self._get_all_collages())
-        files_count = len(self._get_all_downloadable_photos())
         admin_enabled = self.admin_password is not None
         if config_content is None:
             try:
@@ -493,227 +430,28 @@ class WebServer:
             except Exception:
                 config_content = 'Unable to load config.ini'
 
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>PhotoBooth - Admin</title>
-            <style>
-                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-                    background: linear-gradient(135deg, #1f1f1f 0%, #3a3a3a 100%);
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 20px;
-                }}
-                .card {{
-                    width: 100%;
-                    max-width: 560px;
-                    background: white;
-                    border-radius: 20px;
-                    padding: 32px;
-                    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-                }}
-                h1 {{
-                    color: #111;
-                    margin-bottom: 12px;
-                    font-size: 32px;
-                }}
-                p {{
-                    color: #555;
-                    line-height: 1.5;
-                    margin-bottom: 18px;
-                }}
-                .warning {{
-                    background: #fff5f5;
-                    border: 1px solid #fecaca;
-                    color: #b91c1c;
-                    border-radius: 12px;
-                    padding: 16px;
-                    margin-bottom: 20px;
-                }}
-                .status {{
-                    border-radius: 12px;
-                    padding: 14px 16px;
-                    margin-bottom: 16px;
-                }}
-                .status.error {{
-                    background: #fff5f5;
-                    color: #b91c1c;
-                    border: 1px solid #fecaca;
-                }}
-                .status.success {{
-                    background: #f0fdf4;
-                    color: #15803d;
-                    border: 1px solid #bbf7d0;
-                }}
-                .stats {{
-                    display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 12px;
-                    margin-bottom: 24px;
-                }}
-                .stat {{
-                    background: #f8fafc;
-                    border-radius: 12px;
-                    padding: 16px;
-                }}
-                .stat-label {{
-                    color: #64748b;
-                    font-size: 13px;
-                    margin-bottom: 8px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.08em;
-                }}
-                .stat-value {{
-                    color: #111827;
-                    font-size: 28px;
-                    font-weight: 700;
-                }}
-                label {{
-                    display: block;
-                    color: #111827;
-                    font-weight: 600;
-                    margin-bottom: 8px;
-                }}
-                input[type="password"] {{
-                    width: 100%;
-                    padding: 14px 16px;
-                    border: 1px solid #d1d5db;
-                    border-radius: 12px;
-                    font-size: 16px;
-                    margin-bottom: 16px;
-                }}
-                .actions {{
-                    display: flex;
-                    gap: 12px;
-                    flex-wrap: wrap;
-                }}
-                .section {{
-                    margin-top: 24px;
-                    padding-top: 24px;
-                    border-top: 1px solid #e5e7eb;
-                }}
-                .section h2 {{
-                    color: #111827;
-                    margin-bottom: 12px;
-                    font-size: 22px;
-                }}
-                textarea {{
-                    width: 100%;
-                    min-height: 320px;
-                    padding: 16px;
-                    border: 1px solid #d1d5db;
-                    border-radius: 12px;
-                    font-size: 14px;
-                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-                    resize: vertical;
-                    margin-bottom: 16px;
-                }}
-                .btn {{
-                    display: inline-block;
-                    padding: 14px 24px;
-                    border-radius: 999px;
-                    text-decoration: none;
-                    font-weight: 700;
-                    border: none;
-                    cursor: pointer;
-                    font-size: 15px;
-                }}
-                .btn-danger {{
-                    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-                    color: white;
-                }}
-                .btn-primary {{
-                    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-                    color: white;
-                }}
-                .btn-warning {{
-                    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-                    color: white;
-                }}
-                .btn-secondary {{
-                    background: #e5e7eb;
-                    color: #111827;
-                }}
-                .btn-disabled {{
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }}
-                @media (max-width: 520px) {{
-                    .stats {{
-                        grid-template-columns: 1fr;
-                    }}
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="card">
-                <h1>Administration</h1>
-                <p>Protected page used to delete all saved photos and sessions.</p>
-                <div class="warning">Destructive action. All images and all session folders will be permanently deleted.</div>
-                {f'<div class="status error">{error_message}</div>' if error_message else ''}
-                {f'<div class="status success">{success_message}</div>' if success_message else ''}
-                <div class="stats">
-                    <div class="stat">
-                        <div class="stat-label">Sessions</div>
-                        <div class="stat-value">{sessions_count}</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-label">Files</div>
-                        <div class="stat-value">{files_count}</div>
-                    </div>
-                </div>
-                {'<div class="status error">ADMIN_PASSWORD is not set in config.ini. Admin actions are disabled.</div>' if not admin_enabled else ''}
-                <form method="post" action="/admin/delete-all">
-                    <div class="actions">
-                        <button type="submit" class="btn btn-danger{' btn-disabled' if not admin_enabled else ''}" {'disabled' if not admin_enabled else ''}>Delete all photos</button>
-                        <a href="/stats" class="btn btn-secondary">Back to stats</a>
-                        <a href="/admin/logout" class="btn btn-secondary">Log out</a>
-                    </div>
-                </form>
-                <div class="section">
-                    <h2>Configuration</h2>
-                    <p>View and edit <code>config.ini</code>. ADMIN_PASSWORD is hidden in browser.</p>
-                    <form method="post" action="/admin/config">
-                        <label for="config_content">config.ini</label>
-                        <textarea id="config_content" name="config_content" spellcheck="false" {'disabled' if not admin_enabled else ''}>{config_content}</textarea>
-                        <div class="actions">
-                            <button type="submit" class="btn btn-primary{' btn-disabled' if not admin_enabled else ''}" {'disabled' if not admin_enabled else ''}>Save config.ini</button>
-                        </div>
-                    </form>
-                </div>
-                <div class="section">
-                    <h2>Application</h2>
-                    <p>Restart PhotoBooth application to apply configuration changes.</p>
-                    <form method="post" action="/admin/restart">
-                        <div class="actions">
-                            <button type="submit" class="btn btn-warning{' btn-disabled' if not admin_enabled else ''}" {'disabled' if not admin_enabled else ''}>Restart app</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-
-        return render_template_string(html)
+        return render_template(
+            'admin/index.html',
+            admin_enabled=admin_enabled,
+            config_content=config_content,
+            error_message=error_message,
+            success_message=success_message,
+        )
     
     def _setup_routes(self):
         """Setup Flask routes."""
 
-        @self.app.route('/editor')
-        def template_editor():
-            """Expose the browser-based template editor."""
+        @self.app.route('/admin/editor')
+        def admin_template_editor():
+            """Expose the browser-based template editor inside the admin area."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
             if not os.path.exists(self.template_editor_path):
                 return 'Template editor not found', 404
 
-            return send_file(self.template_editor_path, mimetype='text/html')
+            return render_template('editor/template_editor.html')
 
         @self.app.route('/api/templates', methods=['GET'])
         def list_templates():
@@ -779,42 +517,7 @@ class WebServer:
             collages = self._get_all_collages()
             
             if not collages:
-                # No collages available
-                html = """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>PhotoBooth</title>
-                    <style>
-                        * { margin: 0; padding: 0; box-sizing: border-box; }
-                        body {
-                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            min-height: 100vh;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                        }
-                        .container {
-                            background: white;
-                            border-radius: 20px;
-                            padding: 60px;
-                            text-align: center;
-                            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-                        }
-                        .icon { font-size: 100px; margin-bottom: 20px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <div class="icon">📸</div>
-                    </div>
-                </body>
-                </html>
-                """
-                return render_template_string(html)
+                return render_template('gallery/empty.html')
             
             # Redirect to latest collage
             latest = collages[0]
@@ -825,85 +528,8 @@ class WebServer:
             """Gallery view with all collages."""
             self._track_event('gallery_view')
             collages = self._get_all_collages()
-            
-            html = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>PhotoBooth</title>
-                <style>
-                    * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body {
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-                        background: #1a1a1a;
-                        min-height: 100vh;
-                        padding: 20px;
-                    }
-                    .gallery {
-                        display: grid;
-                        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                        gap: 20px;
-                        max-width: 1400px;
-                        margin: 0 auto;
-                    }
-                    .card {
-                        background: white;
-                        border-radius: 15px;
-                        overflow: hidden;
-                        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-                        transition: transform 0.3s;
-                        cursor: pointer;
-                    }
-                    .card:hover { transform: translateY(-5px); }
-                    .card img {
-                        width: 100%;
-                        height: 300px;
-                        object-fit: cover;
-                        display: block;
-                    }
-                    .card-footer {
-                        padding: 15px;
-                        text-align: center;
-                    }
-                    .btn {
-                        display: inline-block;
-                        padding: 12px 30px;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        color: white;
-                        text-decoration: none;
-                        border-radius: 8px;
-                        font-weight: bold;
-                        transition: opacity 0.3s;
-                    }
-                    .btn:hover { opacity: 0.9; }
-                    @media (max-width: 600px) {
-                        .gallery { grid-template-columns: 1fr; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="gallery">
-            """
-            
-            for collage in collages:
-                html += f"""
-                    <div class="card" onclick="window.location='/collage/{collage["session"]}'">
-                        <img src="/image/{collage["session"]}/collage.jpg" alt="📸">
-                        <div class="card-footer">
-                            <a href="/download/{collage["session"]}/collage.jpg" class="btn">⬇️</a>
-                        </div>
-                    </div>
-                """
-            
-            html += """
-                </div>
-            </body>
-            </html>
-            """
-            
-            return render_template_string(html)
+
+            return render_template('gallery/index.html', collages=collages)
         
         @self.app.route('/collage/<session>')
         def view_collage(session):
@@ -914,68 +540,8 @@ class WebServer:
                 return redirect('/')
             
             self._track_event('collage_view', session)
-            
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>PhotoBooth</title>
-                <style>
-                    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-                    body {{
-                        background: #000;
-                        min-height: 100vh;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        padding: 20px;
-                    }}
-                    img {{
-                        max-width: 100%;
-                        max-height: 80vh;
-                        object-fit: contain;
-                        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-                        border-radius: 10px;
-                    }}
-                    .controls {{
-                        margin-top: 30px;
-                        display: flex;
-                        gap: 20px;
-                    }}
-                    .btn {{
-                        padding: 15px 40px;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        color: white;
-                        text-decoration: none;
-                        border-radius: 30px;
-                        font-weight: bold;
-                        font-size: 18px;
-                        transition: transform 0.2s;
-                        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-                    }}
-                    .btn:hover {{
-                        transform: scale(1.05);
-                    }}
-                    .btn-secondary {{
-                        background: rgba(255,255,255,0.1);
-                        box-shadow: none;
-                    }}
-                </style>
-            </head>
-            <body>
-                <img src="/image/{session}/collage.jpg" alt="📸">
-                <div class="controls">
-                    <a href="/gallery" class="btn btn-secondary">🖼️</a>
-                    <a href="/download/{session}/collage.jpg" class="btn">⬇️</a>
-                </div>
-            </body>
-            </html>
-            """
-            
-            return render_template_string(html)
+
+            return render_template('gallery/collage.html', session=session)
         
         @self.app.route('/image/<session>/<filename>')
         def serve_image(session, filename):
@@ -1151,200 +717,13 @@ class WebServer:
             
             # Calculate photos taken from number of sessions
             stats['photos_taken'] = len(collages)
-            
-            html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>PhotoBooth - Statistics</title>
-                <style>
-                    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-                    body {{
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        min-height: 100vh;
-                        padding: 40px 20px;
-                    }}
-                    .container {{
-                        max-width: 1200px;
-                        margin: 0 auto;
-                    }}
-                    h1 {{
-                        color: white;
-                        text-align: center;
-                        margin-bottom: 40px;
-                        font-size: 42px;
-                        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-                    }}
-                    .stats-grid {{
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                        gap: 20px;
-                        margin-bottom: 40px;
-                    }}
-                    .stat-card {{
-                        background: white;
-                        border-radius: 15px;
-                        padding: 30px;
-                        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-                        transition: transform 0.3s;
-                    }}
-                    .stat-card:hover {{
-                        transform: translateY(-5px);
-                    }}
-                    .stat-icon {{
-                        font-size: 48px;
-                        margin-bottom: 15px;
-                    }}
-                    .stat-value {{
-                        font-size: 42px;
-                        font-weight: bold;
-                        color: #667eea;
-                        margin-bottom: 5px;
-                    }}
-                    .stat-label {{
-                        font-size: 16px;
-                        color: #666;
-                        text-transform: uppercase;
-                        letter-spacing: 1px;
-                    }}
-                    .stat-description {{
-                        font-size: 12px;
-                        color: #999;
-                        margin-top: 8px;
-                        line-height: 1.4;
-                    }}
-                    .info-card {{
-                        background: white;
-                        border-radius: 15px;
-                        padding: 30px;
-                        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-                    }}
-                    .info-row {{
-                        display: flex;
-                        justify-content: space-between;
-                        padding: 15px 0;
-                        border-bottom: 1px solid #eee;
-                    }}
-                    .info-row:last-child {{
-                        border-bottom: none;
-                    }}
-                    .info-label {{
-                        font-weight: bold;
-                        color: #333;
-                    }}
-                    .info-value {{
-                        color: #667eea;
-                    }}
-                     .back-btn {{
-                         display: inline-block;
-                         margin-top: 30px;
-                        padding: 15px 40px;
-                        background: white;
-                        color: #667eea;
-                        text-decoration: none;
-                        border-radius: 30px;
-                        font-weight: bold;
-                        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-                        transition: transform 0.2s;
-                    }}
-                     .back-btn:hover {{
-                         transform: scale(1.05);
-                     }}
-                     .actions {{
-                         display: flex;
-                         justify-content: center;
-                         gap: 20px;
-                         flex-wrap: wrap;
-                         margin-top: 30px;
-                     }}
-                     .download-btn {{
-                         background: linear-gradient(135deg, #34c759 0%, #28a745 100%);
-                         color: white;
-                     }}
-                     .download-btn.disabled {{
-                         background: #d1d1d6;
-                         color: #666;
-                         cursor: not-allowed;
-                         pointer-events: none;
-                     }}
-                     @media (max-width: 768px) {{
-                         .stats-grid {{
-                             grid-template-columns: 1fr;
-                        }}
-                        h1 {{
-                            font-size: 32px;
-                        }}
-                    }}
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1>PhotoBooth Statistics</h1>
-                    
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-icon">📸</div>
-                            <div class="stat-value">{stats['photos_taken']}</div>
-                            <div class="stat-label">Photos Taken</div>
-                            <div class="stat-description">Total collages created</div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">⬇️</div>
-                            <div class="stat-value">{stats['downloads']}</div>
-                            <div class="stat-label">Downloads</div>
-                            <div class="stat-description">Files downloaded by users</div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">🖼️</div>
-                            <div class="stat-value">{stats['gallery_views']}</div>
-                            <div class="stat-label">Gallery Views</div>
-                            <div class="stat-description">Grid view page visits</div>
-                        </div>
-                        
-                        <div class="stat-card">
-                            <div class="stat-icon">👁️</div>
-                            <div class="stat-value">{stats['collage_views']}</div>
-                            <div class="stat-label">Collage Views</div>
-                            <div class="stat-description">Full-screen collage page visits</div>
-                        </div>
-                    </div>
-                    
-                    <div class="info-card">
-                        <h2 style="margin-bottom: 20px; color: #667eea;">Additional Information</h2>
-                        <div class="info-row">
-                            <span class="info-label">Last Download:</span>
-                            <span class="info-value">{stats['last_download_date'] or 'None'}</span>
-                        </div>
-                         <div class="info-row">
-                             <span class="info-label">Total Sessions:</span>
-                             <span class="info-value">{len(collages)}</span>
-                         </div>
-                         <div class="info-row">
-                             <span class="info-label">Total Files:</span>
-                             <span class="info-value">{len(downloadable_photos)}</span>
-                         </div>
-                         <div class="info-row">
-                             <span class="info-label">Stats File:</span>
-                             <span class="info-value" style="font-size: 12px; word-break: break-all;">{self.stats_file}</span>
-                         </div>
-                     </div>
-                     
-                     <div class="actions">
-                          <a href="/download/all-photos" class="back-btn download-btn{' disabled' if not downloadable_photos else ''}">Download all photos</a>
-                          <a href="/admin" class="back-btn" style="background: #111827; color: white;">Administration</a>
-                          <a href="/gallery" class="back-btn">← Back to gallery</a>
-                      </div>
-                  </div>
-             </body>
-             </html>
-            """
-            
-            return render_template_string(html)
+
+            return render_template(
+                'stats.html',
+                collages=collages,
+                downloadable_photos=downloadable_photos,
+                stats=stats,
+            )
         
         # Captive portal detection URLs
         @self.app.route('/generate_204')
