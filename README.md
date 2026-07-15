@@ -113,7 +113,7 @@ Tested on:
 - Raspberry Pi 5 (8GB) with Raspberry Pi Camera Module 3
 - Raspberry Pi OS (Debian-based)
 
-## Hardware Components
+## Recommended Hardware Components
 | Product                              | Links                                                                                                             |
 |--------------------------------------|-------------------------------------------------------------------------------------------------------------------|
 | Raspberry Pi 5                       | https://www.raspberrypi.com/products/raspberry-pi-5/                                                              |
