@@ -15,7 +15,7 @@ except ImportError:
 
 try:
     from picamera2 import Picamera2
-    from libcamera import controls
+    from libcamera import controls, Transform
 except ImportError:
     Picamera2 = None
 
@@ -365,12 +365,16 @@ class Picamera2Camera(CaptureDevice):
         self._preview_frame = None
         self._preview_thread = None
         self._preview_stop = False
-        self._preview_fps = 30
+        self._preview_fps = 60
         self._capturing = False
         if Picamera2:
             try:
                 self._instance = Picamera2(camera_num=port)
-                self._preview_config = self._instance.create_preview_configuration(main={'format': 'RGB888', 'size': (1280, 720)}, controls={'FrameRate': 30})
+                self._preview_config = self._instance.create_preview_configuration(
+                    main={'format': 'RGB888', 'size': (1280, 720)},
+                    transform=Transform(hflip=1, vflip=1),
+                    controls={'FrameRate': 60},
+                )
                 self._still_config = self._instance.create_still_configuration(main={"size": (2304, 1296), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
                 self._instance.configure(self._preview_config)
                 self._instance.set_controls({'AfMode': controls.AfModeEnum.Continuous, 'AfSpeed': controls.AfSpeedEnum.Fast})
@@ -390,7 +394,6 @@ class Picamera2Camera(CaptureDevice):
                     continue
                 with self._camera_lock:
                     im = self._instance.capture_array()
-                im = cv2.rotate(im, cv2.ROTATE_180)
                 with self._preview_lock:
                     self._preview_frame = im
                 time.sleep(1.0 / self._preview_fps)
@@ -410,7 +413,7 @@ class Picamera2Camera(CaptureDevice):
     def get_preview(self, aspect_ratio=None, zoom=None):
         self._start_preview_thread()
         with self._preview_lock:
-            im = self._preview_frame.copy() if self._preview_frame is not None else None
+            im = self._preview_frame
         if im is None: return None
         im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
