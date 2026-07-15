@@ -266,14 +266,14 @@ class SelectFormatScreen(ColorScreen):
     """
     # Minimum and maximum card dimensions as window fractions (evaluated at layout time)
     @property
-    def MIN_CARD_WIDTH(self):  return Window.width * 0.18
+    def MIN_CARD_WIDTH(self):  return Window.width * 0.10
     @property
-    def MIN_CARD_HEIGHT(self): return Window.height * 0.50
+    def MIN_CARD_HEIGHT(self): return Window.height * 0.20
     @property
-    def MAX_CARD_WIDTH(self):  return Window.width * 0.30
+    def MAX_CARD_WIDTH(self):  return Window.width * 0.40
     @property
-    def MAX_CARD_HEIGHT(self): return Window.height * 0.88
-    
+    def MAX_CARD_HEIGHT(self): return Window.height * 0.92
+
     def __init__(self, app, **kwargs):
         Logger.info('SelectFormatScreen: __init__().')
         super(SelectFormatScreen, self).__init__(**kwargs)
@@ -324,33 +324,45 @@ class SelectFormatScreen(ColorScreen):
         self._update_card_sizes()
 
     def _calculate_card_size(self):
-        """Calculate card size based on window dimensions while maintaining minimum and maximum sizes."""
-        # Available width considering padding, spacing, and 3 columns
-        available_width = Window.width - (2 * Window.height * 0.022) - (2 * Window.height * 0.033) - (2 * BORDER_THINKNESS)
-        card_width = max(self.MIN_CARD_WIDTH, min(self.MAX_CARD_WIDTH, available_width / 3))
-        
-        # Card height proportional to width (1.5 aspect ratio) but respecting minimum and maximum
+        """Calculate card size and column count that fills the screen optimally for any aspect ratio."""
+        padding = Window.height * 0.022
+        spacing = Window.height * 0.033
+        border = 2 * BORDER_THINKNESS
+        n_cards = len(self.format_cards)
+        aspect = Window.width / Window.height  # <1 portrait, ~1 square, >1 landscape
+
+        # Choose columns: 1 in portrait, 2 in square, 3 in landscape
+        if aspect < 0.75:
+            cols = 1
+        elif aspect < 1.2:
+            cols = 2
+        else:
+            cols = 3
+        cols = min(cols, n_cards)
+
+        # Width from horizontal space
+        n_spacings = max(cols - 1, 0)
+        available_width = Window.width - (2 * padding) - (n_spacings * spacing) - border
+        width_from_w = available_width / cols
+
+        # Width derived from vertical space (aspect ratio 1:1.5)
+        available_height = Window.height - (2 * padding) - border
+        width_from_h = available_height / 1.5
+
+        card_width = max(self.MIN_CARD_WIDTH, min(self.MAX_CARD_WIDTH, min(width_from_w, width_from_h)))
         card_height = max(self.MIN_CARD_HEIGHT, min(self.MAX_CARD_HEIGHT, card_width * 1.5))
-        
-        # Also check against window height to avoid cards that are too tall
-        max_card_height = Window.height - (2 * Window.height * 0.022) - (2 * BORDER_THINKNESS) - Window.height * 0.11
-        card_height = min(card_height, max_card_height)
-        
-        # Ensure aspect ratio is maintained even with max height constraint
-        if card_height == max_card_height:
-            card_width = min(card_width, card_height / 1.5)
-        
-        return (card_width, card_height)
-    
+
+        return (card_width, card_height, cols)
+
     def _update_card_sizes(self):
         """Update all card sizes based on current window size."""
-        card_width, card_height = self._calculate_card_size()
-        
-        # Update grid row height
+        card_width, card_height, cols = self._calculate_card_size()
+
+        self.cards_grid.cols = cols
+        self.cards_grid.spacing = Window.height * 0.033
         self.cards_grid.row_default_height = card_height
         self.cards_grid.row_force_default = True
-        
-        # Update each card's size
+
         for card in self.format_cards:
             card.size = (card_width, card_height)
     
