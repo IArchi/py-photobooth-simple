@@ -20,11 +20,37 @@ from kivy.metrics import dp, sp
 from libs.kivywidgets import *
 from libs.file_utils import FileUtils
 
-XLARGE_FONT = sp(200)
-LARGE_FONT = sp(60)
-NORMAL_FONT = sp(50)
-SMALL_FONT = sp(30)
-TINY_FONT = sp(15)
+# Font sizes as fractions of min(Window.width, Window.height) — DPI-independent and
+# orientation-independent: the shortest side is always the binding constraint so fonts
+# stay visible whether the window is landscape or portrait.
+def XLARGE_FONT(): return min(Window.size) * 0.22
+def LARGE_FONT():  return min(Window.size) * 0.07
+def NORMAL_FONT(): return min(Window.size) * 0.055
+def SMALL_FONT():  return min(Window.size) * 0.035
+def TINY_FONT():   return min(Window.size) * 0.018
+
+# Registry of (weakref, attr, fraction_fn) updated on every Window resize.
+# Call wh_bind(widget, 'font_size', LARGE_FONT) after creating a widget to keep it live.
+import weakref as _weakref
+_WH_BINDINGS = []  # [(weakref, attr, fn), ...]
+
+def wh_bind(widget, attr, fn):
+    """Register a widget attribute to be updated on Window resize."""
+    _WH_BINDINGS.append((_weakref.ref(widget), attr, fn))
+
+def _on_window_resize(instance, size):
+    dead = []
+    for entry in _WH_BINDINGS:
+        ref, attr, fn = entry
+        obj = ref()
+        if obj is None:
+            dead.append(entry)
+        else:
+            setattr(obj, attr, fn())
+    for d in dead:
+        _WH_BINDINGS.remove(d)
+
+Window.bind(size=_on_window_resize)
 
 # Add or not blurry borders to make images match the size of the window
 # OPTIMIZED: Disabled by default for better performance (blurring is CPU intensive)
@@ -45,7 +71,7 @@ def hex_to_rgba(hex_color):
 # Colors
 BACKGROUND_COLOR = hex_to_rgba('#26495c')
 BORDER_COLOR = hex_to_rgba('#c4a35a')
-BORDER_THINKNESS = dp(0)#dp(10)
+BORDER_THINKNESS = dp(0)#Window.height * 0.011
 PROGRESS_COLOR = hex_to_rgba('#e5e5e5')
 CONFIRM_COLOR = hex_to_rgba('#538a64')
 CANCEL_COLOR = hex_to_rgba('#8b4846')
@@ -177,13 +203,13 @@ class WaitingScreen(BackgroundScreen):
 
         start = BreezyBorderedLabel(
             text='PHOTO BOOTH',
-            font_size=LARGE_FONT,
             border_color=(1,1,1,1),
-            border_width=dp(5),
+            border_width=Window.height * 0.006,
             size_hint=(0.7, 0.2),
-            padding=(dp(30), dp(30), dp(30), dp(30)),
+            padding=(Window.height * 0.033, Window.height * 0.033, Window.height * 0.033, Window.height * 0.033),
             pos_hint={'x': 0.15, 'y': 0.4},
         )
+        # BreezyBorderedLabel.on_size() recomputes font_size from width — no wh_bind needed
         overlay_layout.add_widget(start)
         self.start_label = start
 
@@ -193,19 +219,20 @@ class WaitingScreen(BackgroundScreen):
             pos_hint={'x': 0.42, 'y': 0.1},
             font_name=ICON_TTF,
             text=ICON_TOUCH,
-            max_font_size=XLARGE_FONT,
+            wh_fraction=0.22,
         )
         overlay_layout.add_widget(icon)
 
         # Version
         version = Label(
             text='Version 1.1',
-            font_size=TINY_FONT,
+            font_size=TINY_FONT(),
             halign='left',
             valign='middle',
             size_hint=(0.1, 0.05),
             pos_hint={'x': 0.9, 'y': 0.95},
         )
+        wh_bind(version, 'font_size', TINY_FONT)
         overlay_layout.add_widget(version)
 
         overlay_layout.bind(on_release=self.on_click)
@@ -237,11 +264,15 @@ class SelectFormatScreen(ColorScreen):
     |  [card] [card]  |
     +-----------------+
     """
-    # Minimum and maximum card dimensions
-    MIN_CARD_WIDTH = dp(300)
-    MIN_CARD_HEIGHT = dp(450)
-    MAX_CARD_WIDTH = dp(500)
-    MAX_CARD_HEIGHT = dp(800)
+    # Minimum and maximum card dimensions as window fractions (evaluated at layout time)
+    @property
+    def MIN_CARD_WIDTH(self):  return Window.width * 0.18
+    @property
+    def MIN_CARD_HEIGHT(self): return Window.height * 0.50
+    @property
+    def MAX_CARD_WIDTH(self):  return Window.width * 0.30
+    @property
+    def MAX_CARD_HEIGHT(self): return Window.height * 0.88
     
     def __init__(self, app, **kwargs):
         Logger.info('SelectFormatScreen: __init__().')
@@ -261,8 +292,8 @@ class SelectFormatScreen(ColorScreen):
         # Grid for format cards (centered)
         self.cards_grid = GridLayout(
             cols=3,
-            spacing=dp(30),
-            padding=dp(20),
+            spacing=Window.height * 0.033,
+            padding=Window.height * 0.022,
             size_hint=(None, None),
         )
         self.cards_grid.bind(minimum_height=self.cards_grid.setter('height'))
@@ -295,14 +326,14 @@ class SelectFormatScreen(ColorScreen):
     def _calculate_card_size(self):
         """Calculate card size based on window dimensions while maintaining minimum and maximum sizes."""
         # Available width considering padding, spacing, and 3 columns
-        available_width = Window.width - (2 * dp(20)) - (2 * dp(30)) - (2 * BORDER_THINKNESS)
+        available_width = Window.width - (2 * Window.height * 0.022) - (2 * Window.height * 0.033) - (2 * BORDER_THINKNESS)
         card_width = max(self.MIN_CARD_WIDTH, min(self.MAX_CARD_WIDTH, available_width / 3))
         
         # Card height proportional to width (1.5 aspect ratio) but respecting minimum and maximum
         card_height = max(self.MIN_CARD_HEIGHT, min(self.MAX_CARD_HEIGHT, card_width * 1.5))
         
         # Also check against window height to avoid cards that are too tall
-        max_card_height = Window.height - (2 * dp(20)) - (2 * BORDER_THINKNESS) - dp(100)
+        max_card_height = Window.height - (2 * Window.height * 0.022) - (2 * BORDER_THINKNESS) - Window.height * 0.11
         card_height = min(card_height, max_card_height)
         
         # Ensure aspect ratio is maintained even with max height constraint
@@ -344,8 +375,8 @@ class SelectFormatScreen(ColorScreen):
             orientation='vertical',
             size_hint=(None, None),
             size=(self.MIN_CARD_WIDTH, self.MIN_CARD_HEIGHT),
-            padding=dp(20),
-            spacing=dp(10),
+            padding=Window.height * 0.022,
+            spacing=Window.height * 0.011,
         )
         
         # Draw rounded card background using canvas
@@ -354,7 +385,7 @@ class SelectFormatScreen(ColorScreen):
             card_bg = RoundedRectangle(
                 pos=card.pos,
                 size=card.size,
-                radius=[dp(20),]
+                radius=[Window.height * 0.022,]
             )
         
         # Bind to update background when card size/pos changes
@@ -368,7 +399,7 @@ class SelectFormatScreen(ColorScreen):
             size_hint=(1, 0.75),
             anchor_x='center',
             anchor_y='center',
-            padding=dp(20),
+            padding=Window.height * 0.022,
         )
         
         # Draw rounded preview background
@@ -377,7 +408,7 @@ class SelectFormatScreen(ColorScreen):
             preview_bg = RoundedRectangle(
                 pos=preview_container.pos,
                 size=preview_container.size,
-                radius=[dp(15),]
+                radius=[Window.height * 0.017,]
             )
         
         # Bind to update preview background
@@ -394,10 +425,10 @@ class SelectFormatScreen(ColorScreen):
         
         # Update image size to fit within container
         def update_image_size(instance, *args):
-            if preview_container.width <= dp(40) or preview_container.height <= dp(40):
+            if preview_container.width <= Window.height * 0.044 or preview_container.height <= Window.height * 0.044:
                 return
-            max_width = preview_container.width - dp(40)
-            max_height = preview_container.height - dp(40)
+            max_width = preview_container.width - Window.height * 0.044
+            max_height = preview_container.height - Window.height * 0.044
             preview_image.size = (max_width, max_height)
         
         preview_container.bind(size=update_image_size)
@@ -410,11 +441,12 @@ class SelectFormatScreen(ColorScreen):
         name_label = Label(
             text=format_template.get_name(),
             size_hint=(1, 0.15),
-            font_size=SMALL_FONT,
+            font_size=SMALL_FONT(),
             halign='center',
             valign='middle',
             bold=True,
         )
+        wh_bind(name_label, 'font_size', SMALL_FONT)
         name_label.bind(size=name_label.setter('text_size'))
         card.add_widget(name_label)
         
@@ -423,7 +455,7 @@ class SelectFormatScreen(ColorScreen):
         photos_label = ResizeLabel(
             text=f"{num_photos} photo{'s' if num_photos > 1 else ''}",
             size_hint=(1, 0.1),
-            max_font_size=TINY_FONT,
+            wh_fraction=0.018,
             halign='center',
             valign='middle',
         )
@@ -475,7 +507,7 @@ class ErrorScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             font_name=ICON_TTF,
             text=ICON_ERROR,
-            max_font_size=XLARGE_FONT,
+            wh_fraction=0.22,
         )
         layout.add_widget(self.icon)
 
@@ -485,7 +517,7 @@ class ErrorScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'y': 0.3},
             font_name=ICON_TTF,
             text=ICON_LOADING,
-            max_font_size=NORMAL_FONT,
+            wh_fraction=0.055,
         )
         layout.add_widget(self.icon2)
 
@@ -513,44 +545,47 @@ class MaintenanceScreen(ColorScreen):
 
         self.app = app
 
-        layout = BoxLayout(orientation='vertical', padding=dp(30), spacing=dp(20))
+        layout = BoxLayout(orientation='vertical', padding=Window.height * 0.033, spacing=Window.height * 0.022)
 
         self.icon = ResizeLabel(
             size_hint=(1, 0.35),
             font_name=ICON_TTF,
             text=ICON_MAINTENANCE,
-            max_font_size=XLARGE_FONT,
+            wh_fraction=0.22,
         )
         layout.add_widget(self.icon)
 
         self.title = Label(
             size_hint=(1, 0.12),
             text='MAINTENANCE',
-            font_size=LARGE_FONT,
+            font_size=LARGE_FONT(),
             bold=True,
             halign='center',
             valign='middle',
         )
+        wh_bind(self.title, 'font_size', LARGE_FONT)
         self.title.bind(size=self.title.setter('text_size'))
         layout.add_widget(self.title)
 
         self.message = Label(
             size_hint=(1, 0.25),
             text='Please call an operator.',
-            font_size=SMALL_FONT,
+            font_size=SMALL_FONT(),
             halign='center',
             valign='middle',
         )
+        wh_bind(self.message, 'font_size', SMALL_FONT)
         self.message.bind(size=self.message.setter('text_size'))
         layout.add_widget(self.message)
 
         self.details = Label(
             size_hint=(1, 0.18),
             text='-',
-            font_size=TINY_FONT,
+            font_size=TINY_FONT(),
             halign='center',
             valign='middle',
         )
+        wh_bind(self.details, 'font_size', TINY_FONT)
         self.details.bind(size=self.details.setter('text_size'))
         layout.add_widget(self.details)
 
@@ -560,8 +595,8 @@ class MaintenanceScreen(ColorScreen):
             size_hint=(0.22, 0.12),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             icon_font=ICON_TTF,
-            icon_font_size=SMALL_FONT,
-            text_font_size=SMALL_FONT,
+            icon_font_size_fraction=0.07,
+            text_font_size_fraction=0.035,
             bgcolor=CONFIRM_COLOR,
             on_release=self.restart_event,
         )
@@ -616,10 +651,10 @@ class CountdownScreen(ColorScreen):
         # Display countdown with circular progress
         self.circular_counter = CircularProgressCounter(
             size_hint=(None, None),
-            size=(dp(400), dp(400)),
+            size=(min(Window.size) * 0.45, min(Window.size) * 0.45),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
-            circle_size=dp(350),
-            line_width=dp(6),
+            circle_size=min(Window.size) * 0.38,
+            line_width=min(Window.size) * 0.007,
             progress_color=BORDER_COLOR
         )
 
@@ -633,7 +668,7 @@ class CountdownScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             font_name=ICON_TTF,
             text=ICON_PROCESSING,
-            max_font_size=XLARGE_FONT,
+            wh_fraction=0.22,
         )
         self.loading_layout.add_widget(icon)
 
@@ -642,7 +677,7 @@ class CountdownScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'y': 0.3},
             font_name=ICON_TTF,
             text=ICON_LOADING,
-            max_font_size=NORMAL_FONT,
+            wh_fraction=0.055,
         )
         self.loading_layout.add_widget(loading)
 
@@ -651,7 +686,7 @@ class CountdownScreen(ColorScreen):
             size=0.14,
             pos_hint={'x': 0.05, 'top': 0.95},
             font=ICON_TTF,
-            font_size=LARGE_FONT,
+            font_size_fraction=0.07,
             bgcolor=HOME_COLOR,
             on_release=self.home_event
         )
@@ -661,7 +696,7 @@ class CountdownScreen(ColorScreen):
             size=0.14,
             pos_hint={'center_x': 0.5, 'y': 0.05},
             font=ICON_TTF,
-            font_size=LARGE_FONT,
+            font_size_fraction=0.07,
             bgcolor=CONFIRM_COLOR,
             on_release=self.trigger_event
         )
@@ -907,7 +942,7 @@ class ConfirmCaptureScreen(ColorScreen):
         # Add counter
         self.counter_layout = BoxLayout(
             orientation='horizontal',
-            spacing=dp(20),
+            spacing=Window.height * 0.022,
             size_hint=(0.25, 0.1),
             pos_hint={'x': 0.375, 'y':0.85},
         )
@@ -916,7 +951,7 @@ class ConfirmCaptureScreen(ColorScreen):
             icon = ResizeLabel(
                 font_name=ICON_TTF,
                 text=ICON_SHOT_TO_TAKE,
-                max_font_size=LARGE_FONT,
+                wh_fraction=0.07,
             )
             self.counter_layout.add_widget(icon)
             self.icons.append(icon)
@@ -942,8 +977,8 @@ class ConfirmCaptureScreen(ColorScreen):
         
         self.filter_container = BoxLayout(
             orientation='horizontal',
-            spacing=dp(15),
-            padding=(dp(20), dp(10), dp(20), dp(10)),
+            spacing=Window.height * 0.017,
+            padding=(Window.height * 0.022, Window.height * 0.011, Window.height * 0.022, Window.height * 0.011),
             size_hint=(None, 1),
         )
         self.filter_container.bind(minimum_width=self.filter_container.setter('width'))
@@ -977,7 +1012,7 @@ class ConfirmCaptureScreen(ColorScreen):
                              size=0.14,
                              pos_hint={'x': 0.05, 'top': 0.95},
                              font=ICON_TTF,
-                             font_size=LARGE_FONT,
+                             font_size_fraction=0.07,
                              bgcolor=HOME_COLOR,
                              on_release=self.home_event
                              )
@@ -988,7 +1023,7 @@ class ConfirmCaptureScreen(ColorScreen):
                              size=0.14,
                              pos_hint={'x': 0.05, 'y': 0.05},
                              font=ICON_TTF,
-                             font_size=LARGE_FONT,
+                             font_size_fraction=0.07,
                              bgcolor=CANCEL_COLOR,
                              on_release=self.no_event
                              )
@@ -999,7 +1034,7 @@ class ConfirmCaptureScreen(ColorScreen):
                              size=0.14,
                              pos_hint={'right': 0.95, 'y': 0.05},
                              font=ICON_TTF,
-                             font_size=LARGE_FONT,
+                             font_size_fraction=0.07,
                              bgcolor=CONFIRM_COLOR,
                              on_release=self.keep_event,
                              )
@@ -1015,12 +1050,12 @@ class ConfirmCaptureScreen(ColorScreen):
         class ClickableCard(ButtonBehavior, BoxLayout):
             pass
         
-        card_size = dp(160)
+        card_size = Window.height * 0.18
         card = ClickableCard(
             orientation='vertical',
             size_hint=(None, None),
             size=(card_size, card_size),
-            padding=dp(8),
+            padding=Window.height * 0.009,
         )
         
         # Draw rounded card background
@@ -1029,14 +1064,14 @@ class ConfirmCaptureScreen(ColorScreen):
             card_bg = RoundedRectangle(
                 pos=card.pos,
                 size=card.size,
-                radius=[dp(15),]
+                radius=[Window.height * 0.017,]
             )
             # Selection indicator (initially hidden)
             card.selection_color = Color(0, 0, 0, 0)
             card.selection_rect = RoundedRectangle(
                 pos=card.pos,
                 size=card.size,
-                radius=[dp(15),]
+                radius=[Window.height * 0.017,]
             )
         
         # Bind to update background when card size/pos changes
@@ -1057,7 +1092,7 @@ class ConfirmCaptureScreen(ColorScreen):
         # Thumbnail image (will be generated on entry)
         card.thumbnail = Image(
             size_hint=(None, None),
-            size=(card_size - dp(10), card_size - dp(10)),
+            size=(card_size - Window.height * 0.011, card_size - Window.height * 0.011),
             fit_mode='contain',
         )
         
@@ -1220,7 +1255,8 @@ class ConfirmCaptureScreen(ColorScreen):
     def _generate_thumbnail(self, img, filter_key, size=None):
         """Generate a thumbnail with the filter applied."""
         if size is None:
-            size = (int(dp(110)), int(dp(110)))
+            thumb = int(Window.height * 0.12)
+            size = (thumb, thumb)
         # Resize image for thumbnail
         h, w = img.shape[:2]
         aspect = w / h
@@ -1384,7 +1420,7 @@ class ProcessingScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             font_name=ICON_TTF,
             text=ICON_PROCESSING,
-            max_font_size=XLARGE_FONT,
+            wh_fraction=0.22,
         )
         layout.add_widget(icon)
 
@@ -1394,7 +1430,7 @@ class ProcessingScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'y': 0.3},
             font_name=ICON_TTF,
             text=ICON_LOADING,
-            max_font_size=NORMAL_FONT,
+            wh_fraction=0.055,
         )
 
         layout.add_widget(loading)
@@ -1464,7 +1500,7 @@ class ConfirmSaveScreen(ColorScreen):
                              size=0.14,
                              pos_hint={'x': 0.05, 'top': 0.95},
                              font=ICON_TTF,
-                             font_size=LARGE_FONT,
+                             font_size_fraction=0.07,
                              bgcolor=HOME_COLOR,
                              on_release=self.yes_event
                              )
@@ -1478,8 +1514,8 @@ class ConfirmSaveScreen(ColorScreen):
                                  size_hint=(0.15, 0.09),
                                  pos_hint={'center_x': 0.5, 'y': 0.05},
                                  icon_font=ICON_TTF,
-                                 icon_font_size=SMALL_FONT,
-                                 text_font_size=SMALL_FONT,
+                                 icon_font_size_fraction=0.07,
+                                 text_font_size_fraction=0.035,
                                  bgcolor=SHARE_COLOR,
                                  on_release=self.share_event,
                                  )
@@ -1575,7 +1611,7 @@ class ConfirmPrintScreen(ColorScreen):
                              size=0.14,
                              pos_hint={'x': 0.05, 'top': 0.95},
                              font=ICON_TTF,
-                             font_size=LARGE_FONT,
+                             font_size_fraction=0.07,
                              bgcolor=HOME_COLOR,
                              on_release=self.home_event
                              )
@@ -1590,8 +1626,8 @@ class ConfirmPrintScreen(ColorScreen):
                              size_hint=(0.15, 0.09),
                              pos_hint={'center_x': 0.5, 'y': print_y_pos},
                              icon_font=ICON_TTF,
-                             icon_font_size=SMALL_FONT,
-                             text_font_size=SMALL_FONT,
+                             icon_font_size_fraction=0.07,
+                             text_font_size_fraction=0.035,
                              bgcolor=CONFIRM_COLOR,
                              on_release=self.print_event
                              )
@@ -1605,8 +1641,8 @@ class ConfirmPrintScreen(ColorScreen):
                                  size_hint=(0.15, 0.09),
                                  pos_hint={'center_x': 0.5, 'y': 0.05},
                                  icon_font=ICON_TTF,
-                                 icon_font_size=SMALL_FONT,
-                                 text_font_size=SMALL_FONT,
+                                 icon_font_size_fraction=0.07,
+                                 text_font_size_fraction=0.035,
                                  bgcolor=SHARE_COLOR,
                                  on_release=self.share_event,
                                  )
@@ -1695,7 +1731,7 @@ class PrintingScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             font_name=ICON_TTF,
             text=ICON_PRINT,
-            max_font_size=XLARGE_FONT,
+            wh_fraction=0.22,
         )
         layout.add_widget(icon)
         self.icon = icon
@@ -1703,10 +1739,11 @@ class PrintingScreen(ColorScreen):
         self.status_label = Label(
             size_hint=(0.9, 0.15),
             text='Printing...',
-            font_size=SMALL_FONT,
+            font_size=SMALL_FONT(),
             halign='center',
             valign='middle',
         )
+        wh_bind(self.status_label, 'font_size', SMALL_FONT)
         self.status_label.bind(size=self.status_label.setter('text_size'))
         layout.add_widget(self.status_label)
 
@@ -1716,7 +1753,7 @@ class PrintingScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'y': 0.3},
             font_name=ICON_TTF,
             text=ICON_LOADING,
-            max_font_size=NORMAL_FONT,
+            wh_fraction=0.055,
         )
         layout.add_widget(loading)
         self.add_widget(layout)
@@ -1809,7 +1846,7 @@ class SuccessScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             font_name=ICON_TTF,
             text=ICON_SUCCESS,
-            max_font_size=XLARGE_FONT,
+            wh_fraction=0.22,
         )
         layout.add_widget(icon)
 
@@ -1819,7 +1856,7 @@ class SuccessScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'y': 0.3},
             font_name=ICON_TTF,
             text=ICON_SUCCESS2,
-            max_font_size=NORMAL_FONT,
+            wh_fraction=0.055,
         )
         layout.add_widget(icon2)
 
@@ -1868,14 +1905,14 @@ class CopyingScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             font_name=ICON_TTF,
             text=ICON_USB,
-            max_font_size=XLARGE_FONT,
+            wh_fraction=0.22,
         )
         layout.add_widget(icon)
         info = ResizeLabel(
             size_hint=(0.9, 0.1),
             pos_hint={'center_x': 0.5, 'center_y': 0.6},
             text='Do not disconnect your USB dongle before this screen disapears !',
-            max_font_size=LARGE_FONT,
+            wh_fraction=0.07,
         )
         layout.add_widget(info)
 
@@ -1884,7 +1921,7 @@ class CopyingScreen(ColorScreen):
             size_hint=(0.9, 0.2),
             pos_hint={'center_x': 0.5, 'center_y': 0.35},
             text='-',
-            max_font_size=LARGE_FONT,
+            wh_fraction=0.07,
         )
         layout.add_widget(self.progress)
 
@@ -1894,7 +1931,7 @@ class CopyingScreen(ColorScreen):
             pos_hint={'center_x': 0.5, 'y': 0.3},
             font_name=ICON_TTF,
             text=ICON_LOADING,
-            max_font_size=NORMAL_FONT,
+            wh_fraction=0.055,
         )
         layout.add_widget(loading)
 
@@ -1925,118 +1962,76 @@ class QRCodePopup(FloatLayout):
         self.on_dismiss = on_dismiss
         self._close_scheduled = False
         
-        # Semi-transparent overlay that blocks all touch events
+        # Semi-transparent overlay
         with self.canvas.before:
             Color(0, 0, 0, 0.8)
             self.bg_rect = Rectangle(pos=self.pos, size=self.size)
-        
         self.bind(pos=self._update_bg, size=self._update_bg)
         
-        # Keep enough room for the title and actions without making the card too wide.
-        is_small_screen = Window.width < dp(700) or Window.height < dp(700)
-        card_width_ratio = 0.72 if is_small_screen else 0.6
-        card_width = min(max(Window.width * card_width_ratio, dp(220)), dp(600))
-        card_height_ratio = 0.78 if is_small_screen else 0.85
-        card_height = min(max(Window.height * card_height_ratio, dp(360)), dp(750))
-
-        card_padding = max(dp(8), min(dp(24), card_width * 0.035))
-        card_spacing = max(dp(4), min(dp(12), card_height * 0.015))
-        label_height = max(dp(36), min(dp(60), card_height * 0.1))
-        hint_height = max(dp(30), min(dp(50), card_height * 0.08))
-        button_height = max(dp(70), min(dp(100), card_height * 0.14))
-        qr_size = min(card_width * 0.8, card_height * 0.42)
-
-        # Ensure the QR image never consumes all vertical space.
-        fixed_height = (card_padding * 2) + label_height + hint_height + button_height + (card_spacing * 3)
-        qr_size = min(qr_size, max(dp(120), card_height - fixed_height))
-
-        scan_font_size = sp(24) if Window.height < dp(700) else SMALL_FONT
-        hint_font_size = sp(20) if Window.height < dp(700) else TINY_FONT
-        
-        # White card container with responsive size using BoxLayout for better positioning
         from kivy.graphics import RoundedRectangle
-        
+
+        # Card uses size_hint so it reflows automatically on Window resize.
+        # Portrait hint: 60% wide, 85% tall — FloatLayout centers it via pos_hint.
         self.card = BoxLayout(
             orientation='vertical',
-            size_hint=(None, None),
-            size=(card_width, card_height),
-            pos_hint={'center_x': 0.5, 'center_y': 0.53 if is_small_screen else 0.5},
-            padding=card_padding,
-            spacing=card_spacing,
+            size_hint=(0.6, 0.85),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            padding=Window.height * 0.03,
+            spacing=Window.height * 0.015,
         )
-        
         with self.card.canvas.before:
             Color(1, 1, 1, 1)
-            self.card_rect = RoundedRectangle(pos=self.card.pos, size=self.card.size, radius=[dp(20),])
-        
+            self.card_rect = RoundedRectangle(pos=self.card.pos, size=self.card.size, radius=[Window.height * 0.022])
         self.card.bind(pos=self._update_card, size=self._update_card)
-        
-        scan_label = Label(
+
+        scan_label = ResizeLabel(
             text='SCAN ME',
-            size_hint=(1, None),
-            height=label_height,
-            font_size=scan_font_size,
+            size_hint=(1, 0.1),
+            wh_fraction=0.055,
             bold=True,
             color=(0, 0, 0, 1),
             halign='center',
             valign='middle',
         )
-        scan_label.bind(size=scan_label.setter('text_size'))
         self.card.add_widget(scan_label)
-        
-        # QR Code container (centered)
-        qr_container = AnchorLayout(
-            size_hint=(1, 1),
-            anchor_x='center',
-            anchor_y='center',
-        )
-        
-        # QR Code image with responsive size
+
+        # QR Code image fills remaining space
         self.qr_image = Image(
-            size_hint=(None, None),
-            size=(qr_size, qr_size),
+            size_hint=(1, 1),
             fit_mode='contain',
         )
-        qr_container.add_widget(self.qr_image)
-        self.card.add_widget(qr_container)
+        self.card.add_widget(self.qr_image)
 
-        hint_label = Label(
+        hint_label = ResizeLabel(
             text='Go to http://192.168.4.1',
-            size_hint=(1, None),
-            height=hint_height,
-            font_size=hint_font_size,
+            size_hint=(1, 0.08),
+            wh_fraction=0.022,
             bold=True,
             color=(0, 0, 0, 1),
             halign='center',
             valign='middle',
         )
-        hint_label.bind(size=hint_label.setter('text_size'))
         self.card.add_widget(hint_label)
-
-        # Keep the close button at the bottom, but the popup is slightly smaller
-        # and raised on small screens so it no longer overlaps the SHARE button.
-        btn_container = AnchorLayout(
-            size_hint=(1, None),
-            height=button_height,
-            anchor_x='center',
-            anchor_y='center',
-        )
 
         btn_close = make_icon_button(
             ICON_CANCEL,
-            size=0.07,
+            size=0.10,
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             font=ICON_TTF,
-            font_size=NORMAL_FONT,
+            font_size_fraction=0.055,
             bgcolor=CANCEL_COLOR,
             on_release=self._close
+        )
+        # Wrap in a fixed-height anchor so the button doesn't stretch
+        btn_container = AnchorLayout(
+            size_hint=(1, 0.15),
+            anchor_x='center',
+            anchor_y='center',
         )
         btn_container.add_widget(btn_close)
         self.card.add_widget(btn_container)
 
         self.add_widget(self.card)
-        
-        # Generate QR code
         self._generate_qr_code()
     
     def on_touch_down(self, touch):

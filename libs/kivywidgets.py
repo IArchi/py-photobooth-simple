@@ -178,8 +178,24 @@ class ImageRoundButton(ButtonBehavior, AsyncImage):
 
 class ResizeLabel(Label):
     max_font_size = NumericProperty(sp(16))
+    # If set (0..1), max_font_size tracks min(Window.width, Window.height) * wh_fraction on every
+    # resize — uses the shortest side so the font stays visible in both landscape and portrait.
+    wh_fraction = NumericProperty(0)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.wh_fraction:
+            self.max_font_size = min(Window.size) * self.wh_fraction
+            Window.bind(size=self._update_max_font)
+
+    def _update_max_font(self, *args):
+        if self.wh_fraction:
+            self.max_font_size = min(Window.size) * self.wh_fraction
+            self.on_size()
 
     def on_size(self, *args):
+        if not self.text:
+            return
         font_size = self.width / len(self.text) * 1.5
         self.font_size = min(self.size[1] if font_size > self.size[1] else font_size, self.max_font_size)
 
@@ -227,7 +243,7 @@ class SquareFloatLayout(FloatLayout):
     def _update_size_from_parent(self, *args):
         # Use parent size for buttons in BoxLayouts
         if self.parent:
-            parent_min = min(self.parent.size) if self.parent.size[0] > 0 and self.parent.size[1] > 0 else dp(150)
+            parent_min = min(self.parent.size) if self.parent.size[0] > 0 and self.parent.size[1] > 0 else Window.height * 0.17
             button_size = parent_min * self.size_square
             self.size = (button_size, button_size)
 
@@ -251,7 +267,8 @@ class LabelRoundButton(ButtonBehavior, ResizeLabel):
     def __init__(self, **kwargs):
         max_font_size = kwargs.pop('max_font_size', None)
         super(LabelRoundButton, self).__init__(**kwargs)
-        if max_font_size is not None:
+        # Only override max_font_size if no wh_fraction was set (wh_fraction takes priority)
+        if max_font_size is not None and not self.wh_fraction:
             self.max_font_size = max_font_size
 
 Builder.load_string("""
@@ -401,12 +418,6 @@ class RotatingLabel(ResizeLabel):
         self.angle -= 4  # Was 2 at 60fps, now 4 at 30fps for same visual speed
         self.angle %= 360
 
-class ResizeLabel(Label):
-    max_font_size = NumericProperty(sp(16))
-    def on_size(self, *args):
-        font_size = self.width / len(self.text) * 1.5
-        self.font_size = min(self.size[1] if font_size > self.size[1] else font_size, self.max_font_size)
-
 Builder.load_string('''
 <ThickProgressBar@ProgressBar>:
     canvas:
@@ -459,21 +470,27 @@ class CircularProgressCounter(FloatLayout):
     progress = NumericProperty(0)  # 0 à 1
     progress_color = ColorProperty([1, 1, 1, 1])
     circle_size = NumericProperty(300)
-    line_width = NumericProperty(dp(8))
-    min_circle_size = NumericProperty(dp(180))
-    max_circle_size = NumericProperty(dp(350))
+    line_width = NumericProperty(8)
+    # ponytail: min/max in window-height fractions, not dp — dp lies on Retina/high-DPI screens
+    min_circle_size = NumericProperty(0)   # set dynamically in __init__
+    max_circle_size = NumericProperty(0)   # set dynamically in __init__
     size_ratio = NumericProperty(0.55)
     small_screen_ratio = NumericProperty(0.38)
-    outer_padding = NumericProperty(dp(50))
-    small_screen_padding = NumericProperty(dp(30))
+    outer_padding = NumericProperty(0)     # set dynamically in __init__
+    small_screen_padding = NumericProperty(0)  # set dynamically in __init__
     
     def __init__(self, **kwargs):
         super(CircularProgressCounter, self).__init__(**kwargs)
+        # Use min(Window.size) fractions — stays correct in both landscape and portrait
+        self.min_circle_size = min(Window.size) * 0.20
+        self.max_circle_size = min(Window.size) * 0.40
+        self.outer_padding = min(Window.size) * 0.06
+        self.small_screen_padding = min(Window.size) * 0.035
         self.label = ShadowLabel(
             text='',
             halign='center',
             valign='middle',
-            font_size=sp(120),
+            font_size=min(Window.size) * 0.13,
             size_hint=(1, 1),
             pos_hint={'center_x': 0.5, 'center_y': 0.5}
         )
@@ -483,11 +500,15 @@ class CircularProgressCounter(FloatLayout):
         Clock.schedule_once(self._update_responsive_size, 0)
 
     def _on_window_resize(self, *args):
+        self.min_circle_size = min(Window.size) * 0.20
+        self.max_circle_size = min(Window.size) * 0.40
+        self.outer_padding = min(Window.size) * 0.06
+        self.small_screen_padding = min(Window.size) * 0.035
         self._update_responsive_size()
 
     def _update_responsive_size(self, *args):
         window_min = min(Window.size)
-        is_small_screen = Window.width < dp(700) or Window.height < dp(700)
+        is_small_screen = window_min < Window.height * 0.75
         size_ratio = self.small_screen_ratio if is_small_screen else self.size_ratio
         responsive_circle_size = min(self.max_circle_size, window_min * size_ratio)
         self.circle_size = max(self.min_circle_size, responsive_circle_size)
@@ -496,7 +517,7 @@ class CircularProgressCounter(FloatLayout):
         self.size = (widget_size, widget_size)
 
     def _update_label_size(self, *args):
-        self.label.font_size = max(sp(72), min(sp(120), self.circle_size * 0.34))
+        self.label.font_size = max(min(Window.size) * 0.08, min(min(Window.size) * 0.13, self.circle_size * 0.34))
     
     def set_text(self, text):
         self.label.text = str(text)
@@ -519,7 +540,7 @@ Builder.load_string("""
 class RoundedButton(ButtonBehavior, Label):
     background_color = ListProperty([1, 1, 1, 1])
 
-def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=sp(10), bgcolor=(1,1,1,1), badge=None, badge_font_size=sp(10), badge_color=(1,0,0,1), on_release=None):
+def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=sp(10), font_size_fraction=0, bgcolor=(1,1,1,1), badge=None, badge_font_size=sp(10), badge_color=(1,0,0,1), on_release=None):
     # If size >= 1, use parent size (for buttons in BoxLayouts), otherwise use Window size
     use_parent = (size >= 1.0)
     parent = SquareFloatLayout(
@@ -534,6 +555,7 @@ def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=sp(10), b
         pos_hint={'center_x': 0.5, 'center_y': 0.5},
         background_color=bgcolor,
         max_font_size=font_size,
+        wh_fraction=font_size_fraction,
     )
     parent.add_widget(ic)
     if badge:
@@ -566,24 +588,10 @@ Builder.load_string("""
 class IconTextButton(ButtonBehavior, BoxLayout):
     background_color = ListProperty([1, 1, 1, 1])
 
-def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_font='Roboto', text_font='Roboto', icon_font_size=sp(50), text_font_size=sp(30), bgcolor=(1,1,1,1), on_release=None):
+def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_font='Roboto', text_font='Roboto', icon_font_size=sp(50), icon_font_size_fraction=0, text_font_size=sp(30), text_font_size_fraction=0, bgcolor=(1,1,1,1), on_release=None):
     """
-    Create a horizontal button with icon on left and text on right
-    
-    Args:
-        icon: Icon character to display
-        text: Text to display
-        size_hint: Size hint tuple (width, height)
-        pos_hint: Position hint dict
-        icon_font: Font for the icon
-        text_font: Font for the text
-        icon_font_size: Font size for the icon (can be string like '60sp' or number)
-        text_font_size: Maximum font size for the text (can be string like '30sp' or number) - will auto-resize on small screens
-        bgcolor: Background color tuple (r, g, b, a)
-        on_release: Callback function for button release
-    
-    Returns:
-        IconTextButton widget
+    Create a horizontal button with icon on left and text on right.
+    Pass icon_font_size_fraction / text_font_size_fraction (0..1) to scale with Window.height on resize.
     """
     button = IconTextButton(
         size_hint=size_hint,
@@ -591,17 +599,18 @@ def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_
         background_color=bgcolor,
     )
     
-    # Icon container with padding
+    # Icon container with padding — kept proportional via Window.height fraction
     icon_container = BoxLayout(
         size_hint=(0.4, 1),
-        padding=(0, dp(10), 0, dp(10)),  # Add vertical padding
+        padding=(0, Window.height * 0.011, 0, Window.height * 0.011),
     )
     
-    # Icon label
-    icon_label = Label(
+    # Icon label — use ResizeLabel so it can track wh_fraction
+    icon_label = ResizeLabel(
         text=icon,
         font_name=icon_font,
-        font_size=icon_font_size,
+        max_font_size=icon_font_size,
+        wh_fraction=icon_font_size_fraction,
         color=(1, 1, 1, 1),
     )
     icon_container.add_widget(icon_label)
@@ -612,6 +621,7 @@ def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_
         text=text,
         font_name=text_font,
         max_font_size=text_font_size,
+        wh_fraction=text_font_size_fraction,
         size_hint=(0.6, 1),
         color=(1, 1, 1, 1),
         bold=True,
