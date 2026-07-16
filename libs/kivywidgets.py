@@ -455,14 +455,14 @@ Builder.load_string('''
         Color:
             rgba: 0, 0, 0, 0.5
         Ellipse:
-            pos: self.center_x - self.circle_size/2, self.center_y - self.circle_size/2
-            size: self.circle_size, self.circle_size
+            pos: self.center_x - (self.circle_size * root.circle_scale)/2, self.center_y - (self.circle_size * root.circle_scale)/2
+            size: self.circle_size * root.circle_scale, self.circle_size * root.circle_scale
         
         # Arc de progression
         Color:
             rgba: root.progress_color
         Line:
-            circle: (self.center_x, self.center_y, self.circle_size/2, 0, 360 * root.progress)
+            circle: (self.center_x, self.center_y, (self.circle_size * root.circle_scale)/2, 0, 360 * root.progress)
             width: root.line_width
             cap: 'round'
 ''')
@@ -474,6 +474,7 @@ class CircularProgressCounter(FloatLayout):
     # ponytail: min/max in window-height fractions, not dp — dp lies on Retina/high-DPI screens
     min_circle_size = NumericProperty(0)   # set dynamically in __init__
     max_circle_size = NumericProperty(0)   # set dynamically in __init__
+    circle_scale = NumericProperty(0.88)
     size_ratio = NumericProperty(0.55)
     small_screen_ratio = NumericProperty(0.38)
     outer_padding = NumericProperty(0)     # set dynamically in __init__
@@ -517,7 +518,7 @@ class CircularProgressCounter(FloatLayout):
         self.size = (widget_size, widget_size)
 
     def _update_label_size(self, *args):
-        self.label.font_size = max(min(Window.size) * 0.08, min(min(Window.size) * 0.13, self.circle_size * 0.34))
+        self.label.font_size = max(min(Window.size) * 0.13, min(min(Window.size) * 0.24, self.circle_size * 0.82))
     
     def set_text(self, text):
         self.label.text = str(text)
