@@ -666,7 +666,7 @@ class CountdownScreen(ColorScreen):
             size=(min(Window.size) * 0.45, min(Window.size) * 0.45),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             circle_size=min(Window.size) * 0.38,
-            line_width=min(Window.size) * 0.007,
+            line_width=min(Window.size) * 0.01,
             progress_color=BORDER_COLOR
         )
 
