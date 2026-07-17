@@ -45,6 +45,9 @@ class Config:
     def get_filters(self):
         return self.config.getboolean('Picture', 'FILTERS', fallback=False)
 
+    def get_preview_blur_refresh_frames(self):
+        return max(1, self.config.getint('Picture', 'PREVIEW_BLUR_REFRESH_FRAMES', fallback=3))
+
     def _get_dslr_params(self, section):
         """Returns a dict param -> value for the given DSLR section. Empty or None value = do not set."""
         keys = ['SHUTTERSPEED', 'APERTURE', 'FOCUSMODE', 'ISO']

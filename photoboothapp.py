@@ -55,6 +55,7 @@ class PhotoboothApp(App):
         self.SHARE = config.get_share()
         self.WEB_PORT = config.get_web_port()
         self.FILTERS = config.get_filters()
+        self.PREVIEW_BLUR_REFRESH_FRAMES = config.get_preview_blur_refresh_frames()
         self.COUNTDOWN = config.get_countdown()
         self.DCIM_DIRECTORY = config.get_dcim_directory()
         self.PRINTER = config.get_printer()

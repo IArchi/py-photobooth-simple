@@ -19,11 +19,14 @@ from libs.file_utils import FileUtils
 
 # Widget to display camera
 class KivyCamera(Image):
-    def __init__(self, app, fps=30, blur=False, **kwargs):
+    def __init__(self, app, fps=30, blur=False, blur_refresh_frames=1, **kwargs):
         super(KivyCamera, self).__init__(**kwargs)
         self._app = app
         self._fps = fps
         self._blur = blur
+        self._blur_refresh_frames = max(1, int(blur_refresh_frames))
+        self._blur_cache = None
+        self._frame_count = 0
         self._stop = False
         self._reuse_texture = None  # Réutilisation pour éviter allocations à chaque frame
         self.create_empty_texture()
@@ -31,11 +34,15 @@ class KivyCamera(Image):
     def start(self, aspect_ratio=None):
         self._stop = False
         self._aspect_ratio = aspect_ratio
+        self._blur_cache = None
+        self._frame_count = 0
         self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)
 
     def stop(self):
         self._stop = True
         Clock.unschedule(self._clock)
+        self._blur_cache = None
+        self._frame_count = 0
         self._reuse_texture = None
 
     def create_empty_texture(self):
@@ -65,7 +72,15 @@ class KivyCamera(Image):
                 if w > max_w or h > max_h:
                     scale = min(max_w / w, max_h / h)
                     im = cv2.resize(im, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-                im = FileUtils.blurry_borders(im, self.size)
+                refresh_blur = (self._frame_count % self._blur_refresh_frames) == 0
+                im, self._blur_cache = FileUtils.blurry_borders(
+                    im,
+                    self.size,
+                    blur_cache=self._blur_cache,
+                    refresh_blur=refresh_blur,
+                    return_cache=True,
+                )
+                self._frame_count += 1
 
             # Réutiliser la texture si la taille est identique (évite Texture.create à chaque frame)
             w, h = im.shape[1], im.shape[0]

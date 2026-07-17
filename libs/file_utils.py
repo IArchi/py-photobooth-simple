@@ -167,7 +167,7 @@ class FileUtils:
         return im[y_start:y_end, x_start:x_end, :]
 
     @staticmethod
-    def blurry_borders(im, size):
+    def blurry_borders(im, size, blur_cache=None, refresh_blur=True, return_cache=False):
         """
         Add blurry borders to an image.
         OPTIMIZED: Reduced blur kernel size from (101,101) to (51,51) for 4x faster performance.
@@ -182,14 +182,34 @@ class FileUtils:
         scale_factor = min(height / im_height, width / im_width)
         new_size = (int(im_width * scale_factor), int(im_height * scale_factor))
         if new_size[0] <= 0 or new_size[1] <= 0:
-            return im
+            return (im, blur_cache) if return_cache else im
         im = cv2.resize(im, new_size, interpolation=cv2.INTER_AREA)
 
-        # Generate blur on sides (OPTIMIZED: reduced kernel from 101 to 51)
-        blurred_image = cv2.GaussianBlur(im, (51, 51), 0)
         im_height, im_width = im.shape[:2]
         difference_h = int((width - im_width) // 2)
         difference_v = int((height - im_height) // 2)
+
+        cache_signature = (width, height, im_width, im_height)
+        should_refresh_blur = (
+            refresh_blur
+            or blur_cache is None
+            or blur_cache.get('signature') != cache_signature
+        )
+
+        if should_refresh_blur:
+            # Recompute the blurred background only when geometry changes or every n frames.
+            blurred_image = cv2.GaussianBlur(im, (51, 51), 0)
+            blur_cache = {
+                'signature': cache_signature,
+                'blurred_image': blurred_image,
+                'difference_h': difference_h,
+                'difference_v': difference_v,
+            }
+        else:
+            blurred_image = blur_cache['blurred_image']
+            difference_h = blur_cache['difference_h']
+            difference_v = blur_cache['difference_v']
+
         if difference_h > 0:
             left_blur = blurred_image[:, :difference_h]
             right_blur = blurred_image[:, max(0, im_width - difference_h):]
@@ -201,4 +221,4 @@ class FileUtils:
         else:
             combined_image = im
         
-        return combined_image
+        return (combined_image, blur_cache) if return_cache else combined_image
