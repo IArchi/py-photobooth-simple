@@ -109,16 +109,16 @@ class Cv2Camera(CaptureDevice):
                 camera = cv2.VideoCapture(port)
                 if camera.isOpened():
                     camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-                    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-                    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+                    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
                     self._instance = camera
             else:
                 for i in range(3):  # Test 3 first ports
                     camera = cv2.VideoCapture(i)
                     if camera.isOpened():
                         camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-                        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-                        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+                        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
                         self._instance = camera
                         break
                     camera.release()
@@ -157,12 +157,7 @@ class Cv2Camera(CaptureDevice):
 
     def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
         if flash_fn and not self.has_physical_flash(): flash_fn()
-        with self._camera_lock:
-            self._instance.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-            self._instance.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-            ret, im = self._instance.read()
-            self._instance.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            self._instance.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        with self._camera_lock: ret, im = self._instance.read()
         if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
         if not ret:
             raise IOError('OpenCV camera capture failed')
