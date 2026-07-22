@@ -376,10 +376,9 @@ class SelectFormatScreen(ColorScreen):
         preview_path = format_template.get_preview()
         
         # Create clickable card combining ButtonBehavior and BoxLayout
-        from kivy.uix.behaviors import ButtonBehavior
         from kivy.graphics import RoundedRectangle
         
-        class ClickableCard(ButtonBehavior, BoxLayout):
+        class ClickableCard(FeedbackButtonBehavior, BoxLayout):
             pass
         
         # Initial size will be updated by _update_card_sizes
@@ -1062,10 +1061,9 @@ class ConfirmCaptureScreen(ColorScreen):
 
     def _create_filter_card(self, filter_def):
         """Create a card for a specific filter."""
-        from kivy.uix.behaviors import ButtonBehavior
         from kivy.graphics import RoundedRectangle
         
-        class ClickableCard(ButtonBehavior, BoxLayout):
+        class ClickableCard(FeedbackButtonBehavior, BoxLayout):
             pass
         
         card_size = Window.height * 0.18

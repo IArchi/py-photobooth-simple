@@ -1,4 +1,5 @@
 from kivy.clock import Clock
+from kivy.animation import Animation
 from kivy.uix.image import Image, AsyncImage
 from kivy.uix.label import Label
 from kivy.lang import Builder
@@ -170,10 +171,18 @@ Builder.load_string(
 class BackgroundBoxLayout(BoxLayout):
     background_color = ColorProperty()
 
-class ImageButton(ButtonBehavior, AsyncImage):
+class FeedbackButtonBehavior(ButtonBehavior):
+    """Tiny press feedback: opacity only, no ripple/canvas work on weak hardware."""
+    feedback_opacity = NumericProperty(0.72)
+
+    def on_state(self, instance, value):
+        Animation.cancel_all(self, 'opacity')
+        Animation(opacity=self.feedback_opacity if value == 'down' else 1, d=0.06).start(self)
+
+class ImageButton(FeedbackButtonBehavior, AsyncImage):
     pass
 
-class LayoutButton(ButtonBehavior, FloatLayout):
+class LayoutButton(FeedbackButtonBehavior, FloatLayout):
     pass
 
 Builder.load_string("""
@@ -187,7 +196,7 @@ Builder.load_string("""
             size: min(self.size) * 1.4, min(self.size) * 1.4
             pos: (self.center_x - (min(self.size) * 1.4) / 2, self.center_y - (min(self.size) * 1.4) / 2)
 """)
-class ImageRoundButton(ButtonBehavior, AsyncImage):
+class ImageRoundButton(FeedbackButtonBehavior, AsyncImage):
     source = StringProperty('')
     background_color = ListProperty([0, 0, 0, 0])
 
@@ -273,7 +282,7 @@ Builder.load_string("""
             size: self.size
             pos: self.pos
 """)
-class LabelRoundButton(ButtonBehavior, ResizeLabel):
+class LabelRoundButton(FeedbackButtonBehavior, ResizeLabel):
     text = StringProperty('')
     font_name = StringProperty('Roboto')
     background_color = ListProperty([0, 0, 0, 0])
@@ -553,7 +562,7 @@ Builder.load_string("""
             size: self.size
             radius: [20,]
 """)
-class RoundedButton(ButtonBehavior, Label):
+class RoundedButton(FeedbackButtonBehavior, Label):
     background_color = ListProperty([1, 1, 1, 1])
 
 def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=sp(10), font_size_fraction=0, bgcolor=(1,1,1,1), badge=None, badge_font_size=sp(10), badge_color=(1,0,0,1), on_release=None):
@@ -601,7 +610,7 @@ Builder.load_string("""
             size: self.size
             radius: [20,]
 """)
-class IconTextButton(ButtonBehavior, BoxLayout):
+class IconTextButton(FeedbackButtonBehavior, BoxLayout):
     background_color = ListProperty([1, 1, 1, 1])
 
 def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_font='Roboto', text_font='Roboto', icon_font_size=sp(50), icon_font_size_fraction=0, text_font_size=sp(30), text_font_size_fraction=0, bgcolor=(1,1,1,1), on_release=None):

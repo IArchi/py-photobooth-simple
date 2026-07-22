@@ -23,7 +23,7 @@ KivyConfig.set('kivy', 'log_name', 'photobooth_%y-%m-%d_%_.txt')
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.logger import Logger
-from kivy.uix.screenmanager import NoTransition
+from kivy.uix.screenmanager import FadeTransition
 
 from libs.config import Config
 from libs.device_utils import DeviceUtils
@@ -141,7 +141,7 @@ class PhotoboothApp(App):
 
     def build(self):
         Logger.info('PhotoboothApp: build().')
-        self.sm = ScreenMgr(self, transition=NoTransition())
+        self.sm = ScreenMgr(self, transition=FadeTransition(duration=0.12))
         if self._requested_screen:
             self.sm.current = self._requested_screen
         self.sm.current_screen.on_entry()
