@@ -314,12 +314,13 @@ EOF'
             sudo bash -c 'cat > /etc/systemd/system/photobooth-ap-network.service << EOF
 [Unit]
 Description=Static IP for PhotoBooth AP
-Before=hostapd.service dnsmasq.service
-Wants=hostapd.service dnsmasq.service
+Before=hostapd.service dnsmasq.service photobooth-http-redirect.service
+Wants=hostapd.service dnsmasq.service photobooth-http-redirect.service
 
 [Service]
 Type=oneshot
 ExecStartPre=/usr/sbin/rfkill unblock wifi
+ExecStartPre=/bin/sh -c "systemctl stop wpa_supplicant@wlan0.service 2>/dev/null || true"
 ExecStart=/sbin/ip link set wlan0 up
 ExecStart=/sbin/ip addr flush dev wlan0
 ExecStart=/sbin/ip addr add 192.168.4.1/24 dev wlan0
@@ -384,8 +385,8 @@ EOF'
         sudo bash -c 'cat > /etc/systemd/system/photobooth-http-redirect.service << EOF
 [Unit]
 Description=Redirect HTTP traffic to PhotoBooth web app
-After=network-online.target
-Wants=network-online.target
+After=photobooth-ap-network.service hostapd.service
+Wants=photobooth-ap-network.service
 
 [Service]
 Type=oneshot
@@ -440,6 +441,19 @@ EOF'
 # Defaults for hostapd initscript
 DAEMON_CONF="/etc/hostapd/hostapd.conf"
 EOF'
+
+        if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+            print_info "Making hostapd wait for wlan0 AP setup..."
+            sudo mkdir -p /etc/systemd/system/hostapd.service.d
+            sudo bash -c 'cat > /etc/systemd/system/hostapd.service.d/photobooth-ap.conf << EOF
+[Unit]
+After=photobooth-ap-network.service
+Requires=photobooth-ap-network.service
+
+[Service]
+ExecStartPre=/usr/sbin/rfkill unblock wifi
+EOF'
+        fi
         
         # Unmask and enable services
         print_info "Enabling services..."
@@ -456,13 +470,14 @@ EOF'
         print_info "Starting services..."
         if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
             sudo systemctl restart NetworkManager
+            sudo nmcli device set wlan0 managed no 2>/dev/null || true
             sudo systemctl start photobooth-ap-network.service
         else
             sudo systemctl restart dhcpcd 2>/dev/null || true
         fi
-        sudo systemctl start hostapd
-        sudo systemctl start dnsmasq
-        sudo systemctl start photobooth-http-redirect.service
+        sudo systemctl restart hostapd || { sudo journalctl -xeu hostapd.service --no-pager; exit 1; }
+        sudo systemctl restart dnsmasq
+        sudo systemctl restart photobooth-http-redirect.service
         
         print_success "WiFi Access Point configured"
         print_info "SSID: PhotoBooth"
