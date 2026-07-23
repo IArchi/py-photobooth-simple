@@ -18,6 +18,7 @@ from kivy.config import Config as KivyConfig
 KivyConfig.set('kivy', 'log_enable', '1')
 KivyConfig.set('kivy', 'log_dir', str(LOG_DIRECTORY))
 KivyConfig.set('kivy', 'log_name', 'photobooth_%y-%m-%d_%_.txt')
+KivyConfig.set('kivy', 'exit_on_escape', '0')
 
 # os.environ['KIVY_NO_CONSOLELOG'] = '1'
 from kivy.app import App

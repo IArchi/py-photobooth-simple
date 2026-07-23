@@ -144,6 +144,17 @@ class ScreenMgr(ScreenManager):
 
         self.current = self.WAITING
         if self.app.FULLSCREEN: Window.fullscreen = True
+        Window.bind(on_key_down=self._on_key_down)
+
+    def _on_key_down(self, window, keycode, scancode, codepoint, modifiers):
+        if keycode == 27:  # ESC: kiosk keyboard back/home, never quit Kivy.
+            if self.current != self.WAITING:
+                self.app.transition_to(self.WAITING)
+            return True
+        if keycode in (13, 32):  # ENTER / SPACE: activate the screen's primary button.
+            action = getattr(self.current_screen, 'on_keyboard_action', None)
+            return bool(action and action())
+        return False
 
 class BackgroundScreen(Screen):
     def __init__(self, bg='./assets/backgrounds/bg_default.jpeg', **kwargs):
@@ -266,6 +277,11 @@ class WaitingScreen(BackgroundScreen):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('WaitingScreen: on_click().')
         self.app.transition_to(ScreenMgr.SELECT_FORMAT)
+
+    def on_keyboard_action(self):
+        Logger.info('WaitingScreen: on_keyboard_action().')
+        self.app.transition_to(ScreenMgr.SELECT_FORMAT)
+        return True
 
 class SelectFormatScreen(ColorScreen):
     """
@@ -872,7 +888,7 @@ class CountdownScreen(ColorScreen):
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
 
     def trigger_event(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('CountdownScreen: trigger_event().')
         
         if not self._timer_active:
@@ -883,6 +899,10 @@ class CountdownScreen(ColorScreen):
             # Cancel the countdown
             self._timer_active = False
             self.cancel_countdown()
+
+    def on_keyboard_action(self):
+        self.trigger_event(None)
+        return True
 
     def start_countdown(self):
         Logger.info('CountdownScreen: start_countdown().')
@@ -1436,7 +1456,7 @@ class ConfirmCaptureScreen(ColorScreen):
             self.auto_leave = None
 
     def keep_event(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_leave)
         
         # Apply selected filter off the UI thread; Processing waits before building the collage.
@@ -1461,6 +1481,10 @@ class ConfirmCaptureScreen(ColorScreen):
     def timer_event(self, obj):
         Logger.info('ConfirmCaptureScreen: timer_event().')
         self.app.transition_to(ScreenMgr.WAITING)
+
+    def on_keyboard_action(self):
+        self.keep_event(None)
+        return True
 
 class ProcessingScreen(ColorScreen):
     """
@@ -1649,7 +1673,7 @@ class ConfirmSaveScreen(ColorScreen):
         self.app.transition_to(ScreenMgr.WAITING)
 
     def share_event(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ConfirmSaveScreen: share_event().')
         # Reset timeout when opening QR code popup
         Clock.unschedule(self.auto_confirm)
@@ -1672,6 +1696,12 @@ class ConfirmSaveScreen(ColorScreen):
         Logger.info('ConfirmSaveScreen: timer_event().')
         Clock.unschedule(self.auto_confirm)
         self.app.transition_to(ScreenMgr.WAITING)
+
+    def on_keyboard_action(self):
+        if not self.app.SHARE:
+            return False
+        self.share_event(None)
+        return True
 
 class ConfirmPrintScreen(ColorScreen):
     """
@@ -1800,7 +1830,7 @@ class ConfirmPrintScreen(ColorScreen):
             self.app.ringled.clear()
 
     def print_event(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ConfirmPrintScreen: print_event().')
         Clock.unschedule(self.auto_decline)
         self.app.transition_to(ScreenMgr.PRINTING, copies=1, format=self._current_format)
@@ -1811,7 +1841,7 @@ class ConfirmPrintScreen(ColorScreen):
         self.app.transition_to(ScreenMgr.WAITING)
 
     def share_event(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ConfirmPrintScreen: share_event().')
         # Reset timeout when opening QR code popup
         Clock.unschedule(self.auto_decline)
@@ -1833,6 +1863,11 @@ class ConfirmPrintScreen(ColorScreen):
     def timer_event(self, obj):
         Logger.info('ConfirmPrintScreen: timer_event().')
         self.app.transition_to(ScreenMgr.WAITING)
+
+    def on_keyboard_action(self):
+        # Ponytail: when PRINT and SHARE both exist, ENTER/SPACE chooses PRINT; SHARE is keyboard-primary only when it is the sole action.
+        self.print_event(None)
+        return True
 
 class PrintingScreen(ColorScreen):
     """
