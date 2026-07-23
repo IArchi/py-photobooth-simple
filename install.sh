@@ -114,11 +114,15 @@ if is_raspberry_pi; then
     if ask_yes_no "Step 3/9: Do you want to enable Kiosk Mode (hide mouse, taskbar, etc.)?"; then
         print_info "Configuring Kiosk Mode..."
         
-        # Hide mouse and panel
-        sudo sed -i 's/\[autostart\]/\[autostart\]\r\background = wf-background/g' /etc/wayfire/defaults.ini
-        
-        # Hide taskbar
-        sudo sed -i '/^[^#].*wfrespawn wf-panel-pi/ s/^/# /' /etc/wayfire/defaults.ini
+        if [ -f /etc/wayfire/defaults.ini ]; then
+            # Hide mouse and panel
+            sudo sed -i 's/\[autostart\]/\[autostart\]\r\background = wf-background/g' /etc/wayfire/defaults.ini
+
+            # Hide taskbar
+            sudo sed -i '/^[^#].*wfrespawn wf-panel-pi/ s/^/# /' /etc/wayfire/defaults.ini
+        else
+            print_warning "/etc/wayfire/defaults.ini not found; skipping Wayfire kiosk tweaks"
+        fi
         
         # Disable power warning
         echo "avoid_warnings=1" | sudo tee -a /boot/firmware/config.txt > /dev/null
