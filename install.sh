@@ -285,7 +285,7 @@ if is_raspberry_pi; then
         
         # Install required packages
         print_info "Installing hostapd and dnsmasq..."
-        sudo apt-get install -y hostapd dnsmasq
+        sudo apt-get install -y hostapd dnsmasq iptables
         
         # Stop services during configuration
         print_info "Stopping services..."
@@ -389,8 +389,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c "iptables -t nat -C PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-ports 5000 2>/dev/null || iptables -t nat -A PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-ports 5000"
-ExecStop=/bin/sh -c "iptables -t nat -D PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-ports 5000 2>/dev/null || true"
+ExecStart=/bin/sh -c "/usr/sbin/iptables -t nat -C PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-ports 5000 2>/dev/null || /usr/sbin/iptables -t nat -A PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-ports 5000"
+ExecStop=/bin/sh -c "/usr/sbin/iptables -t nat -D PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-ports 5000 2>/dev/null || true"
 RemainAfterExit=yes
 
 [Install]
