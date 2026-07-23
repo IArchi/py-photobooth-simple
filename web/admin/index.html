@@ -41,6 +41,59 @@
             margin: 10px 0 18px;
         }
 
+        .disk-card {
+            display: grid;
+            gap: 14px;
+        }
+
+        .disk-stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .disk-stat {
+            padding: 14px;
+            border: 1px solid #eeeeee;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .disk-label {
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .disk-value {
+            margin-top: 6px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .disk-bar {
+            height: 12px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #e5e7eb;
+        }
+
+        .disk-bar-fill {
+            width: {{ disk_usage.used_percent }}%;
+            height: 100%;
+            border-radius: inherit;
+            background: var(--accent);
+        }
+
+        .disk-path {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+            word-break: break-all;
+        }
+
         .section-card {
             padding: 24px;
         }
@@ -95,6 +148,10 @@
             .quick-actions {
                 grid-template-columns: 1fr;
             }
+
+            .disk-stats {
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 720px) {
@@ -136,21 +193,14 @@
 
                 <div class="quick-actions">
                     <article class="quick-card">
-                        <span class="eyebrow">1. Templates</span>
+                        <span class="eyebrow">Templates</span>
                         <h2>Edit layouts</h2>
                         <p>Create, duplicate and save print templates from the visual editor.</p>
                         <a href="/admin/editor" class="btn btn-primary">Open template editor</a>
                     </article>
 
                     <article class="quick-card">
-                        <span class="eyebrow">2. Settings</span>
-                        <h2>Adjust configuration</h2>
-                        <p>Update <code>config.ini</code> directly from the browser when a setup value changes.</p>
-                        <a href="#config-section" class="btn btn-ghost">Go to configuration</a>
-                    </article>
-
-                    <article class="quick-card">
-                        <span class="eyebrow">3. Maintenance</span>
+                        <span class="eyebrow">Maintenance</span>
                         <h2>Restart or clean</h2>
                         <p>Restart the booth after changes, or remove all saved sessions from the danger zone below.</p>
                         <form method="post" action="/admin/restart">
@@ -159,7 +209,37 @@
                             </div>
                         </form>
                     </article>
+
+                    <article class="quick-card">
+                        <span class="eyebrow">Logs</span>
+                        <h2>Read application logs</h2>
+                        <p>Open the newest log files from the <code>logs</code> folder directly in the browser.</p>
+                        <a href="/admin/logs" class="btn btn-ghost">Open logs</a>
+                    </article>
                 </div>
+
+                <article class="quick-card disk-card">
+                    <span class="eyebrow">Disk space</span>
+                    <h2>{{ disk_usage.free }} available</h2>
+                    <div class="disk-bar" aria-label="Disk used {{ disk_usage.used_percent }} percent">
+                        <div class="disk-bar-fill"></div>
+                    </div>
+                    <div class="disk-stats">
+                        <div class="disk-stat">
+                            <div class="disk-label">Used</div>
+                            <div class="disk-value">{{ disk_usage.used }}</div>
+                        </div>
+                        <div class="disk-stat">
+                            <div class="disk-label">Available</div>
+                            <div class="disk-value">{{ disk_usage.free }}</div>
+                        </div>
+                        <div class="disk-stat">
+                            <div class="disk-label">Total</div>
+                            <div class="disk-value">{{ disk_usage.total }}</div>
+                        </div>
+                    </div>
+                    <p class="disk-path">{{ disk_usage.used_percent }}% used on <code>{{ disk_usage.path }}</code></p>
+                </article>
             </section>
 
             <section class="admin-stack">

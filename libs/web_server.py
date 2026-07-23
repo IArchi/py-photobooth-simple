@@ -16,6 +16,7 @@ class WebServer:
 
     SESSION_PATTERN = re.compile(r'^\d{8}_\d{6}$')
     IMAGE_FILENAME_PATTERN = re.compile(r'^(?:collage|capture-\d+)\.jpg$', re.IGNORECASE)
+    LOG_FILENAME_PATTERN = re.compile(r'^[A-Za-z0-9._-]+$')
     ADMIN_PASSWORD_PLACEHOLDER = '__HIDDEN__'
     
     def __init__(self, save_directory, host='0.0.0.0', port=5000, admin_password=None, restart_callback=None):
@@ -46,6 +47,7 @@ class WebServer:
         self.stats_file = os.path.join(save_directory, '.stats.json')
         self.stats_lock = threading.Lock()
         self.config_file = os.path.join(self.project_root, 'config.ini')
+        self.logs_directory = os.path.join(self.project_root, 'logs')
         self.templates_directory = os.path.join(self.project_root, 'templates')
         self.template_editor_path = os.path.join(self.web_directory, 'editor', 'template_editor.html')
         self._setup_routes()
@@ -155,6 +157,88 @@ class WebServer:
             return None
 
         return requested_path
+
+    def _get_log_files(self):
+        """Return log files sorted by modification time, newest first."""
+        log_files = []
+
+        try:
+            if not os.path.isdir(self.logs_directory):
+                return log_files
+
+            for filename in os.listdir(self.logs_directory):
+                log_path = os.path.join(self.logs_directory, filename)
+                if not os.path.isfile(log_path):
+                    continue
+
+                stat = os.stat(log_path)
+                log_files.append({
+                    'filename': filename,
+                    'modified': datetime.fromtimestamp(stat.st_mtime).isoformat(timespec='seconds'),
+                    'size': stat.st_size,
+                })
+        except Exception as e:
+            Logger.error(f'WebServer: Error listing log files: {e}')
+
+        return sorted(log_files, key=lambda item: item['modified'], reverse=True)
+
+    def _get_safe_log_path(self, filename):
+        """Return canonical log path for a direct child of the logs directory."""
+        if not isinstance(filename, str) or not self.LOG_FILENAME_PATTERN.fullmatch(filename):
+            return None
+
+        base_path = os.path.realpath(self.logs_directory)
+        requested_path = os.path.realpath(os.path.join(base_path, filename))
+
+        if os.path.dirname(requested_path) != base_path:
+            return None
+
+        if not os.path.isfile(requested_path):
+            return None
+
+        return requested_path
+
+    def _delete_all_log_files(self):
+        """Delete all direct files from the logs directory."""
+        deleted_files = 0
+
+        if not os.path.isdir(self.logs_directory):
+            return deleted_files
+
+        for log_file in self._get_log_files():
+            log_path = self._get_safe_log_path(log_file['filename'])
+            if log_path is None:
+                continue
+
+            os.remove(log_path)
+            deleted_files += 1
+
+        return deleted_files
+
+    def _format_bytes(self, value):
+        """Return a compact human-readable byte size."""
+        units = ['B', 'KB', 'MB', 'GB', 'TB']
+        size = float(value)
+
+        for unit in units:
+            if size < 1024 or unit == units[-1]:
+                return f'{size:.1f} {unit}' if unit != 'B' else f'{int(size)} {unit}'
+            size /= 1024
+
+    def _get_disk_usage_info(self):
+        """Return disk usage for the photo save directory mount point."""
+        usage_path = self.save_directory if os.path.exists(self.save_directory) else self.project_root
+        usage = shutil.disk_usage(usage_path)
+        used = usage.total - usage.free
+        used_percent = 0 if usage.total == 0 else round((used / usage.total) * 100, 1)
+
+        return {
+            'path': usage_path,
+            'total': self._format_bytes(usage.total),
+            'used': self._format_bytes(used),
+            'free': self._format_bytes(usage.free),
+            'used_percent': used_percent,
+        }
     
     def _load_stats(self):
         """Load statistics from JSON file."""
@@ -434,6 +518,7 @@ class WebServer:
             'admin/index.html',
             admin_enabled=admin_enabled,
             config_content=config_content,
+            disk_usage=self._get_disk_usage_info(),
             error_message=error_message,
             success_message=success_message,
         )
@@ -452,6 +537,59 @@ class WebServer:
                 return 'Template editor not found', 404
 
             return render_template('editor/template_editor.html')
+
+        @self.app.route('/admin/logs')
+        def admin_logs():
+            """Expose application logs inside the admin area."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
+            return render_template('admin/logs.html')
+
+        @self.app.route('/api/admin/logs', methods=['GET'])
+        def list_admin_logs():
+            """List available log files for authenticated admins."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
+            return jsonify({'logs': self._get_log_files()})
+
+        @self.app.route('/api/admin/logs/<path:filename>', methods=['GET'])
+        def read_admin_log(filename):
+            """Read one log file for authenticated admins."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
+            log_path = self._get_safe_log_path(filename)
+            if log_path is None:
+                return jsonify({'error': 'Log file not found'}), 404
+
+            try:
+                with open(log_path, 'r', encoding='utf-8', errors='replace') as handle:
+                    content = handle.read()
+            except Exception as e:
+                Logger.error(f'WebServer: Error reading log file {filename}: {e}')
+                return jsonify({'error': 'Unable to read log file'}), 500
+
+            return jsonify({'filename': os.path.basename(log_path), 'content': content})
+
+        @self.app.route('/api/admin/logs', methods=['DELETE'])
+        def delete_admin_logs():
+            """Delete all log files for authenticated admins."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
+            try:
+                deleted_files = self._delete_all_log_files()
+            except Exception as e:
+                Logger.error(f'WebServer: Error deleting log files: {e}')
+                return jsonify({'error': 'Unable to delete log files'}), 500
+
+            return jsonify({'deleted': deleted_files})
 
         @self.app.route('/api/templates', methods=['GET'])
         def list_templates():

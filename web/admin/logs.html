@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoBooth - Logs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
+    <style>
+        .logs-panel {
+            display: grid;
+            grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+            min-height: 70vh;
+            overflow: hidden;
+        }
+
+        .logs-sidebar {
+            border-right: 1px solid var(--panel-border);
+            background: var(--panel-muted);
+            overflow: auto;
+        }
+
+        .logs-sidebar-header,
+        .logs-viewer-header {
+            padding: 18px;
+            border-bottom: 1px solid var(--panel-border);
+        }
+
+        .logs-sidebar-header h2,
+        .logs-viewer-header h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .logs-sidebar-header p,
+        .logs-viewer-header p {
+            margin: 6px 0 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .log-list {
+            display: grid;
+        }
+
+        .log-item {
+            width: 100%;
+            padding: 14px 18px;
+            border: 0;
+            border-bottom: 1px solid #eeeeee;
+            background: transparent;
+            color: var(--text-primary);
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .log-item:hover,
+        .log-item.active {
+            background: #ffffff;
+        }
+
+        .log-item.active {
+            border-left: 4px solid var(--accent);
+            padding-left: 14px;
+        }
+
+        .log-filename {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 700;
+        }
+
+        .log-meta {
+            display: block;
+            margin-top: 5px;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .logs-viewer {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            min-width: 0;
+        }
+
+        .logs-viewer-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .logs-viewer-header > div {
+            min-width: 0;
+        }
+
+        .log-content {
+            margin: 0;
+            padding: 18px;
+            overflow: auto;
+            background: #111827;
+            color: #e5e7eb;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .empty-state {
+            padding: 18px;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 800px) {
+            .logs-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .logs-sidebar {
+                max-height: 260px;
+                border-right: 0;
+                border-bottom: 1px solid var(--panel-border);
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page-shell">
+        <div class="page-container">
+            <section class="page-hero">
+                <div>
+                    <span class="eyebrow">Administration</span>
+                    <h1>Application logs</h1>
+                    <p>Select a log file on the left to read its content.</p>
+                </div>
+                <div class="actions">
+                    <a href="/admin" class="btn btn-ghost">Back to admin</a>
+                    <a href="/admin/logout" class="btn btn-secondary">Log out</a>
+                </div>
+            </section>
+
+            <section class="panel logs-panel">
+                <aside class="logs-sidebar">
+                    <div class="logs-sidebar-header">
+                        <h2>Log files</h2>
+                        <p>Newest files first.</p>
+                    </div>
+                    <div id="logList" class="log-list">
+                        <div class="empty-state">Loading logs...</div>
+                    </div>
+                </aside>
+
+                <section class="logs-viewer">
+                    <div class="logs-viewer-header">
+                        <div>
+                            <h2 id="selectedLogTitle">No log selected</h2>
+                            <p id="selectedLogMeta">Choose a file from the list.</p>
+                        </div>
+                        <button id="deleteLogsButton" type="button" class="btn btn-danger">Delete all logs</button>
+                    </div>
+                    <pre id="logContent" class="log-content">No log selected.</pre>
+                </section>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const logList = document.getElementById('logList');
+        const logContent = document.getElementById('logContent');
+        const selectedLogTitle = document.getElementById('selectedLogTitle');
+        const selectedLogMeta = document.getElementById('selectedLogMeta');
+        const deleteLogsButton = document.getElementById('deleteLogsButton');
+
+        function clearViewer(message) {
+            selectedLogTitle.textContent = 'No log selected';
+            selectedLogMeta.textContent = 'Choose a file from the list.';
+            logContent.textContent = message;
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+        }
+
+        function setActive(filename) {
+            document.querySelectorAll('.log-item').forEach((button) => {
+                button.classList.toggle('active', button.dataset.filename === filename);
+            });
+        }
+
+        async function openLog(log) {
+            setActive(log.filename);
+            selectedLogTitle.textContent = log.filename;
+            selectedLogMeta.textContent = `${log.modified} · ${formatSize(log.size)}`;
+            logContent.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`/api/admin/logs/${encodeURIComponent(log.filename)}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to read log file');
+                logContent.textContent = data.content || '(empty file)';
+            } catch (error) {
+                logContent.textContent = error.message;
+            }
+        }
+
+        async function loadLogs() {
+            try {
+                const response = await fetch('/api/admin/logs');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load logs');
+
+                const logs = data.logs || [];
+                if (!logs.length) {
+                    logList.innerHTML = '<div class="empty-state">No log files found.</div>';
+                    clearViewer('No log selected.');
+                    return;
+                }
+
+                logList.replaceChildren(...logs.map((log) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'log-item';
+                    button.dataset.filename = log.filename;
+                    button.innerHTML = `
+                        <span class="log-filename"></span>
+                        <span class="log-meta">${log.modified} · ${formatSize(log.size)}</span>
+                    `;
+                    button.querySelector('.log-filename').textContent = log.filename;
+                    button.addEventListener('click', () => openLog(log));
+                    return button;
+                }));
+
+                openLog(logs[0]);
+            } catch (error) {
+                logList.innerHTML = `<div class="empty-state">${error.message}</div>`;
+            }
+        }
+
+        async function deleteLogs() {
+            if (!confirm('Delete all log files?')) return;
+
+            deleteLogsButton.disabled = true;
+            try {
+                const response = await fetch('/api/admin/logs', { method: 'DELETE' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to delete logs');
+
+                logList.innerHTML = '<div class="empty-state">No log files found.</div>';
+                clearViewer(`${data.deleted} log file(s) deleted.`);
+                await loadLogs();
+            } catch (error) {
+                logContent.textContent = error.message;
+            } finally {
+                deleteLogsButton.disabled = false;
+            }
+        }
+
+        deleteLogsButton.addEventListener('click', deleteLogs);
+        loadLogs();
+    </script>
+</body>
+</html>
