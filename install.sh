@@ -319,6 +319,7 @@ Wants=hostapd.service dnsmasq.service
 
 [Service]
 Type=oneshot
+ExecStartPre=/usr/sbin/rfkill unblock wifi
 ExecStart=/sbin/ip link set wlan0 up
 ExecStart=/sbin/ip addr flush dev wlan0
 ExecStart=/sbin/ip addr add 192.168.4.1/24 dev wlan0
