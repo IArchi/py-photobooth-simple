@@ -53,11 +53,6 @@ def _on_window_resize(instance, size):
 
 Window.bind(size=_on_window_resize)
 
-# Add or not blurry borders to make images match the size of the window
-# OPTIMIZED: Disabled by default for better performance (blurring is CPU intensive)
-BLUR_CAMERA = True
-BLUR_IMAGES = False
-BLUR_COLLAGE = False
 SHOT_TIMEOUT_SECONDS = 10
 
 def hex_to_rgba(hex_color):
@@ -710,7 +705,7 @@ class CountdownScreen(ColorScreen):
         self.camera = KivyCamera(
             app=self.app,
             fps=self.app.devices.get_preview_fps(),
-            blur=BLUR_CAMERA,
+            blur=self.app.BLUR_CAMERA,
             blur_refresh_frames=self.app.PREVIEW_BLUR_REFRESH_FRAMES,
             fit_mode='contain',
         )
@@ -1008,7 +1003,7 @@ class ConfirmCaptureScreen(ColorScreen):
 
         # Display capture - always full size regardless of filters
         self.preview = BlurredImage(
-            blur=BLUR_IMAGES,
+            blur=self.app.BLUR_IMAGES,
             fit_mode='contain',
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
@@ -1592,7 +1587,7 @@ class ConfirmSaveScreen(ColorScreen):
 
         # Display collage
         self.preview = BlurredImage(
-            blur=BLUR_COLLAGE,
+            blur=self.app.BLUR_COLLAGE,
             fit_mode='contain',
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},
@@ -1725,7 +1720,7 @@ class ConfirmPrintScreen(ColorScreen):
 
         # Display collage
         self.preview = BlurredImage(
-            blur=BLUR_COLLAGE,
+            blur=self.app.BLUR_COLLAGE,
             fit_mode='contain',
             size_hint=(1, 1),
             pos_hint={'x': 0, 'y': 0},

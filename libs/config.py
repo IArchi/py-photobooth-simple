@@ -48,6 +48,15 @@ class Config:
     def get_preview_blur_refresh_frames(self):
         return max(1, self.config.getint('Picture', 'PREVIEW_BLUR_REFRESH_FRAMES', fallback=3))
 
+    def get_blur_camera(self):
+        return self.config.getboolean('Picture', 'BLUR_CAMERA', fallback=True)
+
+    def get_blur_images(self):
+        return self.config.getboolean('Picture', 'BLUR_IMAGES', fallback=False)
+
+    def get_blur_collage(self):
+        return self.config.getboolean('Picture', 'BLUR_COLLAGE', fallback=False)
+
     def _get_dslr_params(self, section):
         """Returns a dict param -> value for the given DSLR section. Empty or None value = do not set."""
         keys = ['SHUTTERSPEED', 'APERTURE', 'FOCUSMODE', 'ISO']
