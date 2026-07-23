@@ -37,6 +37,9 @@ class CaptureDevice:
         """Recommended FPS for preview refresh (30 by default)."""
         return 30
 
+    def get_preview_frame_id(self):
+        return 0
+
     def get_preview(self, aspect_ratio=None):
         pass
 
@@ -101,43 +104,51 @@ class Cv2Camera(CaptureDevice):
         self._preview_lock = threading.Lock()
         self._camera_lock = threading.Lock()
         self._preview_frame = None
+        self._preview_frame_id = 0
         self._preview_thread = None
         self._preview_stop = False
-        self._preview_fps = 30
+        self._preview_fps = 60
+        self._preview_size = (1920, 1080)
         if cv2:
             if port > -1:
                 camera = cv2.VideoCapture(port)
                 if camera.isOpened():
-                    camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-                    camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-                    camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+                    self._configure_camera(camera, self._preview_size)
                     self._instance = camera
             else:
                 for i in range(3):  # Test 3 first ports
                     camera = cv2.VideoCapture(i)
                     if camera.isOpened():
-                        camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-                        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-                        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+                        self._configure_camera(camera, self._preview_size)
                         self._instance = camera
                         break
                     camera.release()
         if not self._instance: raise Exception('Cannot find any CV2 camera or CV2 is not installed.')
+
+    def _configure_camera(self, camera, size):
+        camera.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, size[0])
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, size[1])
+        camera.set(cv2.CAP_PROP_FPS, self._preview_fps)
+        camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+    def _read_latest_frame(self):
+        return self._instance.read()
 
     def _preview_loop(self):
         """Read webcam frames continuously so Kivy never waits on camera I/O."""
         while not self._preview_stop:
             try:
                 with self._camera_lock:
-                    ret, buf = self._instance.read()
+                    ret, buf = self._read_latest_frame()
                 if ret:
-                    im = cv2.flip(buf, 0)
-                    im = cv2.flip(im, 1)
+                    im = cv2.flip(buf, -1)
                     with self._preview_lock:
                         self._preview_frame = im
-                time.sleep(1.0 / self._preview_fps)
+                        self._preview_frame_id += 1
             except Exception as e:
                 Logger.debug('Cv2Camera preview thread: %s', e)
+                time.sleep(1.0 / self._preview_fps)
 
     def _start_preview_thread(self):
         if self._preview_thread is not None and self._preview_thread.is_alive():
@@ -149,16 +160,21 @@ class Cv2Camera(CaptureDevice):
     def get_preview(self, aspect_ratio=None, zoom=None):
         self._start_preview_thread()
         with self._preview_lock:
-            im = self._preview_frame.copy() if self._preview_frame is not None else None
+            im = self._preview_frame
         if im is None: return None
         im = self._crop_to_aspect_ratio(im, aspect_ratio)
         if zoom and zoom[0] > 1.0: im = FileUtils.zoom(im, zoom)
         return im
 
+    def get_preview_frame_id(self):
+        with self._preview_lock:
+            return self._preview_frame_id
+
     def capture(self, output_name, aspect_ratio=None, zoom=None, flash_fn=None):
-        if flash_fn and not self.has_physical_flash(): flash_fn()
-        with self._camera_lock: ret, im = self._instance.read()
-        if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
+        with self._camera_lock:
+            if flash_fn and not self.has_physical_flash(): flash_fn()
+            ret, im = self._instance.read()
+            if flash_fn and not self.has_physical_flash(): flash_fn(stop=True)
         if not ret:
             raise IOError('OpenCV camera capture failed')
         #im = cv2.flip(im, 0)
@@ -417,6 +433,10 @@ class Picamera2Camera(CaptureDevice):
     def get_preview_fps(self):
         return self._preview_fps
 
+    def get_preview_frame_id(self):
+        with self._preview_lock:
+            return id(self._preview_frame)
+
     def get_preview(self, aspect_ratio=None, zoom=None):
         self._start_preview_thread()
         with self._preview_lock:
@@ -587,6 +607,9 @@ class DeviceUtils:
     def get_preview_fps(self):
         return self._preview.get_preview_fps()
 
+    def get_preview_frame_id(self):
+        return self._preview.get_preview_frame_id()
+
     def get_preview(self, aspect_ratio=None):
         return self._preview.get_preview(aspect_ratio=aspect_ratio, zoom=self._zoom)
 
@@ -599,8 +622,8 @@ class DeviceUtils:
         return self._printer.is_available()
 
     def print(self, file_path, print_params={}):
-        if not self._printer: return
-        self._printer.print(file_path, print_params)
+        if not self._printer: raise RuntimeError('No printer configured')
+        return self._printer.print(file_path, print_params)
 
     def get_print_status(self, task_id):
         if not self._printer: return 'done'

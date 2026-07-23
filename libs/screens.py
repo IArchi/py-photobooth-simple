@@ -1,6 +1,6 @@
-import random
 import threading
 import time
+import io
 import cv2
 import numpy as np
 from kivy.clock import Clock
@@ -9,13 +9,14 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.graphics import Rectangle, Color
-from kivy.uix.image import Image, AsyncImage
+from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.input.providers.mouse import MouseMotionEvent
 from kivy.core.window import Window
 from kivy.graphics.texture import Texture
 from kivy.metrics import dp, sp
+from kivy.core.image import Image as CoreImage
 
 from libs.kivywidgets import *
 from libs.file_utils import FileUtils
@@ -225,7 +226,7 @@ class WaitingScreen(BackgroundScreen):
 
         # Version
         version = Label(
-            text='Version 1.1',
+            text='Version 1.2',
             font_size=TINY_FONT(),
             halign='left',
             valign='middle',
@@ -243,7 +244,18 @@ class WaitingScreen(BackgroundScreen):
         Logger.info('WaitingScreen: on_entry().')
         if self.app.ringled:
             self.app.ringled.start_rainbow()
-        self.app.purge_tmp()
+        self._purge_when_idle()
+
+    def _purge_when_idle(self, *args):
+        if self.app.get_current_screen_name() != ScreenMgr.WAITING:
+            return
+        if self.app.has_pending_photo_tasks():
+            Clock.schedule_once(self._purge_when_idle, 0.5)
+        else:
+            self.app.clear_pending_photo_error()
+            self.app.purge_tmp()
+            if self.app.SHARE:
+                QRCodePopup.preload_async()
 
     def on_exit(self, kwargs={}):
         Logger.info('WaitingScreen: on_exit().')
@@ -510,7 +522,7 @@ class ErrorScreen(ColorScreen):
 
         self.app = app
 
-        layout = BoxLayout(orientation='vertical')
+        layout = BoxLayout(orientation='vertical', padding=(0, 0, 0, dp(24)))
 
         # Display error icon
         self.icon = ResizeLabel(
@@ -532,12 +544,39 @@ class ErrorScreen(ColorScreen):
         )
         layout.add_widget(self.icon2)
 
+        self.message = Label(
+            size_hint=(1, 0.18),
+            text='An error occurred.',
+            font_size=SMALL_FONT(),
+            halign='center',
+            valign='middle',
+        )
+        wh_bind(self.message, 'font_size', SMALL_FONT)
+        self.message.bind(size=self.message.setter('text_size'))
+        layout.add_widget(self.message)
+
+        self.btn_continue = RoundedButton(
+            text='CONTINUE',
+            size_hint=(0.20, 0.07),
+            pos_hint={'center_x': 0.5},
+            background_color=CONFIRM_COLOR,
+            font_size=SMALL_FONT(),
+            bold=True,
+            halign='center',
+            valign='middle',
+        )
+        wh_bind(self.btn_continue, 'font_size', SMALL_FONT)
+        self.btn_continue.bind(size=self.btn_continue.setter('text_size'))
+        self.btn_continue.bind(on_release=self.on_click)
+        layout.add_widget(self.btn_continue)
+
         self.add_widget(layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
-        if 'error' in kwargs: self.icon.text = str(kwargs.get('error'))
-        if 'error2' in kwargs: self.icon2.text = str(kwargs.get('error2'))
+        self.icon.text = str(kwargs.get('error', ICON_ERROR))
+        self.icon2.text = str(kwargs.get('error2', ICON_ERROR_UNKNOWN))
+        self.message.text = str(kwargs.get('message', 'An error occurred. Press CONTINUE to restart.'))
 
     def on_exit(self, kwargs={}):
         Logger.info('ErrorScreen: on_exit().')
@@ -1294,10 +1333,15 @@ class ConfirmCaptureScreen(ColorScreen):
         """Generate thumbnails for all filters based on current image."""
         if self._original_image is None:
             return
-        
+
+        thumbnails = []
         for card in self.filter_cards:
-            thumbnail = self._generate_thumbnail(self._original_image, card.filter_key)
-            
+            thumbnails.append(self._generate_thumbnail(self._original_image, card.filter_key))
+
+        self._set_filter_thumbnails(thumbnails)
+
+    def _set_filter_thumbnails(self, thumbnails):
+        for card, thumbnail in zip(self.filter_cards, thumbnails):
             # Convert to texture
             thumbnail_flipped = cv2.flip(thumbnail, 0)
             texture = Texture.create(size=(thumbnail.shape[1], thumbnail.shape[0]), colorfmt='bgr')
@@ -1355,6 +1399,9 @@ class ConfirmCaptureScreen(ColorScreen):
             full_path = self.app.get_shot(shot)
             small_im = cv2.imread(small_path)
             full_im = cv2.imread(full_path) if self.app.FILTERS else None
+            thumbnails = []
+            if self.app.FILTERS and full_im is not None:
+                thumbnails = [self._generate_thumbnail(full_im, card.filter_key) for card in self.filter_cards]
 
             def apply_on_main(dt):
                 if (self._current_shot, self._current_format) != load_id:
@@ -1365,14 +1412,22 @@ class ConfirmCaptureScreen(ColorScreen):
                 else:
                     self.preview.filepath = small_path
                     self.preview.reload()
-                if self.app.FILTERS:
-                    self._update_filter_thumbnails()
+                if thumbnails:
+                    self._set_filter_thumbnails(thumbnails)
                     self._update_selection_indicator()
 
             Clock.schedule_once(apply_on_main, 0)
 
         threading.Thread(target=load_images, daemon=True).start()
         self.auto_leave = Clock.schedule_once(self.timer_event, 60)
+
+    def _save_selected_filter(self, shot, filter_key, original_image):
+        filtered_image = self._apply_filter(original_image.copy(), filter_key)
+        shot_path = self.app.get_shot(shot)
+        FileUtils.write_image(shot_path, filtered_image)
+        small_path = FileUtils.get_small_path(shot_path)
+        small_filtered = cv2.resize(filtered_image, (0, 0), fx=0.3, fy=0.3)
+        FileUtils.write_image(small_path, small_filtered)
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmCaptureScreen: on_exit().')
@@ -1384,15 +1439,9 @@ class ConfirmCaptureScreen(ColorScreen):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_leave)
         
-        # Apply selected filter to the original image and save it (only if filters are enabled)
+        # Apply selected filter off the UI thread; Processing waits before building the collage.
         if self.app.FILTERS and self._selected_filter != 'color' and self._original_image is not None:
-            filtered_image = self._apply_filter(self._original_image.copy(), self._selected_filter)
-            shot_path = self.app.get_shot(self._current_shot)
-            FileUtils.write_image(shot_path, filtered_image)
-            # Also update small version
-            small_path = FileUtils.get_small_path(shot_path)
-            small_filtered = cv2.resize(filtered_image, (0, 0), fx=0.3, fy=0.3)
-            FileUtils.write_image(small_path, small_filtered)
+            self.app.start_photo_task(self._save_selected_filter, self._current_shot, self._selected_filter, self._original_image)
         
         if self._current_shot == self.app.get_shots_to_take(self._current_format) - 1:
             self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
@@ -1455,12 +1504,11 @@ class ProcessingScreen(ColorScreen):
     def on_entry(self, kwargs={}):
         Logger.info('ProcessingScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self._clock = Clock.schedule_once(self.timer_event, 3) # Fake timer to make it cleverer
+        self._clock = Clock.schedule_once(self.timer_event, 0.2)
         if self.app.ringled:
             self.app.ringled.start_rainbow()
 
-        # Perform collage
-        self.app.trigger_collage(self._current_format)
+        self._collage_started = False
 
     def on_exit(self, kwargs={}):
         Logger.info('ProcessingScreen: on_exit().')
@@ -1470,8 +1518,24 @@ class ProcessingScreen(ColorScreen):
 
     def timer_event(self, obj):
         Logger.info('ProcessingScreen: timer_event().')
+        if self.app.has_pending_photo_tasks():
+            self._clock = Clock.schedule_once(self.timer_event, 0.2)
+            return
+
+        if self.app.get_pending_photo_error():
+            Logger.error('ProcessingScreen: photo preparation failed.')
+            Logger.error(self.app.get_pending_photo_error())
+            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR, error2=ICON_ERROR_UNKNOWN)
+            return
+
+        if not self._collage_started:
+            self._collage_started = True
+            self.app.trigger_collage(self._current_format)
+            self._clock = Clock.schedule_once(self.timer_event, 0.2)
+            return
+
         if not(self.app.is_collage_completed()):
-            self._clock = Clock.schedule_once(self.timer_event, 1)
+            self._clock = Clock.schedule_once(self.timer_event, 0.5)
         elif self.app.has_process_failed('collage'):
             Logger.error('ProcessingScreen: collage generation failed.')
             error_details = self.app.get_process_error('collage')
@@ -1522,20 +1586,21 @@ class ConfirmSaveScreen(ColorScreen):
                              )
         overlay_layout.add_widget(btn_home)
 
-        # Share button - center bottom (with icon and text) - only if SHARE is enabled
+        # Share button - bottom right (with icon and text) - only if SHARE is enabled
+        self.btn_share = None
         if self.app.SHARE:
-            btn_share = make_icon_text_button(
-                                 icon=ICON_SHARE,
-                                 text='SHARE',
-                                 size_hint=(0.15, 0.09),
-                                 pos_hint={'center_x': 0.5, 'y': 0.05},
+            self.btn_share = make_icon_text_button(
+                                  icon=ICON_SHARE,
+                                  text='SHARE',
+                                  size_hint=(0.15, 0.09),
+                                  pos_hint={'right': 0.95, 'y': 0.05},
                                  icon_font=ICON_TTF,
                                  icon_font_size_fraction=0.07,
                                  text_font_size_fraction=0.035,
                                  bgcolor=SHARE_COLOR,
                                  on_release=self.share_event,
                                  )
-            overlay_layout.add_widget(btn_share)
+            overlay_layout.add_widget(self.btn_share)
 
         self.add_widget(self.layout)
 
@@ -1544,9 +1609,24 @@ class ConfirmSaveScreen(ColorScreen):
         self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
         if self.app.ringled:
             self.app.ringled.start_rainbow()
-        self.preview.filepath = FileUtils.get_small_path(self.app.get_collage())
-        self.preview.reload()
-        self.app.save_collage()
+        self._load_preview_async(FileUtils.get_small_path(self.app.get_collage()))
+        self.app.start_photo_task(self.app.save_collage)
+        if self.app.SHARE:
+            QRCodePopup.preload_async()
+
+    def _load_preview_async(self, path):
+        def load_image():
+            im = cv2.imread(path)
+
+            def apply_on_main(dt):
+                if im is not None:
+                    self.preview.set_image(im)
+                else:
+                    Logger.warning('ConfirmSaveScreen: cannot load preview %s', path)
+
+            Clock.schedule_once(apply_on_main, 0)
+
+        threading.Thread(target=load_image, daemon=True).start()
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmSaveScreen: on_exit().')
@@ -1633,14 +1713,13 @@ class ConfirmPrintScreen(ColorScreen):
                              )
         self.overlay_layout.add_widget(btn_home)
 
-        # Print button - center bottom (with icon and text)
-        # Adjust position based on SHARE setting
-        print_y_pos = 0.05 if not self.app.SHARE else 0.15
+        # Print button - bottom right, just above Share when enabled
+        print_pos_hint = {'center_x': 0.5, 'y': 0.05} if not self.app.SHARE else {}
         self.btn_print = make_icon_text_button(
                              icon=ICON_PRINT,
                              text='PRINT',
                              size_hint=(0.15, 0.09),
-                             pos_hint={'center_x': 0.5, 'y': print_y_pos},
+                             pos_hint=print_pos_hint,
                              icon_font=ICON_TTF,
                              icon_font_size_fraction=0.07,
                              text_font_size_fraction=0.035,
@@ -1649,22 +1728,41 @@ class ConfirmPrintScreen(ColorScreen):
                              )
         self.overlay_layout.add_widget(self.btn_print)
 
-        # Share button - below Print (with icon and text) - only if SHARE is enabled
+        # Share button - bottom right (with icon and text) - only if SHARE is enabled
+        self.btn_share = None
         if self.app.SHARE:
-            btn_share = make_icon_text_button(
+            self.btn_share = make_icon_text_button(
                                  icon=ICON_SHARE,
                                  text='SHARE',
                                  size_hint=(0.15, 0.09),
-                                 pos_hint={'center_x': 0.5, 'y': 0.05},
+                                  pos_hint={},
                                  icon_font=ICON_TTF,
                                  icon_font_size_fraction=0.07,
                                  text_font_size_fraction=0.035,
-                                 bgcolor=SHARE_COLOR,
-                                 on_release=self.share_event,
-                                 )
-            self.overlay_layout.add_widget(btn_share)
+                                  bgcolor=SHARE_COLOR,
+                                  on_release=self.share_event,
+                                  )
+            self.overlay_layout.add_widget(self.btn_share)
+            self.overlay_layout.bind(size=self._layout_action_buttons)
+            Clock.schedule_once(self._layout_action_buttons, 0)
 
         self.add_widget(self.layout)
+
+    def _layout_action_buttons(self, *args):
+        if not self.btn_share:
+            return
+        # Keep PRINT/SHARE stacked in pixels after make_icon_text_button applies its min size.
+        bottom = max(dp(4), self.overlay_layout.height * 0.05)
+        gap = max(dp(4), self.overlay_layout.height * 0.02)
+        top = max(dp(4), self.overlay_layout.height * 0.05)
+        max_h = max(dp(18), (self.overlay_layout.height - bottom - gap - top) / 2)
+        for btn in (self.btn_share, self.btn_print):
+            if btn.height > max_h:
+                btn.height = max_h
+            btn.pos_hint = {}
+            btn.x = max(0, min(self.overlay_layout.width * 0.95 - btn.width, self.overlay_layout.width - btn.width))
+        self.btn_share.y = bottom
+        self.btn_print.y = self.btn_share.top + gap
 
     def on_entry(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_entry().')
@@ -1672,10 +1770,24 @@ class ConfirmPrintScreen(ColorScreen):
         self.auto_decline = Clock.schedule_once(self.timer_event, 60)
         if self.app.ringled:
             self.app.ringled.start_rainbow()
-        self.preview.filepath = FileUtils.get_small_path(self.app.get_collage())
-        self.preview.reload()
+        self._load_preview_async(FileUtils.get_small_path(self.app.get_collage()))
+        self.app.start_photo_task(self.app.save_collage)
+        if self.app.SHARE:
+            QRCodePopup.preload_async()
 
-        self.app.save_collage()
+    def _load_preview_async(self, path):
+        def load_image():
+            im = cv2.imread(path)
+
+            def apply_on_main(dt):
+                if im is not None:
+                    self.preview.set_image(im)
+                else:
+                    Logger.warning('ConfirmPrintScreen: cannot load preview %s', path)
+
+            Clock.schedule_once(apply_on_main, 0)
+
+        threading.Thread(target=load_image, daemon=True).start()
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmPrintScreen: on_exit().')
@@ -1754,6 +1866,7 @@ class PrintingScreen(ColorScreen):
 
         self.status_label = Label(
             size_hint=(0.9, 0.15),
+            pos_hint={'center_x': 0.5},
             text='Printing...',
             font_size=SMALL_FONT(),
             halign='center',
@@ -1785,25 +1898,57 @@ class PrintingScreen(ColorScreen):
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self._printer_wait_started_at = None
         self.status_label.text = 'Printing...'
+        self._print_started = False
+        self._print_task_id = None
 
-        # Trigger print
+        self._clock = Clock.schedule_once(self.timer_event, 0.2)
+        self._auto_cancel = Clock.schedule_once(self.timer_toolong, 45)
+
+    def _start_print(self):
         try:
-            self._print_task_id = self.app.trigger_print(self._current_copies, self._current_format)
-            self._clock = Clock.schedule_once(self.timer_event, 10)
-            self._auto_cancel = Clock.schedule_once(self.timer_toolong, 30)
+            print_task_id = self.app.trigger_print(self._current_copies, self._current_format)
+            if print_task_id is None:
+                raise RuntimeError('Printer did not return a task id')
+            self._print_task_id = print_task_id
+            self._print_started = True
+            Logger.info('PrintingScreen: print started task=%s', self._print_task_id)
+            return True
         except Exception as e:
-            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING, error2=ICON_ERROR_DISCONNECTED)
+            Logger.error('PrintingScreen: print start failed: %s', e)
+            self.app.transition_to(
+                ScreenMgr.ERROR,
+                error=ICON_ERROR_PRINTING,
+                error2=ICON_ERROR_DISCONNECTED,
+                message='Printer disconnected. Press CONTINUE to restart.',
+            )
+            return False
 
     def on_exit(self, kwargs={}):
         Logger.info('PrintingScreen: on_exit().')
         if self._clock: Clock.unschedule(self._clock)
         if self._auto_cancel: Clock.unschedule(self._auto_cancel)
-        self.app.save_collage()
         if self.app.ringled:
             self.app.ringled.clear()
 
     def timer_event(self, obj):
         Logger.info('PrintingScreen: timer_event().')
+        if self.app.has_pending_photo_tasks():
+            self.status_label.text = 'Saving before print...'
+            self._clock = Clock.schedule_once(self.timer_event, 0.2)
+            return
+
+        if self.app.get_pending_photo_error():
+            Logger.error('PrintingScreen: save before print failed.')
+            Logger.error(self.app.get_pending_photo_error())
+            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING, error2=ICON_ERROR_UNKNOWN)
+            return
+
+        if not self._print_started:
+            self.status_label.text = 'Sending to printer...'
+            if self._start_print():
+                self._clock = Clock.schedule_once(self.timer_event, 1)
+            return
+
         if not self.app.has_printer():
             if self._printer_wait_started_at is None:
                 self._printer_wait_started_at = time.monotonic()
@@ -1972,6 +2117,75 @@ class QRCodePopup(FloatLayout):
     
     # Class-level cache for QR code texture (shared across all instances)
     _qr_texture_cache = None
+    _qr_png_cache = None
+    _qr_generating = False
+
+    @classmethod
+    def preload(cls):
+        """Build the QR texture on the UI thread if async preload did not finish yet."""
+        if cls._qr_texture_cache is not None:
+            return
+
+        if cls._qr_png_cache is not None:
+            started_at = time.monotonic()
+            cls._cache_texture_from_png(cls._qr_png_cache)
+            Logger.info('QRCodePopup: QR texture cached in %.2fs', time.monotonic() - started_at)
+            return
+
+        cls.preload_async()
+
+    @classmethod
+    def preload_async(cls):
+        """Generate QR PNG in a worker, then create the Kivy texture on the UI thread."""
+        if cls._qr_texture_cache is not None or cls._qr_generating:
+            return
+
+        cls._qr_generating = True
+
+        def generate_png():
+            started_at = time.monotonic()
+            try:
+                png = cls._build_qr_png()
+            except Exception as exc:
+                cls._qr_generating = False
+                Logger.error('QRCodePopup: QR async generation failed: %s', exc)
+                return
+
+            def cache_on_main(dt):
+                cls._qr_png_cache = png
+                cls._cache_texture_from_png(png)
+                cls._qr_generating = False
+                Logger.info('QRCodePopup: QR code generated and cached in %.2fs', time.monotonic() - started_at)
+
+            Clock.schedule_once(cache_on_main, 0)
+
+        threading.Thread(target=generate_png, name='photobooth-qr-preload', daemon=True).start()
+
+    @classmethod
+    def _build_qr_png(cls):
+        import qrcode
+
+        wifi_qr_data = "WIFI:T:nopass;S:PhotoBooth;P:;H:false;;"
+
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(wifi_qr_data)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        return buf.getvalue()
+
+    @classmethod
+    def _cache_texture_from_png(cls, png):
+        buf = io.BytesIO(png)
+        core_image = CoreImage(buf, ext='png')
+        cls._qr_texture_cache = core_image.texture
     
     def __init__(self, on_dismiss=None, **kwargs):
         super(QRCodePopup, self).__init__(**kwargs)
@@ -2068,38 +2282,10 @@ class QRCodePopup(FloatLayout):
     
     def _generate_qr_code(self):
         """Generate WiFi QR code with caching for better performance."""
-        # Use cached texture if available
+        QRCodePopup.preload()
         if QRCodePopup._qr_texture_cache is not None:
             self.qr_image.texture = QRCodePopup._qr_texture_cache
             Logger.info('QRCodePopup: Using cached QR code')
-            return
-        
-        import qrcode
-        import io
-        from kivy.core.image import Image as CoreImage
-        
-        wifi_qr_data = "WIFI:T:nopass;S:PhotoBooth;P:;H:false;;"
-        
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(wifi_qr_data)
-        qr.make(fit=True)
-        
-        img = qr.make_image(fill_color="black", back_color="white")
-        buf = io.BytesIO()
-        img.save(buf, format='PNG')
-        buf.seek(0)
-        
-        core_image = CoreImage(buf, ext='png')
-        self.qr_image.texture = core_image.texture
-        
-        # Cache the texture for future use
-        QRCodePopup._qr_texture_cache = core_image.texture
-        Logger.info('QRCodePopup: QR code generated and cached')
     
     def _close(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return

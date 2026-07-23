@@ -30,6 +30,7 @@ class KivyCamera(Image):
         self._frame_count = 0
         self._stop = False
         self._reuse_texture = None  # Réutilisation pour éviter allocations à chaque frame
+        self._last_frame_id = None
         self.create_empty_texture()
 
     def start(self, aspect_ratio=None):
@@ -37,6 +38,7 @@ class KivyCamera(Image):
         self._aspect_ratio = aspect_ratio
         self._blur_cache = None
         self._frame_count = 0
+        self._last_frame_id = None
         self._clock = Clock.schedule_once(self._update, 1.0 / self._fps)
 
     def stop(self):
@@ -60,9 +62,13 @@ class KivyCamera(Image):
 
     def _update(self, args):
         try:
+            frame_id = self._app.devices.get_preview_frame_id()
+            if frame_id == self._last_frame_id:
+                return
             im = self._app.devices.get_preview(self._aspect_ratio)
             if im is None:
                 return
+            self._last_frame_id = frame_id
 
             # Generate blurry borders (réduire la résolution avant blur pour plus de fluidité)
             if self._blur:
@@ -616,44 +622,75 @@ class IconTextButton(FeedbackButtonBehavior, BoxLayout):
 def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_font='Roboto', text_font='Roboto', icon_font_size=sp(50), icon_font_size_fraction=0, text_font_size=sp(30), text_font_size_fraction=0, bgcolor=(1,1,1,1), on_release=None):
     """
     Create a horizontal button with icon on left and text on right.
-    Pass icon_font_size_fraction / text_font_size_fraction (0..1) to scale with Window.height on resize.
+    Icon/text sizing follows the real button size, not Window height/width alone.
     """
     button = IconTextButton(
         size_hint=size_hint,
         pos_hint=pos_hint,
         background_color=bgcolor,
     )
+    def resize_button(*args):
+        if not button.parent:
+            return
+        if isinstance(button.parent, FloatLayout):
+            button.size_hint = (None, None)
+            width = button.parent.width * size_hint[0]
+            height = min(max(button.parent.height * size_hint[1], dp(48)), button.parent.height)
+            # ponytail: icon + short label need a minimum aspect ratio; longer labels need a larger size_hint.
+            min_ratio = 2.5
+            width = max(width, height * min_ratio)
+            if width > button.parent.width:
+                width = button.parent.width
+                height = min(height, width / min_ratio)
+            button.size = (width, height)
+        margin = min(dp(15), max(dp(3), button.height * 0.12))
+        button.padding = (margin, margin, margin, margin)
+        button.spacing = margin
+    def bind_parent_size(*args):
+        if button.parent:
+            button.parent.bind(size=resize_button)
+        resize_button()
+    button.bind(parent=bind_parent_size)
+    Clock.schedule_once(resize_button, 0)
     
-    # Icon container with padding — kept proportional via Window.height fraction
+    # Icon container: icon follows the real button height, not Window height.
     icon_container = BoxLayout(
         size_hint=(0.4, 1),
-        padding=(0, Window.height * 0.011, 0, Window.height * 0.011),
     )
     
-    # Icon label — use ResizeLabel so it can track wh_fraction
-    icon_label = ResizeLabel(
+    icon_label = Label(
         text=icon,
         font_name=icon_font,
-        max_font_size=icon_font_size,
-        wh_fraction=icon_font_size_fraction,
         color=(1, 1, 1, 1),
+        font_size=icon_font_size,
+        size_hint=(1, 1),
+        halign='center',
+        valign='middle',
     )
+    def resize_icon(*args):
+        icon_label.font_size = max(sp(1), min(icon_container.height, icon_container.width) * 0.95)
+        icon_label.text_size = icon_label.size
+    icon_container.bind(size=resize_icon)
+    icon_label.bind(size=resize_icon)
+    Clock.schedule_once(resize_icon, 0)
     icon_container.add_widget(icon_label)
     button.add_widget(icon_container)
     
-    # Text label - using ResizeLabel for auto-resizing on small screens
-    text_label = ResizeLabel(
+    text_label = Label(
         text=text,
         font_name=text_font,
-        max_font_size=text_font_size,
-        wh_fraction=text_font_size_fraction,
         size_hint=(0.6, 1),
         color=(1, 1, 1, 1),
         bold=True,
         halign='center',
         valign='middle',
     )
-    text_label.bind(size=text_label.setter('text_size'))
+    def resize_text(*args):
+        text_label.text_size = text_label.size
+        fit_width = text_label.width / max(len(text), 1) * 1.5
+        text_label.font_size = max(sp(1), min(text_label.height * 0.7, fit_width))
+    text_label.bind(size=resize_text)
+    Clock.schedule_once(resize_text, 0)
     button.add_widget(text_label)
     
     if on_release:

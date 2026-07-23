@@ -72,6 +72,10 @@ class PhotoboothApp(App):
         self.sm = None
         self._requested_screen = None
         self._requested_kwargs = None
+        self.pending_photo_tasks = []
+        self._pending_photo_error = None
+        self._pending_photo_lock = threading.Lock()
+        self.last_saved_session_directory = None
         self.processes = []
         self._process_lock = threading.Lock()
         self._process_state = {
@@ -141,7 +145,7 @@ class PhotoboothApp(App):
 
     def build(self):
         Logger.info('PhotoboothApp: build().')
-        self.sm = ScreenMgr(self, transition=FadeTransition(duration=0.12))
+        self.sm = ScreenMgr(self, transition=FadeTransition(duration=0.08))
         if self._requested_screen:
             self.sm.current = self._requested_screen
         self.sm.current_screen.on_entry()
@@ -200,6 +204,18 @@ class PhotoboothApp(App):
 
     def get_collage(self):
         return os.path.join(self.tmp_directory, 'collage.jpg')
+
+    def get_saved_collage(self):
+        if not self.last_saved_session_directory:
+            return None
+        path = os.path.join(self.last_saved_session_directory, 'collage.jpg')
+        return path if os.path.exists(path) else None
+
+    def get_saved_collage(self):
+        if not self.last_saved_session_directory:
+            return None
+        path = os.path.join(self.last_saved_session_directory, 'collage.jpg')
+        return path if os.path.exists(path) else None
 
     def get_shots_to_take(self, format=0):
         return self.print_formats[format].get_photos_required()
@@ -347,6 +363,8 @@ class PhotoboothApp(App):
 
     def trigger_print(self, copies, format=0):
         Logger.info('PhotoboothApp: trigger_print().')
+        if not self.has_printer():
+            raise RuntimeError('Printer is not available')
         options = self.print_formats[format].get_print_params()
         options['copies'] = str(copies)
         Logger.info('PhotoboothApp: print request format=%s copies=%s printer_available=%s', format, copies, self.has_printer())
@@ -357,8 +375,40 @@ class PhotoboothApp(App):
         if os.path.exists(print_collage):
             Logger.info(f'PhotoboothApp: Using print version: {print_collage}')
             return self.devices.print(print_collage, options)
-        else:
-            return self.devices.print(self.get_collage(), options)
+
+        collage = self.get_collage() if os.path.exists(self.get_collage()) else self.get_saved_collage()
+        if collage is None:
+            raise FileNotFoundError('No collage available to print')
+        return self.devices.print(collage, options)
+
+    def start_photo_task(self, target, *args):
+        def run_target():
+            try:
+                target(*args)
+            except Exception:
+                with self._pending_photo_lock:
+                    self._pending_photo_error = traceback.format_exc()
+                Logger.error(self._pending_photo_error)
+
+        task = threading.Thread(target=run_target, name='photobooth-photo-task', daemon=True)
+        with self._pending_photo_lock:
+            self._pending_photo_error = None
+            self.pending_photo_tasks = [task for task in self.pending_photo_tasks if task.is_alive()]
+            self.pending_photo_tasks.append(task)
+        task.start()
+
+    def has_pending_photo_tasks(self):
+        with self._pending_photo_lock:
+            self.pending_photo_tasks = [task for task in self.pending_photo_tasks if task.is_alive()]
+            return bool(self.pending_photo_tasks)
+
+    def get_pending_photo_error(self):
+        with self._pending_photo_lock:
+            return self._pending_photo_error
+
+    def clear_pending_photo_error(self):
+        with self._pending_photo_lock:
+            self._pending_photo_error = None
 
     def is_print_completed(self, print_task_id):
         try:
@@ -395,7 +445,8 @@ class PhotoboothApp(App):
                 Logger.error('PhotoboothApp: failed to save %s to %s: %s', src_path, dst_path, exc)
                 raise
 
-        Logger.info('PhotoboothApp: saved session destination=%s files=%s', destination, moved_files)
+        if moved_files:
+            self.last_saved_session_directory = destination
         self._log_disk_space('after_save')
         if getattr(self, 'web_server', None):
             session_id = os.path.basename(destination)
