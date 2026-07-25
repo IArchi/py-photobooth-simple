@@ -31,7 +31,40 @@ class KivyCamera(Image):
         self._stop = False
         self._reuse_texture = None  # Réutilisation pour éviter allocations à chaque frame
         self._last_frame_id = None
+        self._last_frame_size = None
+        self._bound_parent = None
+        self.size_hint = (None, None)
         self.create_empty_texture()
+
+    def on_parent(self, instance, parent):
+        if self._bound_parent is not None:
+            self._bound_parent.unbind(size=self._on_parent_resize)
+        self._bound_parent = parent
+        if parent is not None:
+            parent.bind(size=self._on_parent_resize)
+        self._sync_display_size()
+
+    def _on_parent_resize(self, *args):
+        self._sync_display_size()
+
+    def _get_display_size(self, frame_width, frame_height):
+        if frame_width <= 0 or frame_height <= 0:
+            return (1, 1)
+
+        parent = self.parent
+        if parent is None or parent.width <= 1 or parent.height <= 1:
+            return (frame_width, frame_height)
+
+        scale = min(1.0, parent.width / frame_width, parent.height / frame_height)
+        return (
+            max(1, int(frame_width * scale)),
+            max(1, int(frame_height * scale)),
+        )
+
+    def _sync_display_size(self):
+        if self._last_frame_size is None:
+            return
+        self.size = self._get_display_size(*self._last_frame_size)
 
     def start(self, aspect_ratio=None):
         self._stop = False
@@ -47,6 +80,7 @@ class KivyCamera(Image):
         self._blur_cache = None
         self._frame_count = 0
         self._reuse_texture = None
+        self._last_frame_size = None
 
     def create_empty_texture(self):
         width, height = max(1, int(self.size[0])), max(1, int(self.size[1]))
@@ -69,20 +103,22 @@ class KivyCamera(Image):
             if im is None:
                 return
             self._last_frame_id = frame_id
+            frame_h, frame_w = im.shape[:2]
+            self._last_frame_size = (frame_w, frame_h)
+            display_size = self._get_display_size(frame_w, frame_h)
 
             # Generate blurry borders (réduire la résolution avant blur pour plus de fluidité)
             if self._blur:
-                if self.width <= 1 or self.height <= 1:
+                if display_size[0] <= 1 or display_size[1] <= 1:
                     return
                 max_w, max_h = 1280, 720
-                h, w = im.shape[:2]
-                if w > max_w or h > max_h:
-                    scale = min(max_w / w, max_h / h)
-                    im = cv2.resize(im, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                if frame_w > max_w or frame_h > max_h:
+                    scale = min(max_w / frame_w, max_h / frame_h)
+                    im = cv2.resize(im, (int(frame_w * scale), int(frame_h * scale)), interpolation=cv2.INTER_AREA)
                 refresh_blur = (self._frame_count % self._blur_refresh_frames) == 0
                 im, self._blur_cache = FileUtils.blurry_borders(
                     im,
-                    self.size,
+                    display_size,
                     blur_cache=self._blur_cache,
                     refresh_blur=refresh_blur,
                     return_cache=True,
@@ -99,6 +135,8 @@ class KivyCamera(Image):
                 self._reuse_texture = Texture.create(size=(w, h), colorfmt='bgr')
                 self._reuse_texture.blit_buffer(im.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
                 self.texture = self._reuse_texture
+
+            self._sync_display_size()
 
         except Exception as e:
             Logger.error('Cannot read camera stream.')
