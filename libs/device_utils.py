@@ -107,7 +107,7 @@ class Cv2Camera(CaptureDevice):
         self._preview_frame_id = 0
         self._preview_thread = None
         self._preview_stop = False
-        self._preview_fps = 60
+        self._preview_fps = 30
         self._preview_size = (1920, 1080)
         if cv2:
             if port > -1:
