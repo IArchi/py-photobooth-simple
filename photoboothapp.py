@@ -359,6 +359,9 @@ class PhotoboothApp(App):
         if any(process.is_alive() for process in self.processes): return False
         return True
 
+    def has_background_processes(self):
+        return any(process.is_alive() for process in self.processes)
+
     def has_physical_flash(self):
         return self.devices.has_physical_flash()
 
@@ -374,9 +377,9 @@ class PhotoboothApp(App):
         Logger.info('PhotoboothApp: print request format=%s copies=%s printer_available=%s', format, copies, self.has_printer())
         self._log_disk_space('before_print')
         
-        # Check if a print version exists (for duplicated templates)
+        # Use duplicated print output only for templates that generate one.
         print_collage = self.get_collage().replace('.jpg', '_print.jpg')
-        if os.path.exists(print_collage):
+        if self.print_formats[format].uses_print_version() and os.path.exists(print_collage):
             Logger.info(f'PhotoboothApp: Using print version: {print_collage}')
             return self.devices.print(print_collage, options)
 

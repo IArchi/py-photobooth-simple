@@ -255,7 +255,7 @@ class WaitingScreen(BackgroundScreen):
     def _purge_when_idle(self, *args):
         if self.app.get_current_screen_name() != ScreenMgr.WAITING:
             return
-        if self.app.has_pending_photo_tasks():
+        if self.app.has_pending_photo_tasks() or self.app.has_background_processes():
             Clock.schedule_once(self._purge_when_idle, 0.5)
         else:
             self.app.clear_pending_photo_error()

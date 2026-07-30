@@ -87,7 +87,11 @@ class TemplateCollage:
     
     def get_print_params(self):
         """Return the print parameters."""
-        return self._print_params
+        return dict(self._print_params)
+
+    def uses_print_version(self):
+        """Return True when printing needs the generated _print collage."""
+        return self._duplicate_horizontal or self._duplicate_vertical
     
     def _load_image(self, image_data, imread_flags=cv2.IMREAD_UNCHANGED, cache_key=None):
         """
