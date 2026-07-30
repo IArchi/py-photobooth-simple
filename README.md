@@ -27,7 +27,7 @@ The photobooth application follows this screen navigation flow:
 
 ```
                         ┌─────────────┐
-                        │   Waiting   │◄────────────────┐
+                        │    Start    │◄────────────────┐
                         │   Screen    │                 │
                         └──────┬──────┘                 │
                                │ Touch                  │
@@ -54,44 +54,48 @@ The photobooth application follows this screen navigation flow:
                         │ Processing  │                 │
                         │   Screen    │                 │
                         └──────┬──────┘                 │
-                               │                        │
-                  ┌────────────┴────────────┐           │
-                  ▼                         ▼           │
-           ┌─────────────┐          ┌─────────────┐     │
-           │   Confirm   │          │   Confirm   │     │
-           │    Print    │          │    Save     │     │
-           └──────┬──────┘          └──────┬──────┘     │
-                  │ Print                  │ Done       │
-                  ▼                        │            │
-           ┌─────────────┐                 │            │
-           │  Printing   │                 │            │
-           └──────┬──────┘                 │            │
-                  │             ┌──────────┘            │
-                  │             ▼                       |
-                  |     ┌─────────────┐                 │
-                  └────►│   Success   │─────────────────┘
-                        └─────────────┘                 │
+                               │ Done                   │
+                               ▼                        │
+                        ┌─────────────┐                 │
+                        │   Review    │                 │
+                        │   Screen    │                 │
+                        └──┬────┬───┬─┘                 │
+                           │    │   │                   │
+                      Print│    │   │Share              │
+                           ▼    │   ▼                   │
+                    ┌──────────┐│┌──────────┐           │
+                    │  Print   │││ QR Code  │           │
+                    │  Popup   │││  Popup   │           │
+                    └────┬─────┘│└────┬─────┘           │
+                         │Close │Close│                 │
+                         └──────┴─────┘                 │
+                                │ Home                  │
+                                ▼                       │
+                         ┌─────────────┐                │
+                         │   Success   │────────────────┘
+                         └─────────────┘
                                                         │
                                                         │
            ┌─────────────┐                              │
            │    Error    │──────────────────────────────┘
            └─────────────┘
 
-Note: All screens have a "Home" button to return to the Waiting Screen
+Note: All screens have a "Home" button to return to the Start Screen
 ```
 
 ### Screen Descriptions
 
-- **Waiting Screen:** Initial screen with "Press to begin" prompt
+- **Start Screen:** Initial screen with "Press to begin" prompt
 - **Select Format Screen:** Choose between different photo layouts/formats
 - **Countdown Screen:** Live camera preview with countdown timer before capture
 - **Confirm Capture Screen:** Review and validate the captured photo
 - **Processing Screen:** Collage generation in progress
-- **Confirm Print Screen:** Option to print the collage (if printer is available)
-- **Confirm Save Screen:** Confirmation screen for saving the collage
-- **Printing Screen:** Print job in progress
+- **Review Screen:** Final saved-collage screen with available actions: print, share, or go home
+- **Print Popup:** Shows print progress and reports print errors while keeping the saved photo available
+- **QR Code Popup:** Shows the sharing QR code without leaving the review screen
 - **Success Screen:** Final confirmation before returning to start
 - **Error Screen:** Displayed when an error occurs during the process
+- **Maintenance Screen:** Displayed for operator intervention, such as storage, camera, web server, printer, or USB export issues
 
 ## Camera Support
 

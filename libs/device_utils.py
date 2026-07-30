@@ -52,6 +52,9 @@ class CaptureDevice:
     def close(self):
         pass
 
+    def is_healthy(self):
+        return self._instance is not None
+
     def _crop_to_aspect_ratio(self, image, aspect_ratio):
         """
         Crop image to match the target aspect ratio (width/height).
@@ -205,6 +208,7 @@ class Cv2Camera(CaptureDevice):
 
 class Gphoto2Camera(CaptureDevice):
     def __init__(self, dslr_liveview_params=None, dslr_capture_params=None):
+        self._preview_failures = 0
         if gp:
             # List connected DSLR cameras
             if gp.cameraList().count():
@@ -295,12 +299,18 @@ class Gphoto2Camera(CaptureDevice):
                 buf = np.frombuffer(cfile.get_data(auto_clean=False), dtype=np.uint8)
                 im = cv2.imdecode(buf, self._imread_preview)
                 if im is not None:
+                    self._preview_failures = 0
                     im = cv2.rotate(im, cv2.ROTATE_180)
                     with self._preview_lock:
                         self._preview_frame, self._preview_frame_back = im, self._preview_frame
                 time.sleep(1.0 / self._preview_fps)
             except Exception as e:
-                Logger.debug('Gphoto2Camera preview thread: %s', e)
+                self._preview_failures += 1
+                if self._preview_failures in (5, 15) or self._preview_failures % 60 == 0:
+                    Logger.warning('Gphoto2Camera preview thread failed %s times: %s', self._preview_failures, e)
+                else:
+                    Logger.debug('Gphoto2Camera preview thread: %s', e)
+                time.sleep(1.0 / self._preview_fps)
 
     def _start_preview_thread(self):
         if self._preview_thread is not None and self._preview_thread.is_alive():
@@ -514,6 +524,7 @@ class CupsPrinter(PrintDevice):
             else:
                 Logger.warning('CupsPrinter: No printer named \'%s\' in CUPS (see http://localhost:631)', name)
         if not self._instance: raise Exception('Cannot find any CUPS printer or cups is not installed.')
+        self.cancel_stale_jobs()
 
     def print(self, file_path, print_params={}):
         if not self.is_available():
@@ -521,8 +532,33 @@ class CupsPrinter(PrintDevice):
         return self._instance.printFile(self._name, os.path.abspath(file_path), os.path.basename(file_path), print_params)
 
     def get_print_status(self, task_id):
-        status = self._instance.getJobAttributes(task_id)['job-state']
-        return 'pending' if status < 6 else 'done'
+        attributes = self._instance.getJobAttributes(task_id)
+        status = attributes['job-state']
+        if status == 9:
+            reasons = attributes.get('job-state-reasons', 'unknown')
+            raise RuntimeError(f'Print job canceled: {reasons}')
+        if status >= 6:
+            return 'done'
+        return 'pending'
+
+    def cancel_stale_jobs(self):
+        if self._instance is None or not self._name:
+            return 0
+        canceled = 0
+        try:
+            jobs = self._instance.getJobs(which_jobs='not-completed')
+            for job_id, job in jobs.items():
+                if job.get('printer-uri', '').endswith('/' + self._name) or job.get('printer-name') == self._name:
+                    try:
+                        self._instance.cancelJob(job_id)
+                        canceled += 1
+                    except Exception as exc:
+                        Logger.warning('CupsPrinter: could not cancel stale job %s: %s', job_id, exc)
+        except Exception as exc:
+            Logger.warning('CupsPrinter: stale job cleanup failed for %s: %s', self._name, exc)
+        if canceled:
+            Logger.warning('CupsPrinter: canceled stale jobs count=%s printer=%s', canceled, self._name)
+        return canceled
 
     def is_available(self):
         if self._instance is None or not self._name:
@@ -620,6 +656,11 @@ class DeviceUtils:
         if self._printer is None:
             return False
         return self._printer.is_available()
+
+    def cancel_stale_print_jobs(self):
+        if self._printer is None:
+            return 0
+        return self._printer.cancel_stale_jobs()
 
     def print(self, file_path, print_params={}):
         if not self._printer: raise RuntimeError('No printer configured')

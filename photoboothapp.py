@@ -62,8 +62,19 @@ class PhotoboothApp(App):
         self.BLUR_COLLAGE = config.get_blur_collage()
         self.COUNTDOWN = config.get_countdown()
         self.DCIM_DIRECTORY = config.get_dcim_directory()
+        self.DISK_MIN_FREE_GB = config.get_disk_min_free_gb()
+        self.DISK_MAX_USED_PERCENT = config.get_disk_max_used_percent()
+        self.PRINTER_WAIT_TIMEOUT = config.get_printer_wait_timeout()
+        self.USB_EXPORT = config.get_usb_export_enabled()
+        self.USB_MIN_FREE_GB = config.get_usb_min_free_gb()
         self.PRINTER = config.get_printer()
         self.CALIBRATION = config.get_calibration()
+        self._dslr_liveview_params = config.get_dslr_liveview_params()
+        self._dslr_capture_params = config.get_dslr_capture_params()
+        self._log_retention_days = config.get_log_retention_days()
+        self._log_max_files = config.get_log_max_files()
+
+        self._rotate_logs()
         
         # Initialize RingLed if enabled in config
         if config.get_ringled():
@@ -96,8 +107,8 @@ class PhotoboothApp(App):
         self.devices = DeviceUtils(
             printer_name=self.PRINTER,
             zoom=self.CALIBRATION,
-            dslr_liveview_params=config.get_dslr_liveview_params(),
-            dslr_capture_params=config.get_dslr_capture_params(),
+            dslr_liveview_params=self._dslr_liveview_params,
+            dslr_capture_params=self._dslr_capture_params,
         )
         
         # Load templates from JSON files
@@ -116,8 +127,11 @@ class PhotoboothApp(App):
         if not os.path.exists(self.save_directory): os.makedirs(self.save_directory)
 
         # Start USB transfer
-        self.usb_transfer = UsbTransfer(self, self.save_directory)
-        self.usb_transfer.start()
+        if self.USB_EXPORT:
+            self.usb_transfer = UsbTransfer(self, self.save_directory, min_free_gb=self.USB_MIN_FREE_GB)
+            self.usb_transfer.start()
+        else:
+            Logger.info('PhotoboothApp: USB export disabled')
         
         # The web server always runs for gallery/admin access; SHARE only controls UI buttons.
         abs_save_directory = os.path.abspath(self.save_directory)
@@ -145,6 +159,10 @@ class PhotoboothApp(App):
             }
 
         self._log_disk_space('startup')
+        if self.is_disk_space_critical():
+            usage = self.get_disk_usage()
+            self._requested_screen = ScreenMgr.MAINTENANCE
+            self._requested_kwargs = self._disk_maintenance_kwargs(usage)
         self._log_runtime_snapshot('startup')
 
     def build(self):
@@ -201,7 +219,7 @@ class PhotoboothApp(App):
 
     def is_usb_copy_allowed(self):
         current_screen = self.get_current_screen_name()
-        return current_screen == ScreenMgr.WAITING
+        return current_screen == ScreenMgr.START
 
     def get_shot(self, shot_idx):
         return os.path.join(self.tmp_directory, "capture-{}.jpg".format(shot_idx))
@@ -233,20 +251,81 @@ class PhotoboothApp(App):
 
     def _log_disk_space(self, context):
         try:
-            usage = shutil.disk_usage(self.DCIM_DIRECTORY)
-            free_gb = usage.free / (1024 ** 3)
-            total_gb = usage.total / (1024 ** 3)
-            used_percent = 0 if usage.total == 0 else ((usage.total - usage.free) / usage.total) * 100
+            usage = self.get_disk_usage()
             Logger.info(
                 'PhotoboothApp: disk usage [%s] free=%.2fGB total=%.2fGB used=%.1f%% path=%s',
                 context,
-                free_gb,
-                total_gb,
-                used_percent,
+                usage['free_gb'],
+                usage['total_gb'],
+                usage['used_percent'],
                 self.DCIM_DIRECTORY,
             )
         except Exception as exc:
             Logger.warning('PhotoboothApp: disk usage check failed [%s]: %s', context, exc)
+
+    def _rotate_logs(self):
+        try:
+            now = time.time()
+            max_age = self._log_retention_days * 86400
+            log_files = [path for path in LOG_DIRECTORY.iterdir() if path.is_file()]
+
+            removed = 0
+            for path in log_files:
+                try:
+                    if now - path.stat().st_mtime > max_age:
+                        path.unlink()
+                        removed += 1
+                except OSError as exc:
+                    Logger.warning('PhotoboothApp: could not remove old log %s: %s', path, exc)
+
+            remaining = sorted(
+                [path for path in LOG_DIRECTORY.iterdir() if path.is_file()],
+                key=lambda item: item.stat().st_mtime,
+                reverse=True,
+            )
+            for path in remaining[self._log_max_files:]:
+                try:
+                    path.unlink()
+                    removed += 1
+                except OSError as exc:
+                    Logger.warning('PhotoboothApp: could not remove extra log %s: %s', path, exc)
+
+            Logger.info('PhotoboothApp: log rotation removed_files=%s retention_days=%s max_files=%s', removed, self._log_retention_days, self._log_max_files)
+        except Exception as exc:
+            Logger.warning('PhotoboothApp: log rotation failed: %s', exc)
+
+    def get_disk_usage(self):
+        usage = shutil.disk_usage(self.DCIM_DIRECTORY)
+        free_gb = usage.free / (1024 ** 3)
+        total_gb = usage.total / (1024 ** 3)
+        used_percent = 0 if usage.total == 0 else ((usage.total - usage.free) / usage.total) * 100
+        return {
+            'free_gb': free_gb,
+            'total_gb': total_gb,
+            'used_percent': used_percent,
+        }
+
+    def is_disk_space_critical(self):
+        try:
+            usage = self.get_disk_usage()
+        except Exception as exc:
+            Logger.warning('PhotoboothApp: disk critical check failed: %s', exc)
+            return False
+        return usage['free_gb'] < self.DISK_MIN_FREE_GB or usage['used_percent'] >= self.DISK_MAX_USED_PERCENT
+
+    def _disk_maintenance_kwargs(self, usage=None):
+        usage = usage or self.get_disk_usage()
+        return {
+            'title': 'STORAGE FULL',
+            'message': 'Photo storage is almost full. Please call an operator before taking more photos.',
+            'details': 'Free %.2fGB, used %.1f%% at %s' % (usage['free_gb'], usage['used_percent'], self.DCIM_DIRECTORY),
+        }
+
+    def ensure_disk_space_or_maintenance(self):
+        if not self.is_disk_space_critical():
+            return True
+        self.enter_maintenance_mode(**self._disk_maintenance_kwargs())
+        return False
 
     def _log_runtime_snapshot(self, context):
         Logger.info(
@@ -328,8 +407,20 @@ class PhotoboothApp(App):
             return False
         return (time.monotonic() - started_at) >= timeout_seconds
 
+    def abandon_background_processes(self, kind=None, reason='unknown'):
+        with self._process_lock:
+            if kind is not None and self._process_state.get('kind') != kind:
+                return
+            Logger.warning('PhotoboothApp: abandoning background process kind=%s reason=%s', self._process_state.get('kind'), reason)
+            self._process_token += 1
+            self._process_state['error'] = reason
+            self._process_state['finished_at'] = time.monotonic()
+        self.processes = []
+
     def trigger_shot(self, shot_idx, format_idx):
         Logger.info('PhotoboothApp: trigger_shot().')
+        if not self.ensure_disk_space_or_maintenance():
+            raise RuntimeError('Photo storage is almost full')
         aspect_ratio = self.get_format_aspect_ratio(format_idx)
         Logger.info('PhotoboothApp: shot request idx=%s format=%s aspect_ratio=%.4f', shot_idx, format_idx, aspect_ratio)
         self._log_disk_space('before_shot')
@@ -342,6 +433,8 @@ class PhotoboothApp(App):
 
     def trigger_collage(self, format=0):
         Logger.info('PhotoboothApp: trigger_collage().')
+        if not self.ensure_disk_space_or_maintenance():
+            raise RuntimeError('Photo storage is almost full')
         photos = []
         for i in range(0, self.get_shots_to_take(format)): photos.append(self.get_shot(i))
         Logger.info('PhotoboothApp: collage request format=%s photos=%s', format, len(photos))
@@ -426,8 +519,43 @@ class PhotoboothApp(App):
             Logger.error('PhotoboothApp: print status check failed task=%s error=%s', print_task_id, exc)
             return False
 
+    def reset_devices(self, reason='unknown'):
+        Logger.warning('PhotoboothApp: resetting devices reason=%s', reason)
+        try:
+            if getattr(self, 'devices', None):
+                self.devices.close()
+        except Exception as exc:
+            Logger.warning('PhotoboothApp: device close during reset failed: %s', exc)
+
+        self.devices = DeviceUtils(
+            printer_name=self.PRINTER,
+            zoom=self.CALIBRATION,
+            dslr_liveview_params=self._dslr_liveview_params,
+            dslr_capture_params=self._dslr_capture_params,
+        )
+        self._log_runtime_snapshot('devices_reset')
+
+    def recover_devices_and_return_home(self, reason='unknown'):
+        def recover():
+            try:
+                self.abandon_background_processes(kind='shot', reason=reason)
+                self.reset_devices(reason=reason)
+                self.request_transition_to(ScreenMgr.START)
+            except Exception as exc:
+                Logger.error('PhotoboothApp: device recovery failed: %s', exc)
+                Logger.error(traceback.format_exc())
+                self.enter_maintenance_mode(
+                    title='CAMERA',
+                    message='Camera recovery failed. Please call an operator.',
+                    details=str(exc),
+                )
+
+        threading.Thread(target=recover, name='photobooth-device-recovery', daemon=True).start()
+
     def save_collage(self):
         Logger.info('PhotoboothApp: save_collage().')
+        if not self.ensure_disk_space_or_maintenance():
+            raise RuntimeError('Photo storage is almost full')
         # List existing files
         all_files = os.listdir(self.tmp_directory)
         if len(all_files) == 0: return

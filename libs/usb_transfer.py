@@ -14,10 +14,11 @@ from libs.screens import ScreenMgr
 class UsbTransfer:
     REMOVABLE_MOUNT_ROOTS = ('/media', '/run/media', '/Volumes')
 
-    def __init__(self, app, folder):
+    def __init__(self, app, folder, min_free_gb=1.0):
         Logger.info('UsbTransfer: __init__().')
         self._app = app
         self._folder = folder
+        self._min_free_bytes = int(max(0.0, min_free_gb) * 1024 ** 3)
         self._worker_thread: Thread = None
         self._stop_event = Event()
         self._pending_mounts = {}
@@ -31,7 +32,9 @@ class UsbTransfer:
         Logger.info('UsbTransfer: stop().')
         if self._worker_thread and self._worker_thread.is_alive():
             self._stop_event.set()
-            self._worker_thread.join()
+            self._worker_thread.join(timeout=5)
+            if self._worker_thread.is_alive():
+                Logger.warning('UsbTransfer: worker did not stop within timeout')
 
     def _worker_fun(self):
         # init worker, get devices first time
@@ -61,7 +64,7 @@ class UsbTransfer:
         self._pending_mounts[device.device] = device
         Logger.info('UsbTransfer: pending exports=%s', len(self._pending_mounts))
         if not self._app.is_usb_copy_allowed():
-            Logger.info('UsbTransfer: deferring copy for %s until waiting screen', device.device)
+            Logger.info('UsbTransfer: deferring copy for %s until start screen', device.device)
             return
 
         self._process_pending_mounts()
@@ -85,21 +88,26 @@ class UsbTransfer:
             self._app.request_transition_to(ScreenMgr.COPYING)
             try:
                 Logger.info('UsbTransfer: starting export device=%s mountpoint=%s', device.device, device.mountpoint)
-                self.copy_without_overwrite(self._folder, device.mountpoint)
-                Logger.info('UsbTransfer: export completed device=%s mountpoint=%s', device.device, device.mountpoint)
-            except Exception:
+                destination = Path(device.mountpoint, 'photobooth')
+                self._check_destination_capacity(destination)
+                copied_files = self.copy_without_overwrite(self._folder, destination)
+                Logger.info('UsbTransfer: export completed device=%s mountpoint=%s copied_files=%s', device.device, device.mountpoint, copied_files)
+            except Exception as exc:
                 Logger.error('UsbTransfer: Failed to perform folder copy.')
                 Logger.error(traceback.format_exc())
-                self._app.request_transition_to(
-                    ScreenMgr.MAINTENANCE,
-                    title='USB EXPORT',
-                    message='USB copy failed. Please call an operator.',
-                    details=f'{device.device} {device.mountpoint}',
-                )
+                if self._stop_event.is_set():
+                    return
+                Logger.warning('UsbTransfer: USB export skipped after failure: %s', exc)
             finally:
                 self._pending_mounts.pop(device.device, None)
                 if self._app.get_current_screen_name() == ScreenMgr.COPYING:
-                    self._app.request_transition_to(ScreenMgr.WAITING)
+                    self._app.request_transition_to(ScreenMgr.START)
+
+    def _check_destination_capacity(self, destination_path):
+        destination_path.mkdir(parents=True, exist_ok=True)
+        usage = shutil.disk_usage(destination_path)
+        if usage.free < self._min_free_bytes:
+            raise RuntimeError('USB drive has only %.2fGB free, minimum is %.2fGB' % (usage.free / (1024 ** 3), self._min_free_bytes / (1024 ** 3)))
 
     @staticmethod
     def get_current_removable_media():
@@ -150,6 +158,8 @@ class UsbTransfer:
         dest_path.mkdir(parents=True, exist_ok=True)
 
         for item in src_path.iterdir():
+            if self._stop_event.is_set():
+                return copied_files
             s = src_path / item.name
             d = dest_path / item.name
             if s.is_dir():

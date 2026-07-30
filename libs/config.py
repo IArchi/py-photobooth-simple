@@ -32,7 +32,32 @@ class Config:
         return self.config.getint('Picture', 'COUNTDOWN', fallback=5)
 
     def get_dcim_directory(self):
-        return self.config.get('Picture', 'DCIM_DIRECTORY')
+        dcim_directory = self.config.get('Picture', 'DCIM_DIRECTORY')
+        path = Path(dcim_directory).expanduser()
+        if not path.is_absolute():
+            path = PROJECT_ROOT / path
+        return str(path.resolve())
+
+    def get_disk_min_free_gb(self):
+        return max(0.0, self.config.getfloat('Picture', 'DISK_MIN_FREE_GB', fallback=2.0))
+
+    def get_disk_max_used_percent(self):
+        return min(100.0, max(0.0, self.config.getfloat('Picture', 'DISK_MAX_USED_PERCENT', fallback=90.0)))
+
+    def get_log_retention_days(self):
+        return max(1, self.config.getint('Global', 'LOG_RETENTION_DAYS', fallback=14))
+
+    def get_log_max_files(self):
+        return max(1, self.config.getint('Global', 'LOG_MAX_FILES', fallback=40))
+
+    def get_printer_wait_timeout(self):
+        return max(5, self.config.getint('Picture', 'PRINTER_WAIT_TIMEOUT', fallback=45))
+
+    def get_usb_export_enabled(self):
+        return self.config.getboolean('Picture', 'USB_EXPORT', fallback=True)
+
+    def get_usb_min_free_gb(self):
+        return max(0.0, self.config.getfloat('Picture', 'USB_MIN_FREE_GB', fallback=1.0))
 
     def get_printer(self):
         printer = self.config.get('Picture', 'PRINTER')

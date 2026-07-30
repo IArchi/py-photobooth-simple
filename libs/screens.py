@@ -103,7 +103,7 @@ ICON_MAINTENANCE = '\u413a'
 
 class ScreenMgr(ScreenManager):
     """Screen Manager for the photobooth screens."""
-    WAITING = 'waiting'
+    START = 'start'
     READY = 'ready'
     SELECT_FORMAT = 'select_format'
     ERROR = 'error'
@@ -111,8 +111,7 @@ class ScreenMgr(ScreenManager):
     COUNTDOWN = 'countdown'
     CONFIRM_CAPTURE = 'confirm_capture'
     PROCESSING = 'processing'
-    CONFIRM_SAVE = 'confirm_save'
-    CONFIRM_PRINT = 'confirm_print'
+    REVIEW = 'review'
     PRINTING = 'printing'
     SUCCESS = 'success'
     COPYING = 'copying'
@@ -122,29 +121,27 @@ class ScreenMgr(ScreenManager):
         super(ScreenMgr, self).__init__(**kwargs)
         self.app = app
         self.pb_screens = {
-            self.WAITING            : WaitingScreen(app, name=self.WAITING),
+            self.START              : StartScreen(app, name=self.START),
             self.SELECT_FORMAT      : SelectFormatScreen(app, name=self.SELECT_FORMAT),
             self.ERROR              : ErrorScreen(app, name=self.ERROR),
             self.MAINTENANCE        : MaintenanceScreen(app, name=self.MAINTENANCE),
             self.COUNTDOWN          : CountdownScreen(app, name=self.COUNTDOWN),
             self.CONFIRM_CAPTURE    : ConfirmCaptureScreen(app, name=self.CONFIRM_CAPTURE),
             self.PROCESSING         : ProcessingScreen(app, name=self.PROCESSING),
-            self.CONFIRM_SAVE       : ConfirmSaveScreen(app, name=self.CONFIRM_SAVE),
-            self.CONFIRM_PRINT      : ConfirmPrintScreen(app, name=self.CONFIRM_PRINT),
-            self.PRINTING           : PrintingScreen(app, name=self.PRINTING),
+            self.REVIEW             : ReviewScreen(app, name=self.REVIEW),
             self.SUCCESS            : SuccessScreen(app, name=self.SUCCESS),
             self.COPYING            : CopyingScreen(app, name=self.COPYING),
         }
         for screen in self.pb_screens.values(): self.add_widget(screen)
 
-        self.current = self.WAITING
+        self.current = self.START
         if self.app.FULLSCREEN: Window.fullscreen = True
         Window.bind(on_key_down=self._on_key_down)
 
     def _on_key_down(self, window, keycode, scancode, codepoint, modifiers):
         if keycode == 27:  # ESC: kiosk keyboard back/home, never quit Kivy.
-            if self.current != self.WAITING:
-                self.app.transition_to(self.WAITING)
+            if self.current != self.START:
+                self.app.transition_to(self.START)
             return True
         if keycode in (13, 32):  # ENTER / SPACE: activate the screen's primary button.
             action = getattr(self.current_screen, 'on_keyboard_action', None)
@@ -192,7 +189,7 @@ class ColorScreen(Screen):
     def on_update(self, kwargs={}):
         pass
 
-class WaitingScreen(BackgroundScreen):
+class StartScreen(BackgroundScreen):
     """
     +-----------------+
     |                 |
@@ -201,8 +198,8 @@ class WaitingScreen(BackgroundScreen):
     +-----------------+
     """
     def __init__(self, app, **kwargs):
-        Logger.info('WaitingScreen: __init__().')
-        super(WaitingScreen, self).__init__(bg='./assets/backgrounds/bg_waiting.jpeg', **kwargs)
+        Logger.info('StartScreen: __init__().')
+        super(StartScreen, self).__init__(bg='./assets/backgrounds/bg_waiting.jpeg', **kwargs)
 
         self.app = app
 
@@ -247,13 +244,13 @@ class WaitingScreen(BackgroundScreen):
         self.add_widget(overlay_layout)
 
     def on_entry(self, kwargs={}):
-        Logger.info('WaitingScreen: on_entry().')
+        Logger.info('StartScreen: on_entry().')
         if self.app.ringled:
             self.app.ringled.start_rainbow()
         self._purge_when_idle()
 
     def _purge_when_idle(self, *args):
-        if self.app.get_current_screen_name() != ScreenMgr.WAITING:
+        if self.app.get_current_screen_name() != ScreenMgr.START:
             return
         if self.app.has_pending_photo_tasks() or self.app.has_background_processes():
             Clock.schedule_once(self._purge_when_idle, 0.5)
@@ -264,17 +261,17 @@ class WaitingScreen(BackgroundScreen):
                 QRCodePopup.preload_async()
 
     def on_exit(self, kwargs={}):
-        Logger.info('WaitingScreen: on_exit().')
+        Logger.info('StartScreen: on_exit().')
         if self.app.ringled:
             self.app.ringled.clear()
 
     def on_click(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('WaitingScreen: on_click().')
+        Logger.info('StartScreen: on_click().')
         self.app.transition_to(ScreenMgr.SELECT_FORMAT)
 
     def on_keyboard_action(self):
-        Logger.info('WaitingScreen: on_keyboard_action().')
+        Logger.info('StartScreen: on_keyboard_action().')
         self.app.transition_to(ScreenMgr.SELECT_FORMAT)
         return True
 
@@ -595,7 +592,7 @@ class ErrorScreen(ColorScreen):
     def on_click(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ErrorScreen: on_click().')
-        self.app.transition_to(ScreenMgr.WAITING)
+        self.app.transition_to(ScreenMgr.START)
 
 class MaintenanceScreen(ColorScreen):
     """Operational maintenance screen for infrastructure incidents."""
@@ -868,7 +865,10 @@ class CountdownScreen(ColorScreen):
         if not(self.app.is_shot_completed(self._current_shot)):
             if self.app.has_process_timed_out('shot', SHOT_TIMEOUT_SECONDS):
                 Logger.error('CountdownScreen: capture timed out after countdown.')
-                self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_TRIGGER, error2=ICON_ERROR_TOOLONG)
+                if hasattr(self.app, 'recover_devices_and_return_home'):
+                    self.app.recover_devices_and_return_home(reason='capture_timeout')
+                else:
+                    self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_TRIGGER, error2=ICON_ERROR_TOOLONG)
             else:
                 # Retry after 1sec
                 self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
@@ -877,7 +877,10 @@ class CountdownScreen(ColorScreen):
             error_details = self.app.get_process_error('shot')
             if error_details:
                 Logger.error(error_details)
-            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_TRIGGER, error2=ICON_ERROR_DISCONNECTED)
+            if hasattr(self.app, 'recover_devices_and_return_home'):
+                self.app.recover_devices_and_return_home(reason='capture_failure')
+            else:
+                self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_TRIGGER, error2=ICON_ERROR_DISCONNECTED)
         else:
             # Display photo for validation
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
@@ -961,7 +964,7 @@ class CountdownScreen(ColorScreen):
     def home_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('CountdownScreen: home_event().')
-        self.app.transition_to(ScreenMgr.WAITING)
+        self.app.transition_to(ScreenMgr.START)
 
 class ConfirmCaptureScreen(ColorScreen):
     """
@@ -1471,11 +1474,11 @@ class ConfirmCaptureScreen(ColorScreen):
     def home_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Clock.unschedule(self.auto_leave)
-        self.app.transition_to(ScreenMgr.WAITING)
+        self.app.transition_to(ScreenMgr.START)
 
     def timer_event(self, obj):
         Logger.info('ConfirmCaptureScreen: timer_event().')
-        self.app.transition_to(ScreenMgr.WAITING)
+        self.app.transition_to(ScreenMgr.START)
 
     def on_keyboard_action(self):
         self.keep_event(None)
@@ -1561,164 +1564,209 @@ class ProcessingScreen(ColorScreen):
             if error_details:
                 Logger.error(error_details)
             self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR, error2=ICON_ERROR_TRIGGER)
-        elif self.app.has_printer():
-            self.app.transition_to(ScreenMgr.CONFIRM_PRINT, format=self._current_format)
         else:
-            self.app.transition_to(ScreenMgr.CONFIRM_SAVE)
+            self.app.transition_to(ScreenMgr.REVIEW, format=self._current_format)
 
-class ConfirmSaveScreen(ColorScreen):
-    """
-    +-----------------+
-    |      Saved      |
-    |             YES |
-    |           SHARE |
-    +-----------------+
-    """
-    def __init__(self, app, **kwargs):
-        Logger.info('ConfirmSaveScreen: __init__().')
-        super(ConfirmSaveScreen, self).__init__(**kwargs)
+class PrintStatusPopup(FloatLayout):
+    """Non-blocking print overlay; the underlying confirm screen keeps all actions available after closing."""
 
+    def __init__(self, app, format_idx, on_dismiss=None, **kwargs):
+        super(PrintStatusPopup, self).__init__(**kwargs)
         self.app = app
+        self.format_idx = format_idx
+        self.on_dismiss = on_dismiss
+        self._clock = None
+        self._close_scheduled = False
+        self._started_at = time.monotonic()
+        self._print_started = False
+        self._print_task_id = None
+        self._printer_wait_started_at = None
+        self._timeout = getattr(self.app, 'PRINTER_WAIT_TIMEOUT', 45)
 
-        self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
+        with self.canvas.before:
+            Color(0, 0, 0, 0.8)
+            self.bg_rect = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self._update_bg, size=self._update_bg)
 
-        overlay_layout = FloatLayout()
-        self.layout.add_widget(overlay_layout)
+        from kivy.graphics import RoundedRectangle
 
-        # Display collage
-        self.preview = BlurredImage(
-            blur=self.app.BLUR_COLLAGE,
-            fit_mode='contain',
-            size_hint=(1, 1),
-            pos_hint={'x': 0, 'y': 0},
+        self.card = BoxLayout(
+            orientation='vertical',
+            size_hint=(0.68, 0.55),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            padding=Window.height * 0.03,
+            spacing=Window.height * 0.018,
         )
-        overlay_layout.add_widget(self.preview)
+        with self.card.canvas.before:
+            Color(1, 1, 1, 1)
+            self.card_rect = RoundedRectangle(pos=self.card.pos, size=self.card.size, radius=[Window.height * 0.022])
+        self.card.bind(pos=self._update_card, size=self._update_card)
 
-        # Home button - top left
-        btn_home = make_icon_button(ICON_HOME,
-                             size=0.14,
-                             pos_hint={'x': 0.05, 'top': 0.95},
-                             font=ICON_TTF,
-                             font_size_fraction=0.07,
-                             bgcolor=HOME_COLOR,
-                             on_release=self.yes_event
-                             )
-        overlay_layout.add_widget(btn_home)
+        self.icon = ResizeLabel(
+            text=ICON_PRINT,
+            font_name=ICON_TTF,
+            size_hint=(1, 0.28),
+            wh_fraction=0.14,
+            color=(0, 0, 0, 1),
+            halign='center',
+            valign='middle',
+        )
+        self.card.add_widget(self.icon)
 
-        # Share button - bottom right (with icon and text) - only if SHARE is enabled
-        self.btn_share = None
-        if self.app.SHARE:
-            self.btn_share = make_icon_text_button(
-                                  icon=ICON_SHARE,
-                                  text='SHARE',
-                                  size_hint=(0.15, 0.09),
-                                  pos_hint={'right': 0.95, 'y': 0.05},
-                                 icon_font=ICON_TTF,
-                                 icon_font_size_fraction=0.07,
-                                 text_font_size_fraction=0.035,
-                                 bgcolor=SHARE_COLOR,
-                                 on_release=self.share_event,
-                                 )
-            overlay_layout.add_widget(self.btn_share)
+        self.title = ResizeLabel(
+            text='PRINTING',
+            size_hint=(1, 0.15),
+            wh_fraction=0.05,
+            bold=True,
+            color=(0, 0, 0, 1),
+            halign='center',
+            valign='middle',
+        )
+        self.card.add_widget(self.title)
 
-        self.add_widget(self.layout)
+        self.message = Label(
+            text='Saving photo before printing...',
+            size_hint=(1, 0.28),
+            font_size=SMALL_FONT(),
+            color=(0, 0, 0, 1),
+            halign='center',
+            valign='middle',
+        )
+        wh_bind(self.message, 'font_size', SMALL_FONT)
+        self.message.bind(size=self.message.setter('text_size'))
+        self.card.add_widget(self.message)
 
-    def on_entry(self, kwargs={}):
-        Logger.info('ConfirmSaveScreen: on_entry().')
-        self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
-        if self.app.ringled:
-            self.app.ringled.start_rainbow()
-        self._load_preview_async(FileUtils.get_small_path(self.app.get_collage()))
-        self.app.start_photo_task(self.app.save_collage)
-        if self.app.SHARE:
-            QRCodePopup.preload_async()
+        self.btn_close = make_icon_text_button(
+            icon=ICON_CONFIRM,
+            text='OK',
+            size_hint=(0.24, 0.13),
+            pos_hint={'center_x': 0.5},
+            icon_font=ICON_TTF,
+            icon_font_size_fraction=0.055,
+            text_font_size_fraction=0.035,
+            bgcolor=CONFIRM_COLOR,
+            on_release=self._close,
+        )
+        self.btn_close.opacity = 0
+        self.btn_close.disabled = True
+        self.card.add_widget(self.btn_close)
 
-    def _load_preview_async(self, path):
-        def load_image():
-            im = cv2.imread(path)
+        self.add_widget(self.card)
+        self._clock = Clock.schedule_once(self._tick, 0.2)
 
-            def apply_on_main(dt):
-                if im is not None:
-                    self.preview.set_image(im)
-                else:
-                    Logger.warning('ConfirmSaveScreen: cannot load preview %s', path)
-
-            Clock.schedule_once(apply_on_main, 0)
-
-        threading.Thread(target=load_image, daemon=True).start()
-
-    def on_exit(self, kwargs={}):
-        Logger.info('ConfirmSaveScreen: on_exit().')
-        if hasattr(self, 'auto_confirm') and self.auto_confirm:
-            Clock.unschedule(self.auto_confirm)
-            self.auto_confirm = None
-        if hasattr(self, 'qr_popup') and self.qr_popup.parent:
-            self.layout.remove_widget(self.qr_popup)
-        if self.app.ringled:
-            self.app.ringled.clear()
-
-    def yes_event(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Clock.unschedule(self.auto_confirm)
-        self.app.transition_to(ScreenMgr.SUCCESS)
-
-    def no_event(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Clock.unschedule(self.auto_confirm)
-        self.app.transition_to(ScreenMgr.WAITING)
-
-    def share_event(self, obj):
-        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('ConfirmSaveScreen: share_event().')
-        # Reset timeout when opening QR code popup
-        Clock.unschedule(self.auto_confirm)
-        self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
-        if hasattr(self, 'qr_popup') and self.qr_popup.parent:
-            return
-        # Show QR code popup
-        self.qr_popup = QRCodePopup(on_dismiss=self._dismiss_qr_popup)
-        self.layout.add_widget(self.qr_popup)
-    
-    def _dismiss_qr_popup(self):
-        """Remove QR code popup and reset timeout."""
-        if hasattr(self, 'qr_popup') and self.qr_popup.parent:
-            self.layout.remove_widget(self.qr_popup)
-        # Reset timeout when closing QR code popup
-        Clock.unschedule(self.auto_confirm)
-        self.auto_confirm = Clock.schedule_once(self.timer_event, 60)
-
-    def timer_event(self, obj):
-        Logger.info('ConfirmSaveScreen: timer_event().')
-        Clock.unschedule(self.auto_confirm)
-        self.app.transition_to(ScreenMgr.WAITING)
-
-    def on_keyboard_action(self):
-        if not self.app.SHARE:
-            return False
-        self.share_event(None)
+    def on_touch_down(self, touch):
+        if self.card.collide_point(*touch.pos):
+            return super(PrintStatusPopup, self).on_touch_down(touch)
         return True
 
-class ConfirmPrintScreen(ColorScreen):
-    """
-    +-----------------+
-    |HOME         SHARE|
-    |                 |
-    |      PRINT      |
-    +-----------------+
-    """
+    def _update_bg(self, *args):
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+
+    def _update_card(self, instance, *args):
+        self.card_rect.pos = instance.pos
+        self.card_rect.size = instance.size
+
+    def _set_done(self, title, message, error=False):
+        self.title.text = title
+        self.message.text = message
+        self.icon.text = ICON_ERROR_PRINTING if error else ICON_SUCCESS
+        self.btn_close.opacity = 1
+        self.btn_close.disabled = False
+        self._clock = None
+
+    def _set_print_error(self, detail=None):
+        message = 'Printing failed but the photo has been saved.'
+        if detail:
+            message = f'{message}\n{detail}'
+        Logger.error('PrintStatusPopup: print failed: %s', detail or '-')
+        self._set_done('PRINT FAILED', message, error=True)
+
+    def _tick(self, obj):
+        if self.app.has_pending_photo_tasks():
+            self.message.text = 'Saving photo before printing...'
+            self._clock = Clock.schedule_once(self._tick, 0.2)
+            return
+
+        pending_error = self.app.get_pending_photo_error()
+        if pending_error:
+            Logger.error('PrintStatusPopup: save before print failed.')
+            Logger.error(pending_error)
+            self._set_done('SAVE FAILED', 'The photo could not be saved, so printing was stopped.', error=True)
+            return
+
+        if time.monotonic() - self._started_at >= self._timeout:
+            self._set_print_error('The print operation timed out.')
+            return
+
+        if not self._print_started:
+            self.message.text = 'Sending photo to printer...'
+            try:
+                print_task_id = self.app.trigger_print(1, self.format_idx)
+                if print_task_id is None:
+                    raise RuntimeError('Printer did not return a task id')
+                self._print_task_id = print_task_id
+                self._print_started = True
+                Logger.info('PrintStatusPopup: print started task=%s', self._print_task_id)
+            except Exception as exc:
+                self._set_print_error(str(exc))
+                return
+
+        if not self.app.has_printer():
+            if self._printer_wait_started_at is None:
+                self._printer_wait_started_at = time.monotonic()
+                Logger.warning('PrintStatusPopup: printer unavailable, waiting for recovery')
+            waited = time.monotonic() - self._printer_wait_started_at
+            remaining = max(0, int(self._timeout - waited))
+            self.message.text = f'Printer unavailable. Waiting for reconnection... {remaining}s'
+            if waited >= self._timeout:
+                self._set_print_error('The printer did not reconnect in time.')
+                return
+            self._clock = Clock.schedule_once(self._tick, 1)
+            return
+
+        if self._printer_wait_started_at is not None:
+            Logger.info('PrintStatusPopup: printer recovered after %.2fs', time.monotonic() - self._printer_wait_started_at)
+            self._printer_wait_started_at = None
+
+        try:
+            status = self.app.devices.get_print_status(self._print_task_id)
+        except Exception as exc:
+            self._set_print_error(str(exc))
+            return
+
+        Logger.info('PrintStatusPopup: print status task=%s status=%s', self._print_task_id, status)
+        if status == 'done':
+            self._set_done('PRINT SENT', 'The print job was sent to the printer.')
+            Clock.schedule_once(lambda dt: self._close(None), 2)
+        else:
+            self.message.text = 'Printing...'
+            self._clock = Clock.schedule_once(self._tick, 1)
+
+    def _close(self, obj):
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
+        if self._close_scheduled:
+            return
+        self._close_scheduled = True
+        if self._clock:
+            Clock.unschedule(self._clock)
+            self._clock = None
+        if self.on_dismiss:
+            self.on_dismiss()
+
+class ReviewScreen(ColorScreen):
+    """Final action screen: saved collage preview with independent print/share/done actions."""
+
     def __init__(self, app, **kwargs):
-        Logger.info('ConfirmPrintScreen: __init__().')
-        super(ConfirmPrintScreen, self).__init__(**kwargs)
+        Logger.info('ReviewScreen: __init__().')
+        super(ReviewScreen, self).__init__(**kwargs)
 
         self.app = app
         self._current_format = 0
-
         self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
-
         self.overlay_layout = FloatLayout()
         self.layout.add_widget(self.overlay_layout)
 
-        # Display collage
         self.preview = BlurredImage(
             blur=self.app.BLUR_COLLAGE,
             fit_mode='contain',
@@ -1727,74 +1775,89 @@ class ConfirmPrintScreen(ColorScreen):
         )
         self.overlay_layout.add_widget(self.preview)
 
-        # Home button - top left
-        btn_home = make_icon_button(ICON_HOME,
-                             size=0.14,
-                             pos_hint={'x': 0.05, 'top': 0.95},
-                             font=ICON_TTF,
-                             font_size_fraction=0.07,
-                             bgcolor=HOME_COLOR,
-                             on_release=self.home_event
-                             )
-        self.overlay_layout.add_widget(btn_home)
+        self.btn_home = make_icon_button(
+            ICON_HOME,
+            size=0.14,
+            pos_hint={'x': 0.05, 'top': 0.95},
+            font=ICON_TTF,
+            font_size_fraction=0.07,
+            bgcolor=HOME_COLOR,
+            on_release=self.home_event,
+        )
+        self.overlay_layout.add_widget(self.btn_home)
 
-        # Print button - bottom right, just above Share when enabled
-        print_pos_hint = {'center_x': 0.5, 'y': 0.05} if not self.app.SHARE else {}
         self.btn_print = make_icon_text_button(
-                             icon=ICON_PRINT,
-                             text='PRINT',
-                             size_hint=(0.15, 0.09),
-                             pos_hint=print_pos_hint,
-                             icon_font=ICON_TTF,
-                             icon_font_size_fraction=0.07,
-                             text_font_size_fraction=0.035,
-                             bgcolor=CONFIRM_COLOR,
-                             on_release=self.print_event
-                             )
+            icon=ICON_PRINT,
+            text='PRINT',
+            size_hint=(0.16, 0.09),
+            pos_hint={},
+            icon_font=ICON_TTF,
+            icon_font_size_fraction=0.07,
+            text_font_size_fraction=0.035,
+            bgcolor=CONFIRM_COLOR,
+            on_release=self.print_event,
+        )
         self.overlay_layout.add_widget(self.btn_print)
 
-        # Share button - bottom right (with icon and text) - only if SHARE is enabled
         self.btn_share = None
         if self.app.SHARE:
             self.btn_share = make_icon_text_button(
-                                 icon=ICON_SHARE,
-                                 text='SHARE',
-                                 size_hint=(0.15, 0.09),
-                                  pos_hint={},
-                                 icon_font=ICON_TTF,
-                                 icon_font_size_fraction=0.07,
-                                 text_font_size_fraction=0.035,
-                                  bgcolor=SHARE_COLOR,
-                                  on_release=self.share_event,
-                                  )
+                icon=ICON_SHARE,
+                text='SHARE',
+                size_hint=(0.16, 0.09),
+                pos_hint={},
+                icon_font=ICON_TTF,
+                icon_font_size_fraction=0.07,
+                text_font_size_fraction=0.035,
+                bgcolor=SHARE_COLOR,
+                on_release=self.share_event,
+            )
             self.overlay_layout.add_widget(self.btn_share)
-            self.overlay_layout.bind(size=self._layout_action_buttons)
-            Clock.schedule_once(self._layout_action_buttons, 0)
 
+        self.overlay_layout.bind(size=self._layout_action_buttons)
+        Clock.schedule_once(self._layout_action_buttons, 0)
         self.add_widget(self.layout)
 
+    def _action_buttons(self):
+        buttons = []
+        if self.btn_share is not None:
+            buttons.append(self.btn_share)
+        if self.btn_print.parent is not None:
+            buttons.append(self.btn_print)
+        return buttons
+
+    def _sync_print_button(self):
+        printer_available = self.app.has_printer()
+        if printer_available and self.btn_print.parent is None:
+            self.overlay_layout.add_widget(self.btn_print)
+        elif not printer_available and self.btn_print.parent is not None:
+            self.overlay_layout.remove_widget(self.btn_print)
+        self._layout_action_buttons()
+
     def _layout_action_buttons(self, *args):
-        if not self.btn_share:
+        buttons = self._action_buttons()
+        if not buttons:
             return
-        # Keep PRINT/SHARE stacked in pixels after make_icon_text_button applies its min size.
         bottom = max(dp(4), self.overlay_layout.height * 0.05)
         gap = max(dp(4), self.overlay_layout.height * 0.02)
         top = max(dp(4), self.overlay_layout.height * 0.05)
-        max_h = max(dp(18), (self.overlay_layout.height - bottom - gap - top) / 2)
-        for btn in (self.btn_share, self.btn_print):
+        max_h = max(dp(18), (self.overlay_layout.height - bottom - top - gap * (len(buttons) - 1)) / len(buttons))
+        y = bottom
+        for btn in buttons:
             if btn.height > max_h:
                 btn.height = max_h
             btn.pos_hint = {}
             btn.x = max(0, min(self.overlay_layout.width * 0.95 - btn.width, self.overlay_layout.width - btn.width))
-        self.btn_share.y = bottom
-        self.btn_print.y = self.btn_share.top + gap
+            btn.y = y
+            y = btn.top + gap
 
     def on_entry(self, kwargs={}):
-        Logger.info('ConfirmPrintScreen: on_entry().')
+        Logger.info('ReviewScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self.auto_decline = Clock.schedule_once(self.timer_event, 60)
+        self.auto_done = Clock.schedule_once(self.timer_event, 60)
         if self.app.ringled:
             self.app.ringled.start_rainbow()
+        self._sync_print_button()
         self._load_preview_async(FileUtils.get_small_path(self.app.get_collage()))
         self.app.start_photo_task(self.app.save_collage)
         if self.app.SHARE:
@@ -1808,212 +1871,71 @@ class ConfirmPrintScreen(ColorScreen):
                 if im is not None:
                     self.preview.set_image(im)
                 else:
-                    Logger.warning('ConfirmPrintScreen: cannot load preview %s', path)
+                    Logger.warning('ReviewScreen: cannot load preview %s', path)
 
             Clock.schedule_once(apply_on_main, 0)
 
         threading.Thread(target=load_image, daemon=True).start()
 
     def on_exit(self, kwargs={}):
-        Logger.info('ConfirmPrintScreen: on_exit().')
-        if hasattr(self, 'auto_decline') and self.auto_decline:
-            Clock.unschedule(self.auto_decline)
-            self.auto_decline = None
+        Logger.info('ReviewScreen: on_exit().')
+        if hasattr(self, 'auto_done') and self.auto_done:
+            Clock.unschedule(self.auto_done)
+            self.auto_done = None
         if hasattr(self, 'qr_popup') and self.qr_popup.parent:
             self.layout.remove_widget(self.qr_popup)
+        if hasattr(self, 'print_popup') and self.print_popup.parent:
+            self.layout.remove_widget(self.print_popup)
         if self.app.ringled:
             self.app.ringled.clear()
+
+    def _reset_timeout(self):
+        if hasattr(self, 'auto_done') and self.auto_done:
+            Clock.unschedule(self.auto_done)
+        self.auto_done = Clock.schedule_once(self.timer_event, 60)
+
+    def home_event(self, obj):
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
+        Logger.info('ReviewScreen: home_event().')
+        if hasattr(self, 'auto_done') and self.auto_done:
+            Clock.unschedule(self.auto_done)
+        self.app.transition_to(ScreenMgr.SUCCESS)
 
     def print_event(self, obj):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('ConfirmPrintScreen: print_event().')
-        Clock.unschedule(self.auto_decline)
-        self.app.transition_to(ScreenMgr.PRINTING, copies=1, format=self._current_format)
-
-    def home_event(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Clock.unschedule(self.auto_decline)
-        self.app.transition_to(ScreenMgr.WAITING)
+        Logger.info('ReviewScreen: print_event().')
+        self._reset_timeout()
+        if hasattr(self, 'print_popup') and self.print_popup.parent:
+            return
+        self.print_popup = PrintStatusPopup(self.app, self._current_format, on_dismiss=self._dismiss_print_popup)
+        self.layout.add_widget(self.print_popup)
 
     def share_event(self, obj):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('ConfirmPrintScreen: share_event().')
-        # Reset timeout when opening QR code popup
-        Clock.unschedule(self.auto_decline)
-        self.auto_decline = Clock.schedule_once(self.timer_event, 60)
+        Logger.info('ReviewScreen: share_event().')
+        self._reset_timeout()
         if hasattr(self, 'qr_popup') and self.qr_popup.parent:
             return
-        # Show QR code popup
         self.qr_popup = QRCodePopup(on_dismiss=self._dismiss_qr_popup)
         self.layout.add_widget(self.qr_popup)
-    
+
+    def _dismiss_print_popup(self):
+        if hasattr(self, 'print_popup') and self.print_popup.parent:
+            self.layout.remove_widget(self.print_popup)
+        self._reset_timeout()
+
     def _dismiss_qr_popup(self):
-        """Remove QR code popup and reset timeout."""
         if hasattr(self, 'qr_popup') and self.qr_popup.parent:
             self.layout.remove_widget(self.qr_popup)
-        # Reset timeout when closing QR code popup
-        Clock.unschedule(self.auto_decline)
-        self.auto_decline = Clock.schedule_once(self.timer_event, 60)
+        self._reset_timeout()
 
     def timer_event(self, obj):
-        Logger.info('ConfirmPrintScreen: timer_event().')
-        self.app.transition_to(ScreenMgr.WAITING)
+        Logger.info('ReviewScreen: timer_event().')
+        self.app.transition_to(ScreenMgr.START)
 
     def on_keyboard_action(self):
-        # Ponytail: when PRINT and SHARE both exist, ENTER/SPACE chooses PRINT; SHARE is keyboard-primary only when it is the sole action.
-        self.print_event(None)
+        self.home_event(None)
         return True
-
-class PrintingScreen(ColorScreen):
-    """
-    +-----------------+
-    |                 |
-    |   Printing...   |
-    |                 |
-    +-----------------+
-    """
-    def __init__(self, app, **kwargs):
-        Logger.info('PrintingScreen: __init__().')
-        super(PrintingScreen, self).__init__(**kwargs)
-
-        self.app = app
-        self._current_format = 0
-        self._printer_wait_started_at = None
-        self._printer_wait_timeout = 45
-
-        layout = BoxLayout(orientation='vertical')
-
-        # Display print icon
-        icon = ResizeLabel(
-            size_hint=(0.4, 0.4),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5},
-            font_name=ICON_TTF,
-            text=ICON_PRINT,
-            wh_fraction=0.22,
-        )
-        layout.add_widget(icon)
-        self.icon = icon
-
-        self.status_label = Label(
-            size_hint=(0.9, 0.15),
-            pos_hint={'center_x': 0.5},
-            text='Printing...',
-            font_size=SMALL_FONT(),
-            halign='center',
-            valign='middle',
-        )
-        wh_bind(self.status_label, 'font_size', SMALL_FONT)
-        self.status_label.bind(size=self.status_label.setter('text_size'))
-        layout.add_widget(self.status_label)
-
-        # Display loading spinner
-        loading = RotatingLabel(
-            size_hint=(0.1, 0.1),
-            pos_hint={'center_x': 0.5, 'y': 0.3},
-            font_name=ICON_TTF,
-            text=ICON_LOADING,
-            wh_fraction=0.055,
-        )
-        layout.add_widget(loading)
-        self.add_widget(layout)
-
-        self._clock = None
-        self._auto_cancel = None
-
-    def on_entry(self, kwargs={}):
-        Logger.info('PrintingScreen: on_entry().')
-        if self.app.ringled:
-            self.app.ringled.start_rainbow()
-        self._current_copies = kwargs.get('copies') if 'copies' in kwargs else 0
-        self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self._printer_wait_started_at = None
-        self.status_label.text = 'Printing...'
-        self._print_started = False
-        self._print_task_id = None
-
-        self._clock = Clock.schedule_once(self.timer_event, 0.2)
-        self._auto_cancel = Clock.schedule_once(self.timer_toolong, 45)
-
-    def _start_print(self):
-        try:
-            print_task_id = self.app.trigger_print(self._current_copies, self._current_format)
-            if print_task_id is None:
-                raise RuntimeError('Printer did not return a task id')
-            self._print_task_id = print_task_id
-            self._print_started = True
-            Logger.info('PrintingScreen: print started task=%s', self._print_task_id)
-            return True
-        except Exception as e:
-            Logger.error('PrintingScreen: print start failed: %s', e)
-            self.app.transition_to(
-                ScreenMgr.ERROR,
-                error=ICON_ERROR_PRINTING,
-                error2=ICON_ERROR_DISCONNECTED,
-                message='Printer disconnected. Press CONTINUE to restart.',
-            )
-            return False
-
-    def on_exit(self, kwargs={}):
-        Logger.info('PrintingScreen: on_exit().')
-        if self._clock: Clock.unschedule(self._clock)
-        if self._auto_cancel: Clock.unschedule(self._auto_cancel)
-        if self.app.ringled:
-            self.app.ringled.clear()
-
-    def timer_event(self, obj):
-        Logger.info('PrintingScreen: timer_event().')
-        if self.app.has_pending_photo_tasks():
-            self.status_label.text = 'Saving before print...'
-            self._clock = Clock.schedule_once(self.timer_event, 0.2)
-            return
-
-        if self.app.get_pending_photo_error():
-            Logger.error('PrintingScreen: save before print failed.')
-            Logger.error(self.app.get_pending_photo_error())
-            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING, error2=ICON_ERROR_UNKNOWN)
-            return
-
-        if not self._print_started:
-            self.status_label.text = 'Sending to printer...'
-            if self._start_print():
-                self._clock = Clock.schedule_once(self.timer_event, 1)
-            return
-
-        if not self.app.has_printer():
-            if self._printer_wait_started_at is None:
-                self._printer_wait_started_at = time.monotonic()
-                Logger.warning('PrintingScreen: printer unavailable, entering recovery wait')
-
-            waited = time.monotonic() - self._printer_wait_started_at
-            remaining = max(0, int(self._printer_wait_timeout - waited))
-            self.status_label.text = f'Printer unavailable. Waiting for reconnection... {remaining}s'
-
-            if waited >= self._printer_wait_timeout:
-                self.app.enter_maintenance_mode(
-                    title='PRINTER',
-                    message='Printer did not recover. Please call an operator.',
-                    details=f'Unavailable for {int(waited)}s',
-                )
-                return
-
-            self._clock = Clock.schedule_once(self.timer_event, 1)
-            return
-
-        if self._printer_wait_started_at is not None:
-            Logger.info('PrintingScreen: printer recovered after %.2fs', time.monotonic() - self._printer_wait_started_at)
-            self._printer_wait_started_at = None
-            self.status_label.text = 'Printing...'
-
-        if not self.app.is_print_completed(self._print_task_id):
-            self._clock = Clock.schedule_once(self.timer_event, 1)
-        else:
-            if self._clock: Clock.unschedule(self._clock)
-            if self._auto_cancel: Clock.unschedule(self._auto_cancel)
-            self.app.transition_to(ScreenMgr.SUCCESS)
-
-    def timer_toolong(self, obj):
-        Logger.info('PrintingScreen: timer_toolong().')
-        return self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_PRINTING, error2=ICON_ERROR_TOOLONG)
 
 class SuccessScreen(ColorScreen):
     """
@@ -2067,11 +1989,11 @@ class SuccessScreen(ColorScreen):
 
     def on_click_start(self, obj):
         Logger.info('SuccessScreen: on_click_start(%s).', obj)
-        self.app.transition_to(ScreenMgr.WAITING)
+        self.app.transition_to(ScreenMgr.START)
 
     def timer_event(self, obj):
         Logger.info('SuccessScreen: timer_event().')
-        self.app.transition_to(ScreenMgr.WAITING)
+        self.app.transition_to(ScreenMgr.START)
 
 class CopyingScreen(ColorScreen):
     """

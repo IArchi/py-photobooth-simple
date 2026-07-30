@@ -55,15 +55,26 @@ class KivyCamera(Image):
         if parent is None or parent.width <= 1 or parent.height <= 1:
             return (frame_width, frame_height)
 
-        scale = min(1.0, parent.width / frame_width, parent.height / frame_height)
+        scale = min(parent.width / frame_width, parent.height / frame_height)
         return (
             max(1, int(frame_width * scale)),
             max(1, int(frame_height * scale)),
         )
 
+    def _get_parent_size(self):
+        parent = self.parent
+        if parent is None or parent.width <= 1 or parent.height <= 1:
+            return None
+        return (max(1, int(parent.width)), max(1, int(parent.height)))
+
     def _sync_display_size(self):
         if self._last_frame_size is None:
             return
+        if self._blur:
+            parent_size = self._get_parent_size()
+            if parent_size is not None:
+                self.size = parent_size
+                return
         self.size = self._get_display_size(*self._last_frame_size)
 
     def start(self, aspect_ratio=None):
@@ -109,7 +120,8 @@ class KivyCamera(Image):
 
             # Generate blurry borders (réduire la résolution avant blur pour plus de fluidité)
             if self._blur:
-                if display_size[0] <= 1 or display_size[1] <= 1:
+                target_size = self._get_parent_size() or display_size
+                if target_size[0] <= 1 or target_size[1] <= 1:
                     return
                 max_w, max_h = 1280, 720
                 if frame_w > max_w or frame_h > max_h:
@@ -118,7 +130,7 @@ class KivyCamera(Image):
                 refresh_blur = (self._frame_count % self._blur_refresh_frames) == 0
                 im, self._blur_cache = FileUtils.blurry_borders(
                     im,
-                    display_size,
+                    target_size,
                     blur_cache=self._blur_cache,
                     refresh_blur=refresh_blur,
                     return_cache=True,
