@@ -54,6 +54,9 @@ def _on_window_resize(instance, size):
 Window.bind(size=_on_window_resize)
 
 SHOT_TIMEOUT_SECONDS = 10
+HOME_TIMEOUT_SECONDS = 60
+COUNTDOWN_HOME_TIMEOUT_SECONDS = 30
+CONFIRM_CAPTURE_HOME_TIMEOUT_SECONDS = 30
 
 def hex_to_rgba(hex_color):
     hex_color = hex_color.lstrip('#')
@@ -64,6 +67,22 @@ def hex_to_rgba(hex_color):
         1.0,
     )
 
+def lighten_rgba(color, amount=0.35):
+    return (
+        min(1.0, color[0] + (1.0 - color[0]) * amount),
+        min(1.0, color[1] + (1.0 - color[1]) * amount),
+        min(1.0, color[2] + (1.0 - color[2]) * amount),
+        color[3],
+    )
+
+def darken_rgba(color, amount=0.25):
+    return (
+        max(0.0, color[0] * (1.0 - amount)),
+        max(0.0, color[1] * (1.0 - amount)),
+        max(0.0, color[2] * (1.0 - amount)),
+        color[3],
+    )
+
 # Colors
 BACKGROUND_COLOR = hex_to_rgba('#26495c')
 BORDER_COLOR = hex_to_rgba('#c4a35a')
@@ -72,6 +91,7 @@ PROGRESS_COLOR = hex_to_rgba('#e5e5e5')
 CONFIRM_COLOR = hex_to_rgba('#538a64')
 CANCEL_COLOR = hex_to_rgba('#8b4846')
 HOME_COLOR = hex_to_rgba('#534969')
+HOME_PROGRESS_COLOR = darken_rgba(HOME_COLOR) #lighten_rgba(HOME_COLOR)
 BADGE_COLOR = hex_to_rgba('#8b4846')
 SHARE_COLOR = hex_to_rgba('#667eea')
 
@@ -692,6 +712,8 @@ class CountdownScreen(ColorScreen):
         self._current_shot = 0
         self._current_format = 0
         self._timer_active = False
+        self._home_timeout_clock = None
+        self._home_progress_clock = None
 
         self.time_remaining = self.app.COUNTDOWN
         self.total_countdown = self.app.COUNTDOWN
@@ -752,6 +774,9 @@ class CountdownScreen(ColorScreen):
             font=ICON_TTF,
             font_size_fraction=0.07,
             bgcolor=HOME_COLOR,
+            progress=True,
+            progress_color=HOME_PROGRESS_COLOR,
+            progress_line_width_fraction=0.028,
             on_release=self.home_event
         )
 
@@ -791,6 +816,7 @@ class CountdownScreen(ColorScreen):
             self.overlay_layout.add_widget(self.btn_trigger)
         if self.circular_counter.parent:
             self.overlay_layout.remove_widget(self.circular_counter)
+        self._start_home_timeout()
         
         self._clock = None
         self._clock_progress = None
@@ -805,6 +831,7 @@ class CountdownScreen(ColorScreen):
             Clock.unschedule(self._clock_progress)
         if self._clock_trigger:
             Clock.unschedule(self._clock_trigger)
+        self._stop_home_timeout()
         if self.app.ringled:
             self.app.ringled.clear()
         if self.loading_layout.parent:
@@ -820,6 +847,33 @@ class CountdownScreen(ColorScreen):
         elapsed_time = Clock.get_boottime() - self.start_time
         remaining_progress = max(0, 1.0 - (elapsed_time / self.total_countdown))
         self.circular_counter.set_progress(remaining_progress)
+
+    def _start_home_timeout(self):
+        self._stop_home_timeout()
+        self._home_timeout_started_at = Clock.get_boottime()
+        self.btn_home.progress = 1.0
+        self.btn_home.show_progress = True
+        self._home_timeout_clock = Clock.schedule_once(self.home_timeout_event, COUNTDOWN_HOME_TIMEOUT_SECONDS)
+        self._home_progress_clock = Clock.schedule_interval(self._update_home_progress, 1/30.0)
+
+    def _stop_home_timeout(self):
+        if self._home_timeout_clock:
+            Clock.unschedule(self._home_timeout_clock)
+            self._home_timeout_clock = None
+        if self._home_progress_clock:
+            Clock.unschedule(self._home_progress_clock)
+            self._home_progress_clock = None
+        self.btn_home.progress = 1.0
+        self.btn_home.show_progress = False
+
+    def _update_home_progress(self, dt):
+        elapsed = Clock.get_boottime() - self._home_timeout_started_at
+        self.btn_home.progress = max(0, 1.0 - (elapsed / COUNTDOWN_HOME_TIMEOUT_SECONDS))
+
+    def home_timeout_event(self, obj):
+        Logger.info('CountdownScreen: home_timeout_event().')
+        self._stop_home_timeout()
+        self.app.transition_to(ScreenMgr.START)
 
     def timer_event(self, obj):
         Logger.info('CountdownScreen: timer_event(%s)', obj)
@@ -904,6 +958,8 @@ class CountdownScreen(ColorScreen):
 
     def start_countdown(self):
         Logger.info('CountdownScreen: start_countdown().')
+        self._stop_home_timeout()
+
         # Hide home button
         if self.btn_home.parent:
             self.overlay_layout.remove_widget(self.btn_home)
@@ -949,6 +1005,7 @@ class CountdownScreen(ColorScreen):
         # Show home button again
         if not self.btn_home.parent:
             self.overlay_layout.add_widget(self.btn_home)
+        self._start_home_timeout()
         
         # Update button icon and color (access child button from parent layout)
         for child in self.btn_trigger.children:
@@ -964,6 +1021,7 @@ class CountdownScreen(ColorScreen):
     def home_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('CountdownScreen: home_event().')
+        self._stop_home_timeout()
         self.app.transition_to(ScreenMgr.START)
 
 class ConfirmCaptureScreen(ColorScreen):
@@ -999,6 +1057,8 @@ class ConfirmCaptureScreen(ColorScreen):
         self._current_format = 1
         self._selected_filter = 'color'  # Default filter
         self._original_image = None  # Store original image
+        self._home_timeout_clock = None
+        self._home_progress_clock = None
 
         self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
         self.overlay_layout = FloatLayout()
@@ -1082,15 +1142,18 @@ class ConfirmCaptureScreen(ColorScreen):
                 self.filter_cards.append(card)
 
         # Home button - top left
-        btn_home = make_icon_button(ICON_HOME,
+        self.btn_home = make_icon_button(ICON_HOME,
                              size=0.14,
                              pos_hint={'x': 0.05, 'top': 0.95},
                              font=ICON_TTF,
                              font_size_fraction=0.07,
                              bgcolor=HOME_COLOR,
+                             progress=True,
+                             progress_color=HOME_PROGRESS_COLOR,
+                             progress_line_width_fraction=0.028,
                              on_release=self.home_event
                              )
-        self.overlay_layout.add_widget(btn_home)
+        self.overlay_layout.add_widget(self.btn_home)
 
         # Cancel button - bottom left (always at same position)
         btn_cancel = make_icon_button(ICON_CANCEL,
@@ -1437,7 +1500,7 @@ class ConfirmCaptureScreen(ColorScreen):
             Clock.schedule_once(apply_on_main, 0)
 
         threading.Thread(target=load_images, daemon=True).start()
-        self.auto_leave = Clock.schedule_once(self.timer_event, 60)
+        self._start_home_timeout()
 
     def _save_selected_filter(self, shot, filter_key, original_image):
         filtered_image = self._apply_filter(original_image.copy(), filter_key)
@@ -1449,13 +1512,30 @@ class ConfirmCaptureScreen(ColorScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('ConfirmCaptureScreen: on_exit().')
-        if hasattr(self, 'auto_leave') and self.auto_leave:
-            Clock.unschedule(self.auto_leave)
-            self.auto_leave = None
+        self._stop_home_timeout()
+
+    def _start_home_timeout(self):
+        self._stop_home_timeout()
+        self._home_timeout_started_at = Clock.get_boottime()
+        self.btn_home.progress = 1.0
+        self._home_timeout_clock = Clock.schedule_once(self.timer_event, CONFIRM_CAPTURE_HOME_TIMEOUT_SECONDS)
+        self._home_progress_clock = Clock.schedule_interval(self._update_home_progress, 1/30.0)
+
+    def _stop_home_timeout(self):
+        if self._home_timeout_clock:
+            Clock.unschedule(self._home_timeout_clock)
+            self._home_timeout_clock = None
+        if self._home_progress_clock:
+            Clock.unschedule(self._home_progress_clock)
+            self._home_progress_clock = None
+
+    def _update_home_progress(self, dt):
+        elapsed = Clock.get_boottime() - self._home_timeout_started_at
+        self.btn_home.progress = max(0, 1.0 - (elapsed / CONFIRM_CAPTURE_HOME_TIMEOUT_SECONDS))
 
     def keep_event(self, obj):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
-        Clock.unschedule(self.auto_leave)
+        self._stop_home_timeout()
         
         # Apply selected filter off the UI thread; Processing waits before building the collage.
         if self.app.FILTERS and self._selected_filter != 'color' and self._original_image is not None:
@@ -1468,16 +1548,17 @@ class ConfirmCaptureScreen(ColorScreen):
 
     def no_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Clock.unschedule(self.auto_leave)
+        self._stop_home_timeout()
         self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot, format=self._current_format)
 
     def home_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Clock.unschedule(self.auto_leave)
+        self._stop_home_timeout()
         self.app.transition_to(ScreenMgr.START)
 
     def timer_event(self, obj):
         Logger.info('ConfirmCaptureScreen: timer_event().')
+        self._stop_home_timeout()
         self.app.transition_to(ScreenMgr.START)
 
     def on_keyboard_action(self):
@@ -1763,6 +1844,8 @@ class ReviewScreen(ColorScreen):
 
         self.app = app
         self._current_format = 0
+        self._home_timeout_clock = None
+        self._home_progress_clock = None
         self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
         self.overlay_layout = FloatLayout()
         self.layout.add_widget(self.overlay_layout)
@@ -1782,6 +1865,9 @@ class ReviewScreen(ColorScreen):
             font=ICON_TTF,
             font_size_fraction=0.07,
             bgcolor=HOME_COLOR,
+            progress=True,
+            progress_color=HOME_PROGRESS_COLOR,
+            progress_line_width_fraction=0.028,
             on_release=self.home_event,
         )
         self.overlay_layout.add_widget(self.btn_home)
@@ -1854,7 +1940,7 @@ class ReviewScreen(ColorScreen):
     def on_entry(self, kwargs={}):
         Logger.info('ReviewScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
-        self.auto_done = Clock.schedule_once(self.timer_event, 60)
+        self._start_home_timeout()
         if self.app.ringled:
             self.app.ringled.start_rainbow()
         self._sync_print_button()
@@ -1879,9 +1965,7 @@ class ReviewScreen(ColorScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('ReviewScreen: on_exit().')
-        if hasattr(self, 'auto_done') and self.auto_done:
-            Clock.unschedule(self.auto_done)
-            self.auto_done = None
+        self._stop_home_timeout()
         if hasattr(self, 'qr_popup') and self.qr_popup.parent:
             self.layout.remove_widget(self.qr_popup)
         if hasattr(self, 'print_popup') and self.print_popup.parent:
@@ -1890,15 +1974,31 @@ class ReviewScreen(ColorScreen):
             self.app.ringled.clear()
 
     def _reset_timeout(self):
-        if hasattr(self, 'auto_done') and self.auto_done:
-            Clock.unschedule(self.auto_done)
-        self.auto_done = Clock.schedule_once(self.timer_event, 60)
+        self._start_home_timeout()
+
+    def _start_home_timeout(self):
+        self._stop_home_timeout()
+        self._home_timeout_started_at = Clock.get_boottime()
+        self.btn_home.progress = 1.0
+        self._home_timeout_clock = Clock.schedule_once(self.timer_event, HOME_TIMEOUT_SECONDS)
+        self._home_progress_clock = Clock.schedule_interval(self._update_home_progress, 1/30.0)
+
+    def _stop_home_timeout(self):
+        if self._home_timeout_clock:
+            Clock.unschedule(self._home_timeout_clock)
+            self._home_timeout_clock = None
+        if self._home_progress_clock:
+            Clock.unschedule(self._home_progress_clock)
+            self._home_progress_clock = None
+
+    def _update_home_progress(self, dt):
+        elapsed = Clock.get_boottime() - self._home_timeout_started_at
+        self.btn_home.progress = max(0, 1.0 - (elapsed / HOME_TIMEOUT_SECONDS))
 
     def home_event(self, obj):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ReviewScreen: home_event().')
-        if hasattr(self, 'auto_done') and self.auto_done:
-            Clock.unschedule(self.auto_done)
+        self._stop_home_timeout()
         self.app.transition_to(ScreenMgr.SUCCESS)
 
     def print_event(self, obj):
@@ -1931,6 +2031,7 @@ class ReviewScreen(ColorScreen):
 
     def timer_event(self, obj):
         Logger.info('ReviewScreen: timer_event().')
+        self._stop_home_timeout()
         self.app.transition_to(ScreenMgr.START)
 
     def on_keyboard_action(self):

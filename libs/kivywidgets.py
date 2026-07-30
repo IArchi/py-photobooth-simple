@@ -283,6 +283,10 @@ Builder.load_string("""
 <SquareFloatLayout>:
     size_hint: None, None
     background_color: 0, 0, 0, 0
+    show_progress: False
+    progress: 1
+    progress_color: 1, 1, 1, 1
+    progress_line_width: 1
 
     canvas:
         Color:
@@ -290,11 +294,23 @@ Builder.load_string("""
         Rectangle:
             pos: self.pos
             size: self.size
+    canvas.after:
+        Color:
+            rgba: self.progress_color if self.show_progress else (0, 0, 0, 0)
+        Line:
+            circle: (self.center_x, self.center_y, min(self.size) * 0.5 + self.progress_line_width / 2, 0, 360 * self.progress)
+            width: self.progress_line_width
+            cap: 'round'
 """)
 class SquareFloatLayout(FloatLayout):
     size_square = NumericProperty(100)
     background_color = ColorProperty()
     use_parent_size = BooleanProperty(False)
+    show_progress = BooleanProperty(False)
+    progress = NumericProperty(1)
+    progress_color = ColorProperty([1, 1, 1, 1])
+    progress_line_width = NumericProperty(1)
+    progress_line_width_fraction = NumericProperty(0)
     
     def __init__(self, use_parent_size=False, **kwargs):
         self.use_parent_size = use_parent_size
@@ -319,6 +335,7 @@ class SquareFloatLayout(FloatLayout):
         window_min = min(Window.size)
         button_size = window_min * self.size_square
         self.size = (button_size, button_size)
+        self._update_progress_line_width()
     
     def _update_size_from_parent(self, *args):
         # Use parent size for buttons in BoxLayouts
@@ -326,6 +343,11 @@ class SquareFloatLayout(FloatLayout):
             parent_min = min(self.parent.size) if self.parent.size[0] > 0 and self.parent.size[1] > 0 else Window.height * 0.17
             button_size = parent_min * self.size_square
             self.size = (button_size, button_size)
+            self._update_progress_line_width()
+
+    def _update_progress_line_width(self):
+        if self.progress_line_width_fraction:
+            self.progress_line_width = min(self.size) * self.progress_line_width_fraction
 
 Builder.load_string("""
 <LabelRoundButton>:
@@ -621,13 +643,16 @@ Builder.load_string("""
 class RoundedButton(FeedbackButtonBehavior, Label):
     background_color = ListProperty([1, 1, 1, 1])
 
-def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=sp(10), font_size_fraction=0, bgcolor=(1,1,1,1), badge=None, badge_font_size=sp(10), badge_color=(1,0,0,1), on_release=None):
+def make_icon_button(icon, size, pos_hint={}, font='Roboto', font_size=sp(10), font_size_fraction=0, bgcolor=(1,1,1,1), badge=None, badge_font_size=sp(10), badge_color=(1,0,0,1), on_release=None, progress=False, progress_color=(1,1,1,1), progress_line_width_fraction=0.045):
     # If size >= 1, use parent size (for buttons in BoxLayouts), otherwise use Window size
     use_parent = (size >= 1.0)
     parent = SquareFloatLayout(
         size_square=size,
         pos_hint=pos_hint,
         use_parent_size=use_parent,
+        show_progress=progress,
+        progress_color=progress_color,
+        progress_line_width_fraction=progress_line_width_fraction,
     )
     ic = LabelRoundButton(
         font_name=font,
