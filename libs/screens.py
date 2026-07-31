@@ -2026,6 +2026,18 @@ class SuccessScreen(ColorScreen):
         )
         layout.add_widget(icon)
 
+        title = Label(
+            size_hint=(1, 0.10),
+            text='Awesome !',
+            font_size=LARGE_FONT(),
+            bold=True,
+            halign='center',
+            valign='middle',
+        )
+        wh_bind(title, 'font_size', LARGE_FONT)
+        title.bind(size=title.setter('text_size'))
+        layout.add_widget(title)
+
         # Display success2 icon
         icon2 = ResizeLabel(
             size_hint=(0.1, 0.1),
