@@ -100,10 +100,7 @@ ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font
 ICON_TOUCH = '\u3d3e'
 ICON_ERROR = '\u3b03'
 ICON_ERROR_PRINTING = '\u458d'
-ICON_ERROR_TOOLONG = '\u4916'
-ICON_ERROR_DISCONNECTED = '\u3e63'
 ICON_ERROR_TRIGGER = '\u3d39'
-ICON_ERROR_UNKNOWN = '\u413a'
 ICON_LOADING = '\u45ec'
 ICON_PROCESSING = '\u3ad2'
 ICON_SHOT_TO_TAKE = '\u47f2'
@@ -118,7 +115,6 @@ ICON_USB = '\u49ba'
 ICON_TRIGGER = '\u3d3e'
 ICON_QRCODE = '\u45f4'
 ICON_SHARE = '\u46d4'
-ICON_MAINTENANCE = '\u413a'
 
 
 class ScreenMgr(ScreenManager):
@@ -127,7 +123,6 @@ class ScreenMgr(ScreenManager):
     READY = 'ready'
     SELECT_FORMAT = 'select_format'
     ERROR = 'error'
-    MAINTENANCE = 'maintenance'
     COUNTDOWN = 'countdown'
     CONFIRM_CAPTURE = 'confirm_capture'
     PROCESSING = 'processing'
@@ -144,7 +139,6 @@ class ScreenMgr(ScreenManager):
             self.START              : StartScreen(app, name=self.START),
             self.SELECT_FORMAT      : SelectFormatScreen(app, name=self.SELECT_FORMAT),
             self.ERROR              : ErrorScreen(app, name=self.ERROR),
-            self.MAINTENANCE        : MaintenanceScreen(app, name=self.MAINTENANCE),
             self.COUNTDOWN          : CountdownScreen(app, name=self.COUNTDOWN),
             self.CONFIRM_CAPTURE    : ConfirmCaptureScreen(app, name=self.CONFIRM_CAPTURE),
             self.PROCESSING         : ProcessingScreen(app, name=self.PROCESSING),
@@ -549,12 +543,14 @@ class ErrorScreen(ColorScreen):
         super(ErrorScreen, self).__init__(**kwargs)
 
         self.app = app
+        self._show_continue = True
+        self._show_restart = False
 
-        layout = BoxLayout(orientation='vertical', padding=(0, 0, 0, dp(24)))
+        layout = BoxLayout(orientation='vertical', padding=(0, dp(12), 0, dp(24)), spacing=dp(12))
 
         # Display error icon
         self.icon = ResizeLabel(
-            size_hint=(0.4, 0.4),
+            size_hint=(0.4, 0.32),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             font_name=ICON_TTF,
             text=ICON_ERROR,
@@ -562,80 +558,9 @@ class ErrorScreen(ColorScreen):
         )
         layout.add_widget(self.icon)
 
-        # Display second icon
-        self.icon2 = ResizeLabel(
-            size_hint=(0.1, 0.1),
-            pos_hint={'center_x': 0.5, 'y': 0.3},
-            font_name=ICON_TTF,
-            text=ICON_LOADING,
-            wh_fraction=0.055,
-        )
-        layout.add_widget(self.icon2)
-
-        self.message = Label(
-            size_hint=(1, 0.18),
-            text='An error occurred.',
-            font_size=SMALL_FONT(),
-            halign='center',
-            valign='middle',
-        )
-        wh_bind(self.message, 'font_size', SMALL_FONT)
-        self.message.bind(size=self.message.setter('text_size'))
-        layout.add_widget(self.message)
-
-        self.btn_continue = RoundedButton(
-            text='CONTINUE',
-            size_hint=(0.20, 0.07),
-            pos_hint={'center_x': 0.5},
-            background_color=CONFIRM_COLOR,
-            font_size=SMALL_FONT(),
-            bold=True,
-            halign='center',
-            valign='middle',
-        )
-        wh_bind(self.btn_continue, 'font_size', SMALL_FONT)
-        self.btn_continue.bind(size=self.btn_continue.setter('text_size'))
-        self.btn_continue.bind(on_release=self.on_click)
-        layout.add_widget(self.btn_continue)
-
-        self.add_widget(layout)
-
-    def on_entry(self, kwargs={}):
-        Logger.info('ErrorScreen: on_entry().')
-        self.icon.text = str(kwargs.get('error', ICON_ERROR))
-        self.icon2.text = str(kwargs.get('error2', ICON_ERROR_UNKNOWN))
-        self.message.text = str(kwargs.get('message', 'An error occurred. Press CONTINUE to restart.'))
-
-    def on_exit(self, kwargs={}):
-        Logger.info('ErrorScreen: on_exit().')
-
-    def on_click(self, obj):
-        if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('ErrorScreen: on_click().')
-        self.app.transition_to(ScreenMgr.START)
-
-class MaintenanceScreen(ColorScreen):
-    """Operational maintenance screen for infrastructure incidents."""
-
-    def __init__(self, app, **kwargs):
-        Logger.info('MaintenanceScreen: __init__().')
-        super(MaintenanceScreen, self).__init__(**kwargs)
-
-        self.app = app
-
-        layout = BoxLayout(orientation='vertical', padding=Window.height * 0.033, spacing=Window.height * 0.022)
-
-        self.icon = ResizeLabel(
-            size_hint=(1, 0.35),
-            font_name=ICON_TTF,
-            text=ICON_MAINTENANCE,
-            wh_fraction=0.22,
-        )
-        layout.add_widget(self.icon)
-
         self.title = Label(
-            size_hint=(1, 0.12),
-            text='MAINTENANCE',
+            size_hint=(1, 0.10),
+            text='Error',
             font_size=LARGE_FONT(),
             bold=True,
             halign='center',
@@ -646,8 +571,8 @@ class MaintenanceScreen(ColorScreen):
         layout.add_widget(self.title)
 
         self.message = Label(
-            size_hint=(1, 0.25),
-            text='Please call an operator.',
+            size_hint=(1, 0.24),
+            text='An error occurred.',
             font_size=SMALL_FONT(),
             halign='center',
             valign='middle',
@@ -656,45 +581,82 @@ class MaintenanceScreen(ColorScreen):
         self.message.bind(size=self.message.setter('text_size'))
         layout.add_widget(self.message)
 
-        self.details = Label(
-            size_hint=(1, 0.18),
-            text='-',
-            font_size=TINY_FONT(),
+        self.actions = BoxLayout(
+            orientation='horizontal',
+            spacing=dp(16),
+            size_hint=(1, 0.12),
+            padding=(Window.width * 0.18, 0, Window.width * 0.18, 0),
+        )
+
+        self.btn_restart = RoundedButton(
+            text='RESTART',
+            size_hint=(1, 1),
+            background_color=HOME_COLOR,
+            font_size=SMALL_FONT(),
+            bold=True,
             halign='center',
             valign='middle',
         )
-        wh_bind(self.details, 'font_size', TINY_FONT)
-        self.details.bind(size=self.details.setter('text_size'))
-        layout.add_widget(self.details)
+        wh_bind(self.btn_restart, 'font_size', SMALL_FONT)
+        self.btn_restart.bind(size=self.btn_restart.setter('text_size'))
+        self.btn_restart.bind(on_release=self.on_restart)
+        self.actions.add_widget(self.btn_restart)
 
-        self.btn_restart = make_icon_text_button(
-            icon=ICON_LOADING,
-            text='RESTART',
-            size_hint=(0.22, 0.12),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5},
-            icon_font=ICON_TTF,
-            icon_font_size_fraction=0.07,
-            text_font_size_fraction=0.035,
-            bgcolor=CONFIRM_COLOR,
-            on_release=self.restart_event,
+        self.btn_continue = RoundedButton(
+            text='CONTINUE',
+            size_hint=(1, 1),
+            background_color=CONFIRM_COLOR,
+            font_size=SMALL_FONT(),
+            bold=True,
+            halign='center',
+            valign='middle',
         )
-        layout.add_widget(self.btn_restart)
+        wh_bind(self.btn_continue, 'font_size', SMALL_FONT)
+        self.btn_continue.bind(size=self.btn_continue.setter('text_size'))
+        self.btn_continue.bind(on_release=self.on_click)
+        self.actions.add_widget(self.btn_continue)
+
+        layout.add_widget(self.actions)
 
         self.add_widget(layout)
 
     def on_entry(self, kwargs={}):
-        Logger.info('MaintenanceScreen: on_entry().')
-        self.title.text = str(kwargs.get('title', 'MAINTENANCE'))
-        self.message.text = str(kwargs.get('message', 'Please call an operator.'))
-        self.details.text = str(kwargs.get('details', '-'))
+        Logger.info('ErrorScreen: on_entry().')
+        self.title.text = 'Error'
+        self.icon.text = str(kwargs.get('error', ICON_ERROR))
+        self.message.text = str(kwargs.get('message', 'An error occurred.'))
+        self._show_continue = bool(kwargs.get('show_continue', True))
+        self._show_restart = bool(kwargs.get('show_restart', False))
+        self.btn_continue.text = str(kwargs.get('continue_text', 'CONTINUE'))
+        self.btn_restart.text = str(kwargs.get('restart_text', 'RESTART'))
+        self.btn_continue.opacity = 1 if self._show_continue else 0
+        self.btn_continue.disabled = not self._show_continue
+        self.btn_restart.opacity = 1 if self._show_restart else 0
+        self.btn_restart.disabled = not self._show_restart
+        self.actions.opacity = 1 if (self._show_continue or self._show_restart) else 0
 
     def on_exit(self, kwargs={}):
-        Logger.info('MaintenanceScreen: on_exit().')
+        Logger.info('ErrorScreen: on_exit().')
 
-    def restart_event(self, obj):
+    def on_click(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
-        Logger.info('MaintenanceScreen: restart_event().')
+        Logger.info('ErrorScreen: on_click().')
+        self.app.transition_to(ScreenMgr.START)
+
+    def on_restart(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        Logger.info('ErrorScreen: on_restart().')
         self.app.request_restart()
+
+    def on_keyboard_action(self):
+        Logger.info('ErrorScreen: on_keyboard_action().')
+        if self._show_continue:
+            self.app.transition_to(ScreenMgr.START)
+            return True
+        if self._show_restart:
+            self.app.request_restart()
+            return True
+        return False
 
 class CountdownScreen(ColorScreen):
     """
@@ -908,7 +870,7 @@ class CountdownScreen(ColorScreen):
                     self.overlay_layout.remove_widget(self.btn_trigger)
                 self.overlay_layout.add_widget(self.loading_layout)
             except:
-                return self.app.transition_to(ScreenMgr.ERROR, error2=ICON_ERROR_TRIGGER)
+                return self.app.transition_to(ScreenMgr.ERROR, message='Unable to start photo capture.')
 
     def timer_bg(self, obj):
         self.camera.opacity = 0
@@ -922,7 +884,7 @@ class CountdownScreen(ColorScreen):
                 if hasattr(self.app, 'recover_devices_and_return_home'):
                     self.app.recover_devices_and_return_home(reason='capture_timeout')
                 else:
-                    self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_TRIGGER, error2=ICON_ERROR_TOOLONG)
+                    self.app.transition_to(ScreenMgr.ERROR, message='Photo capture took too long.')
             else:
                 # Retry after 1sec
                 self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
@@ -934,7 +896,7 @@ class CountdownScreen(ColorScreen):
             if hasattr(self.app, 'recover_devices_and_return_home'):
                 self.app.recover_devices_and_return_home(reason='capture_failure')
             else:
-                self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR_TRIGGER, error2=ICON_ERROR_DISCONNECTED)
+                self.app.transition_to(ScreenMgr.ERROR, message='Photo capture failed.')
         else:
             # Display photo for validation
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
@@ -1628,7 +1590,7 @@ class ProcessingScreen(ColorScreen):
         if self.app.get_pending_photo_error():
             Logger.error('ProcessingScreen: photo preparation failed.')
             Logger.error(self.app.get_pending_photo_error())
-            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR, error2=ICON_ERROR_UNKNOWN)
+            self.app.transition_to(ScreenMgr.ERROR, message='Photo processing failed.')
             return
 
         if not self._collage_started:
@@ -1644,7 +1606,7 @@ class ProcessingScreen(ColorScreen):
             error_details = self.app.get_process_error('collage')
             if error_details:
                 Logger.error(error_details)
-            self.app.transition_to(ScreenMgr.ERROR, error=ICON_ERROR, error2=ICON_ERROR_TRIGGER)
+            self.app.transition_to(ScreenMgr.ERROR, message='Collage creation failed.')
         else:
             self.app.transition_to(ScreenMgr.REVIEW, format=self._current_format)
 

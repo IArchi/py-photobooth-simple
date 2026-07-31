@@ -151,18 +151,17 @@ class PhotoboothApp(App):
             )
         else:
             Logger.error('PhotoboothApp: Web server failed to start; gallery and admin are unavailable')
-            self._requested_screen = ScreenMgr.MAINTENANCE
+            self._requested_screen = ScreenMgr.ERROR
             self._requested_kwargs = {
-                'title': 'WEB SERVER',
-                'message': 'Web administration is unavailable. Please call an operator.',
-                'details': f'Server failed to start on port {self.WEB_PORT}.',
+                'message': f"Web server cannot be bound to port {self.WEB_PORT}.",
+                'show_continue': True,
+                'show_restart': True,
             }
 
         self._log_disk_space('startup')
         if self.is_disk_space_critical():
-            usage = self.get_disk_usage()
-            self._requested_screen = ScreenMgr.MAINTENANCE
-            self._requested_kwargs = self._disk_maintenance_kwargs(usage)
+            self._requested_screen = ScreenMgr.ERROR
+            self._requested_kwargs = self._disk_maintenance_kwargs()
         self._log_runtime_snapshot('startup')
 
     def build(self):
@@ -203,13 +202,13 @@ class PhotoboothApp(App):
         self.sm.current = new_state
         self.sm.current_screen.on_entry(kwargs)
 
-    def enter_maintenance_mode(self, title, message, details='-'):
-        Logger.error('PhotoboothApp: entering maintenance mode title=%s details=%s', title, details)
+    def enter_maintenance_mode(self, message, show_continue=False, show_restart=True):
+        Logger.error('PhotoboothApp: entering maintenance mode message=%s', message)
         self.request_transition_to(
-            ScreenMgr.MAINTENANCE,
-            title=title,
+            ScreenMgr.ERROR,
             message=message,
-            details=details,
+            show_continue=show_continue,
+            show_restart=show_restart,
         )
 
     def get_current_screen_name(self):
@@ -313,12 +312,11 @@ class PhotoboothApp(App):
             return False
         return usage['free_gb'] < self.DISK_MIN_FREE_GB or usage['used_percent'] >= self.DISK_MAX_USED_PERCENT
 
-    def _disk_maintenance_kwargs(self, usage=None):
-        usage = usage or self.get_disk_usage()
+    def _disk_maintenance_kwargs(self):
         return {
-            'title': 'STORAGE FULL',
-            'message': 'Photo storage is almost full. Please call an operator before taking more photos.',
-            'details': 'Free %.2fGB, used %.1f%% at %s' % (usage['free_gb'], usage['used_percent'], self.DCIM_DIRECTORY),
+            'message': 'Photo storage is full. Please call an operator.',
+            'show_continue': False,
+            'show_restart': True,
         }
 
     def ensure_disk_space_or_maintenance(self):
@@ -545,9 +543,7 @@ class PhotoboothApp(App):
                 Logger.error('PhotoboothApp: device recovery failed: %s', exc)
                 Logger.error(traceback.format_exc())
                 self.enter_maintenance_mode(
-                    title='CAMERA',
                     message='Camera recovery failed. Please call an operator.',
-                    details=str(exc),
                 )
 
         threading.Thread(target=recover, name='photobooth-device-recovery', daemon=True).start()
