@@ -116,6 +116,110 @@
             color: var(--text-secondary);
         }
 
+        .config-sections {
+            display: grid;
+            gap: 20px;
+        }
+
+        .config-section {
+            padding: 20px;
+            border: 1px solid #eeeeee;
+            border-radius: 16px;
+            background: var(--panel-muted);
+        }
+
+        .config-section h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .config-section p {
+            margin: 8px 0 0;
+            color: var(--text-secondary);
+        }
+
+        .config-fields {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-top: 18px;
+        }
+
+        .config-field {
+            display: grid;
+            gap: 8px;
+        }
+
+        .config-field.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .config-field.inline-pair {
+            grid-column: 1 / -1;
+            grid-template-columns: minmax(260px, 1fr) minmax(220px, 320px);
+            align-items: end;
+            gap: 16px;
+        }
+
+        .config-field.inline-pair .checkbox-field {
+            min-height: 46px;
+        }
+
+        .config-field.inline-pair .inline-number {
+            display: grid;
+            gap: 8px;
+        }
+
+        .field-select {
+            width: 100%;
+            min-height: 46px;
+            padding: 0 14px;
+            border: 1px solid var(--panel-border-strong);
+            border-radius: 10px;
+            background: #ffffff;
+            color: var(--text-primary);
+            font: inherit;
+        }
+
+        .field-select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.12);
+        }
+
+        .field-help {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .checkbox-field {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            min-height: 46px;
+            padding: 12px 14px;
+            border: 1px solid var(--panel-border-strong);
+            border-radius: 10px;
+            background: #ffffff;
+        }
+
+        .checkbox-field input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin: 2px 0 0;
+        }
+
+        .checkbox-copy {
+            display: grid;
+            gap: 4px;
+        }
+
+        .checkbox-copy strong {
+            font-size: 14px;
+        }
+
         .config-note {
             margin-top: 14px;
             padding: 12px 14px;
@@ -150,6 +254,14 @@
             }
 
             .disk-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .config-fields {
+                grid-template-columns: 1fr;
+            }
+
+            .config-field.inline-pair {
                 grid-template-columns: 1fr;
             }
         }
@@ -246,15 +358,88 @@
                 <article class="panel section-card" id="config-section">
                     <span class="eyebrow">Configuration</span>
                     <h2>Edit <code>config.ini</code></h2>
-                    <p>Use this section when a printer, countdown, port or hardware setting must be changed. The admin password stays masked in the browser.</p>
+                    <p>Use this section when a printer, countdown, port or hardware setting must be changed. Choice-based fields use dropdowns, booleans use checkboxes, and <code>CALIBRATION</code> remains a raw string.</p>
 
                     <form method="post" action="/admin/config">
                         <div class="config-toolbar">
                             <p>Apply your changes here, then restart PhotoBooth so the new configuration is loaded.</p>
                             <button type="submit" class="btn btn-success {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Save config.ini</button>
                         </div>
-                        <label class="field-label" for="config_content">Configuration file</label>
-                        <textarea class="field-textarea" id="config_content" name="config_content" spellcheck="false" {% if not admin_enabled %}disabled{% endif %}>{{ config_content }}</textarea>
+                        <div class="config-sections">
+                            {% for section in config_sections %}
+                            <section class="config-section">
+                                <h3>{{ section.title }}</h3>
+                                {% if section.description %}
+                                <p>{{ section.description }}</p>
+                                {% endif %}
+                                <div class="config-fields">
+                                    {% for field in section.fields %}
+                                    {% if not field.inline_with_previous %}
+                                    {% set inline_next = section.fields[loop.index0 + 1] if field.inline_with_next and (loop.index0 + 1) < section.fields|length else none %}
+                                    <div class="config-field {% if field.control == 'checkbox' or field.option == 'CALIBRATION' %}full-width{% endif %}{% if inline_next %} inline-pair{% endif %}">
+                                        {% if field.control == 'checkbox' %}
+                                        <label class="checkbox-field" for="{{ field.id }}">
+                                            <input id="{{ field.id }}" name="{{ field.name }}" type="checkbox" value="true" {% if field.checked %}checked{% endif %} {% if not admin_enabled %}disabled{% endif %}>
+                                            <span class="checkbox-copy">
+                                                <strong>{{ field.label }}</strong>
+                                                {% if field.help %}
+                                                <span class="field-help">{{ field.help }}</span>
+                                                {% endif %}
+                                            </span>
+                                        </label>
+                                        {% if inline_next %}
+                                        <div class="inline-number">
+                                            <label class="field-label" for="{{ inline_next.id }}">{{ inline_next.label }}</label>
+                                            <input
+                                                class="field-input"
+                                                id="{{ inline_next.id }}"
+                                                name="{{ inline_next.name }}"
+                                                type="{{ inline_next.control }}"
+                                                value="{{ inline_next.value }}"
+                                                {% if inline_next.placeholder %}placeholder="{{ inline_next.placeholder }}"{% endif %}
+                                                {% if inline_next.min is defined %}min="{{ inline_next.min }}"{% endif %}
+                                                {% if inline_next.max is defined %}max="{{ inline_next.max }}"{% endif %}
+                                                {% if inline_next.step is defined %}step="{{ inline_next.step }}"{% endif %}
+                                                {% if not admin_enabled %}disabled{% endif %}
+                                            >
+                                            {% if inline_next.help %}
+                                            <p class="field-help">{{ inline_next.help }}</p>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                        {% else %}
+                                        <label class="field-label" for="{{ field.id }}">{{ field.label }}</label>
+                                        {% if field.control == 'select' %}
+                                        <select class="field-select" id="{{ field.id }}" name="{{ field.name }}" {% if not admin_enabled %}disabled{% endif %}>
+                                            {% for choice_value, choice_label in field.choices %}
+                                            <option value="{{ choice_value }}" {% if choice_value == field.value %}selected{% endif %}>{{ choice_label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        {% else %}
+                                        <input
+                                            class="field-input"
+                                            id="{{ field.id }}"
+                                            name="{{ field.name }}"
+                                            type="{{ field.control }}"
+                                            value="{{ field.value }}"
+                                            {% if field.placeholder %}placeholder="{{ field.placeholder }}"{% endif %}
+                                            {% if field.min is defined %}min="{{ field.min }}"{% endif %}
+                                            {% if field.max is defined %}max="{{ field.max }}"{% endif %}
+                                            {% if field.step is defined %}step="{{ field.step }}"{% endif %}
+                                            {% if not admin_enabled %}disabled{% endif %}
+                                        >
+                                        {% endif %}
+                                        {% if field.help %}
+                                        <p class="field-help">{{ field.help }}</p>
+                                        {% endif %}
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </section>
+                            {% endfor %}
+                        </div>
                         <div class="config-note">Tip: save first, then use the restart action above to apply the updated configuration to the running application.</div>
                     </form>
                 </article>
@@ -262,7 +447,7 @@
                 <article class="panel section-card danger-card">
                     <span class="eyebrow">Danger Zone</span>
                     <h2>Delete saved photos</h2>
-                    <p>This permanently removes all saved images, session folders and the web statistics linked to generated photos.</p>
+                    <p>This permanently removes all saved images, session folders and statistics linked to this session.</p>
                     <div class="danger-callout">Only use this action when you intentionally want to clear the booth history.</div>
                     <form method="post" action="/admin/delete-all">
                         <div class="actions">

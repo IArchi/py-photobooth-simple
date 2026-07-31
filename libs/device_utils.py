@@ -239,6 +239,27 @@ class Gphoto2Camera(CaptureDevice):
         if v is None or (isinstance(v, str) and v.strip() == ''): return None
         return v
 
+    def _normalize_aperture_for_manufacturer(self, value, manufacturer):
+        """Accept either '1.8' or 'f/1.8' and convert to the camera-specific format."""
+        if value is None:
+            return None
+
+        normalized = str(value).strip()
+        if not normalized:
+            return None
+
+        bare_value = normalized[2:] if normalized.lower().startswith('f/') else normalized
+        if not bare_value:
+            return None
+
+        if manufacturer == 'Canon Inc.':
+            return bare_value
+
+        if manufacturer in ('Nikon Corporation', 'Sony Corporation'):
+            return f'f/{bare_value}'
+
+        return normalized
+
     def _set_parameters(self, params):
         """
         Applies DSLR parameters (config.ini key -> value dict) according to manufacturer.
@@ -254,7 +275,7 @@ class Gphoto2Camera(CaptureDevice):
             current_mode = config.get_path('/main/capturesettings/autoexposuremode').get_value()
             if (v := self._get_param(params, 'SHUTTERSPEED')) and current_mode in ['Manual', 'TV']:
                 config.get_path('/main/capturesettings/shutterspeed').set_value(v)
-            if (v := self._get_param(params, 'APERTURE')) and current_mode in ['Manual', 'AV']:
+            if (v := self._normalize_aperture_for_manufacturer(self._get_param(params, 'APERTURE'), manufacturer)) and current_mode in ['Manual', 'AV']:
                 config.get_path('/main/capturesettings/aperture').set_value(v)
             if v := self._get_param(params, 'FOCUSMODE'):
                 config.get_path('/main/capturesettings/focusmode').set_value(v)
@@ -266,7 +287,7 @@ class Gphoto2Camera(CaptureDevice):
             current_mode = config.get_path('/main/capturesettings/expprogram').get_value()
             if (v := self._get_param(params, 'SHUTTERSPEED')) and current_mode in ['M', 'S']:
                 config.get_path('/main/capturesettings/shutterspeed').set_value(v)
-            if (v := self._get_param(params, 'APERTURE')) and current_mode in ['M', 'A']:
+            if (v := self._normalize_aperture_for_manufacturer(self._get_param(params, 'APERTURE'), manufacturer)) and current_mode in ['M', 'A']:
                 config.get_path('/main/capturesettings/f-number').set_value(v)
             if v := self._get_param(params, 'FOCUSMODE'):
                 config.get_path('/main/capturesettings/focusmode').set_value(v)
@@ -278,8 +299,8 @@ class Gphoto2Camera(CaptureDevice):
             current_mode = config.get_path('/main/capturesettings/expprogram').get_value()
             if (v := self._get_param(params, 'SHUTTERSPEED')) and current_mode in ['M', 'S']:
                 config.get_path('/main/capturesettings/shutterspeed').set_value(v)
-            if (v := self._get_param(params, 'APERTURE')) and current_mode in ['M', 'A']:
-                config.get_path('/main/capturesettings/f-number').set_value('f/{v}')
+            if (v := self._normalize_aperture_for_manufacturer(self._get_param(params, 'APERTURE'), manufacturer)) and current_mode in ['M', 'A']:
+                config.get_path('/main/capturesettings/f-number').set_value(v)
             if v := self._get_param(params, 'FOCUSMODE'):
                 config.get_path('/main/capturesettings/focusmode').set_value(v)
             if v := self._get_param(params, 'ISO'):

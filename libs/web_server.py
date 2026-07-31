@@ -1,10 +1,13 @@
-import os
+import configparser
 import hmac
 import io
+import json
+import os
 import re
 import shutil
 import threading
 import zipfile
+from datetime import datetime
 from flask import Flask, jsonify, request, send_file, render_template, redirect, session
 from werkzeug.serving import make_server
 from kivy.logger import Logger
@@ -15,7 +18,125 @@ class WebServer:
     SESSION_PATTERN = re.compile(r'^\d{8}_\d{6}$')
     IMAGE_FILENAME_PATTERN = re.compile(r'^(?:collage|capture-\d+)\.jpg$', re.IGNORECASE)
     LOG_FILENAME_PATTERN = re.compile(r'^[A-Za-z0-9._-]+$')
-    ADMIN_PASSWORD_PLACEHOLDER = '__HIDDEN__'
+    DSLR_SHUTTERSPEED_CHOICES = [
+        ('', 'Leave unchanged'),
+        ('1/30', '1/30'),
+        ('1/60', '1/60'),
+        ('1/80', '1/80'),
+        ('1/100', '1/100'),
+        ('1/125', '1/125'),
+        ('1/160', '1/160'),
+        ('1/200', '1/200'),
+        ('1/250', '1/250'),
+        ('1/320', '1/320'),
+        ('1/400', '1/400'),
+        ('1/500', '1/500'),
+    ]
+    DSLR_APERTURE_CHOICES = [
+        ('', 'Leave unchanged'),
+        ('1.8', '1.8'),
+        ('2', '2'),
+        ('2.8', '2.8'),
+        ('4', '4'),
+        ('5.6', '5.6'),
+        ('8', '8'),
+        ('11', '11'),
+        ('13', '13'),
+        ('16', '16'),
+        ('22', '22'),
+    ]
+    DSLR_FOCUSMODE_CHOICES = [
+        ('', 'Leave unchanged'),
+        ('One Shot', 'One Shot'),
+        ('AF-S', 'AF-S'),
+        ('AF-A', 'AF-A'),
+        ('AF-C', 'AF-C'),
+        ('Manual', 'Manual'),
+    ]
+    DSLR_ISO_CHOICES = [
+        ('', 'Leave unchanged'),
+        ('100', '100'),
+        ('200', '200'),
+        ('400', '400'),
+        ('800', '800'),
+        ('1600', '1600'),
+        ('3200', '3200'),
+        ('6400', '6400'),
+    ]
+    CONFIG_FORM_SECTIONS = (
+        {
+            'title': 'Global',
+            'description': 'General application behavior and admin access.',
+            'fields': (
+                {'section': 'Global', 'option': 'FULLSCREEN', 'label': 'Fullscreen', 'control': 'checkbox', 'help': 'Launch PhotoBooth in fullscreen kiosk mode.'},
+                {'section': 'Global', 'option': 'SHARE', 'label': 'Share buttons', 'control': 'checkbox', 'help': 'Display web sharing actions in the booth interface.'},
+                {'section': 'Global', 'option': 'RINGLED', 'label': 'Ring LED', 'control': 'checkbox', 'help': 'Enable the SPI ring light hardware.'},
+                {'section': 'Global', 'option': 'ADMIN_PASSWORD', 'label': 'Admin password', 'control': 'password', 'placeholder': 'Leave blank to keep current password', 'help': 'Enter a new password, or type None to disable admin login.'},
+            ),
+        },
+        {
+            'title': 'Web & Logs',
+            'description': 'Web access and log retention settings.',
+            'fields': (
+                {'section': 'Web', 'option': 'WEB_PORT', 'label': 'Web port', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
+                {'section': 'Log', 'option': 'LOG_RETENTION_DAYS', 'label': 'Log retention days', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
+                {'section': 'Log', 'option': 'LOG_MAX_FILES', 'label': 'Maximum log files', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
+            ),
+        },
+        {
+            'title': 'Capture',
+            'description': 'Camera countdown, calibration and preview behavior.',
+            'fields': (
+                {'section': 'Capture', 'option': 'COUNTDOWN', 'label': 'Countdown (seconds)', 'control': 'number', 'number_type': 'int', 'min': 0, 'step': 1},
+                {'section': 'Capture', 'option': 'CALIBRATION', 'label': 'Calibration', 'control': 'text', 'placeholder': 'None or (zoom, offset_x, offset_y)', 'help': 'This field stays as a raw string because it is produced by the calibration tool.'},
+                {'section': 'Capture', 'option': 'FILTERS', 'label': 'Photo filters', 'control': 'checkbox', 'help': 'Allow visitors to choose a filter after each shot.'},
+                {'section': 'Capture', 'option': 'BLUR_CAMERA', 'label': 'Blur preview borders', 'control': 'checkbox', 'inline_with_next': True},
+                {'section': 'Capture', 'option': 'PREVIEW_BLUR_REFRESH_FRAMES', 'label': 'Preview blur refresh frames', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1, 'inline_with_previous': True},
+                {'section': 'Capture', 'option': 'BLUR_IMAGES', 'label': 'Blur captured images', 'control': 'checkbox'},
+                {'section': 'Capture', 'option': 'BLUR_COLLAGE', 'label': 'Blur collages', 'control': 'checkbox'},
+            ),
+        },
+        {
+            'title': 'Storage',
+            'description': 'Disk paths and safeguards against full storage.',
+            'fields': (
+                {'section': 'Storage', 'option': 'DCIM_DIRECTORY', 'label': 'Photo storage directory', 'control': 'text', 'placeholder': './DCIM'},
+                {'section': 'Storage', 'option': 'DISK_MIN_FREE_GB', 'label': 'Minimum free space (GB)', 'control': 'number', 'number_type': 'float', 'min': 0, 'step': 0.1},
+                {'section': 'Storage', 'option': 'DISK_MAX_USED_PERCENT', 'label': 'Maximum used disk (%)', 'control': 'number', 'number_type': 'float', 'min': 0, 'max': 100, 'step': 0.1},
+            ),
+        },
+        {
+            'title': 'Print & USB',
+            'description': 'Printer usage limits and USB export.',
+            'fields': (
+                {'section': 'Print', 'option': 'PRINTER', 'label': 'Printer name', 'control': 'text', 'placeholder': 'None', 'none_means_empty': True, 'help': 'Leave empty to disable printing.'},
+                {'section': 'Print', 'option': 'MAX_PRINTS', 'label': 'Maximum prints', 'control': 'number', 'number_type': 'optional_int', 'min': 0, 'step': 1, 'placeholder': 'Unlimited', 'help': 'Leave empty for unlimited prints.'},
+                {'section': 'Print', 'option': 'PRINTER_WAIT_TIMEOUT', 'label': 'Printer wait timeout (seconds)', 'control': 'number', 'number_type': 'int', 'min': 5, 'step': 1},
+                {'section': 'USB', 'option': 'USB_EXPORT', 'label': 'USB export', 'control': 'checkbox', 'help': 'Automatically copy saved sessions to removable USB media.'},
+                {'section': 'USB', 'option': 'USB_MIN_FREE_GB', 'label': 'USB minimum free space (GB)', 'control': 'number', 'number_type': 'float', 'min': 0, 'step': 0.1},
+            ),
+        },
+        {
+            'title': 'DSLR Liveview',
+            'description': 'Parameters applied while preview/liveview is active.',
+            'fields': (
+                {'section': 'DSLR_Liveview', 'option': 'SHUTTERSPEED', 'label': 'Shutter speed', 'control': 'select', 'choices': DSLR_SHUTTERSPEED_CHOICES},
+                {'section': 'DSLR_Liveview', 'option': 'APERTURE', 'label': 'Aperture', 'control': 'select', 'choices': DSLR_APERTURE_CHOICES},
+                {'section': 'DSLR_Liveview', 'option': 'FOCUSMODE', 'label': 'Focus mode', 'control': 'select', 'choices': DSLR_FOCUSMODE_CHOICES},
+                {'section': 'DSLR_Liveview', 'option': 'ISO', 'label': 'ISO', 'control': 'select', 'choices': DSLR_ISO_CHOICES},
+            ),
+        },
+        {
+            'title': 'DSLR Capture',
+            'description': 'Parameters applied right before taking a photo.',
+            'fields': (
+                {'section': 'DSLR_Capture', 'option': 'SHUTTERSPEED', 'label': 'Shutter speed', 'control': 'select', 'choices': DSLR_SHUTTERSPEED_CHOICES},
+                {'section': 'DSLR_Capture', 'option': 'APERTURE', 'label': 'Aperture', 'control': 'select', 'choices': DSLR_APERTURE_CHOICES},
+                {'section': 'DSLR_Capture', 'option': 'FOCUSMODE', 'label': 'Focus mode', 'control': 'select', 'choices': DSLR_FOCUSMODE_CHOICES},
+                {'section': 'DSLR_Capture', 'option': 'ISO', 'label': 'ISO', 'control': 'select', 'choices': DSLR_ISO_CHOICES},
+            ),
+        },
+    )
     
     def __init__(self, save_directory, host='0.0.0.0', port=5000, admin_password=None, stats_store=None, restart_callback=None):
         self.save_directory = save_directory
@@ -336,6 +457,219 @@ class WebServer:
             Logger.error(f'WebServer: Error saving config file: {e}')
             raise
 
+    def _load_config_parser(self, content=None):
+        """Return a ConfigParser loaded from config.ini content."""
+        parser = configparser.ConfigParser(interpolation=None)
+        parser.optionxform = str
+        parser.read_string(content if content is not None else self._load_config_text())
+        return parser
+
+    def _get_form_field_name(self, section, option):
+        return f'{section}__{option}'
+
+    def _normalize_form_value(self, field_spec, raw_value):
+        value = '' if raw_value is None else str(raw_value).strip()
+        control = field_spec['control']
+
+        if control == 'checkbox':
+            return value.lower() in ('1', 'true', 'yes', 'on')
+
+        if field_spec['option'] == 'ADMIN_PASSWORD':
+            return ''
+
+        if field_spec.get('number_type') == 'optional_int' and value.upper() == 'NONE':
+            return ''
+
+        if field_spec.get('none_means_empty') and value.upper() == 'NONE':
+            return ''
+
+        return value
+
+    def _build_select_choices(self, field_spec, current_value):
+        choices = list(field_spec.get('choices', ()))
+        choice_values = {value for value, _label in choices}
+        if current_value and current_value not in choice_values:
+            choices.append((current_value, f'Current: {current_value}'))
+        return choices
+
+    def _get_current_config_values(self, parser):
+        values = {}
+        for section_spec in self.CONFIG_FORM_SECTIONS:
+            for field_spec in section_spec['fields']:
+                section = field_spec['section']
+                option = field_spec['option']
+                values[(section, option)] = parser.get(section, option, fallback='')
+        return values
+
+    def _get_config_form_sections(self, form_values=None):
+        parser = self._load_config_parser()
+        form_values = form_values or {}
+        sections = []
+
+        for section_spec in self.CONFIG_FORM_SECTIONS:
+            rendered_fields = []
+            for field_spec in section_spec['fields']:
+                section = field_spec['section']
+                option = field_spec['option']
+                field_name = self._get_form_field_name(section, option)
+                raw_value = form_values.get(field_name, parser.get(section, option, fallback=''))
+                normalized_value = self._normalize_form_value(field_spec, raw_value)
+
+                rendered_field = dict(field_spec)
+                rendered_field['name'] = field_name
+                rendered_field['id'] = field_name.lower()
+                rendered_field['value'] = normalized_value
+                rendered_field['checked'] = bool(normalized_value) if field_spec['control'] == 'checkbox' else False
+
+                if field_spec['control'] == 'select':
+                    rendered_field['choices'] = self._build_select_choices(field_spec, normalized_value)
+
+                rendered_fields.append(rendered_field)
+
+            sections.append({
+                'title': section_spec['title'],
+                'description': section_spec.get('description'),
+                'fields': rendered_fields,
+            })
+
+        return sections
+
+    def _coerce_form_field_value(self, field_spec, submitted_value, current_value):
+        control = field_spec['control']
+
+        if control == 'checkbox':
+            return 'True' if submitted_value else 'False'
+
+        value = '' if submitted_value is None else str(submitted_value).strip()
+        option = field_spec['option']
+        number_type = field_spec.get('number_type')
+
+        if option == 'ADMIN_PASSWORD':
+            return current_value if value == '' else value
+
+        if option == 'CALIBRATION':
+            return value or 'None'
+
+        if number_type == 'int':
+            if value == '':
+                raise ValueError(f'{field_spec["label"]} is required.')
+            parsed_value = int(value)
+            if 'min' in field_spec and parsed_value < field_spec['min']:
+                raise ValueError(f'{field_spec["label"]} must be at least {field_spec["min"]}.')
+            if 'max' in field_spec and parsed_value > field_spec['max']:
+                raise ValueError(f'{field_spec["label"]} must be at most {field_spec["max"]}.')
+            return str(parsed_value)
+
+        if number_type == 'float':
+            if value == '':
+                raise ValueError(f'{field_spec["label"]} is required.')
+            parsed_value = float(value)
+            if 'min' in field_spec and parsed_value < field_spec['min']:
+                raise ValueError(f'{field_spec["label"]} must be at least {field_spec["min"]}.')
+            if 'max' in field_spec and parsed_value > field_spec['max']:
+                raise ValueError(f'{field_spec["label"]} must be at most {field_spec["max"]}.')
+            return str(parsed_value)
+
+        if number_type == 'optional_int':
+            if value == '':
+                return 'None'
+            parsed_value = int(value)
+            if 'min' in field_spec and parsed_value < field_spec['min']:
+                raise ValueError(f'{field_spec["label"]} must be at least {field_spec["min"]}.')
+            if 'max' in field_spec and parsed_value > field_spec['max']:
+                raise ValueError(f'{field_spec["label"]} must be at most {field_spec["max"]}.')
+            return str(parsed_value)
+
+        if field_spec.get('none_means_empty'):
+            return value or 'None'
+
+        return value
+
+    def _collect_config_form_updates(self, form, parser):
+        current_values = self._get_current_config_values(parser)
+        updates = {}
+        submitted_form_values = {}
+
+        for section_spec in self.CONFIG_FORM_SECTIONS:
+            for field_spec in section_spec['fields']:
+                field_name = self._get_form_field_name(field_spec['section'], field_spec['option'])
+                if field_spec['control'] == 'checkbox':
+                    submitted_value = field_name in form
+                    submitted_form_values[field_name] = submitted_value
+                else:
+                    submitted_value = form.get(field_name, '')
+                    submitted_form_values[field_name] = submitted_value
+
+                updates[(field_spec['section'], field_spec['option'])] = self._coerce_form_field_value(
+                    field_spec,
+                    submitted_value,
+                    current_values[(field_spec['section'], field_spec['option'])],
+                )
+
+        return updates, submitted_form_values
+
+    def _apply_config_updates(self, content, updates):
+        section_values = {}
+        for (section, option), value in updates.items():
+            section_values.setdefault(section, {})[option] = value
+
+        section_pattern = re.compile(r'^\s*\[(.+?)\]\s*$')
+        option_pattern = re.compile(r'^(\s*)([^=;#][^=]*?)(\s*=\s*)(.*?)(\r?\n?)$')
+        lines = content.splitlines(keepends=True)
+        rendered_lines = []
+        existing_sections = set()
+        seen_options = set()
+        current_section = None
+        line_ending = '\n'
+
+        def append_missing_options(section):
+            for option, value in section_values.get(section, {}).items():
+                key = (section, option)
+                if key in seen_options:
+                    continue
+                rendered_lines.append(f'{option} = {value}{line_ending}')
+                seen_options.add(key)
+
+        for line in lines:
+            if line.endswith('\r\n'):
+                line_ending = '\r\n'
+            elif line.endswith('\n'):
+                line_ending = '\n'
+
+            section_match = section_pattern.match(line.strip())
+            if section_match:
+                if current_section is not None:
+                    append_missing_options(current_section)
+                current_section = section_match.group(1).strip()
+                existing_sections.add(current_section)
+                rendered_lines.append(line)
+                continue
+
+            option_match = option_pattern.match(line)
+            if current_section is not None and option_match:
+                option_name = option_match.group(2).strip()
+                key = (current_section, option_name)
+                if key in updates:
+                    rendered_lines.append(f'{option_match.group(1)}{option_name}{option_match.group(3)}{updates[key]}{option_match.group(5) or line_ending}')
+                    seen_options.add(key)
+                    continue
+
+            rendered_lines.append(line)
+
+        if current_section is not None:
+            append_missing_options(current_section)
+
+        for section, options in section_values.items():
+            if section in existing_sections:
+                continue
+            if rendered_lines and rendered_lines[-1].strip():
+                rendered_lines.append(line_ending)
+            rendered_lines.append(f'[{section}]{line_ending}')
+            for option, value in options.items():
+                rendered_lines.append(f'{option} = {value}{line_ending}')
+
+        return ''.join(rendered_lines)
+
     def _is_admin_password_valid(self, password):
         """Validate provided admin password."""
         if self.admin_password is None:
@@ -353,32 +687,6 @@ class WebServer:
             return None
 
         return redirect('/admin/login')
-
-    def _mask_admin_password_in_config(self, content):
-        """Hide admin password before rendering config.ini to browser."""
-        return re.sub(
-            r'^(\s*ADMIN_PASSWORD\s*=\s*).*$' ,
-            rf'\1{self.ADMIN_PASSWORD_PLACEHOLDER}',
-            content,
-            flags=re.MULTILINE,
-        )
-
-    def _merge_masked_admin_password(self, content):
-        """Restore in-memory admin password when masked placeholder is submitted."""
-        def replace_password(match):
-            configured_password = match.group(2).strip()
-            if configured_password != self.ADMIN_PASSWORD_PLACEHOLDER:
-                return match.group(0)
-
-            restored_password = self.admin_password if self.admin_password is not None else 'None'
-            return f'{match.group(1)}{restored_password}'
-
-        return re.sub(
-            r'^(\s*ADMIN_PASSWORD\s*=\s*)(.*?)\s*$' ,
-            replace_password,
-            content,
-            flags=re.MULTILINE,
-        )
 
     def _refresh_admin_password_from_config(self, content):
         """Refresh in-memory admin password from config text."""
@@ -400,19 +708,27 @@ class WebServer:
             success_message=success_message,
         )
 
-    def _render_admin_page(self, error_message=None, success_message=None, config_content=None):
-        """Render admin page used to delete all saved photos."""
+    def _render_admin_page(self, error_message=None, success_message=None, form_values=None):
+        """Render admin page with typed configuration fields."""
         admin_enabled = self.admin_password is not None
-        if config_content is None:
-            try:
-                config_content = self._mask_admin_password_in_config(self._load_config_text())
-            except Exception:
-                config_content = 'Unable to load config.ini'
+        config_error_message = None
+
+        try:
+            config_sections = self._get_config_form_sections(form_values=form_values)
+        except Exception as exc:
+            Logger.error(f'WebServer: Error building admin config form: {exc}')
+            config_sections = []
+            config_error_message = 'Unable to load config.ini into the admin form.'
+
+        if error_message and config_error_message:
+            error_message = f'{error_message} {config_error_message}'
+        elif config_error_message:
+            error_message = config_error_message
 
         return render_template(
             'admin/index.html',
             admin_enabled=admin_enabled,
-            config_content=config_content,
+            config_sections=config_sections,
             disk_usage=self._get_disk_usage_info(),
             error_message=error_message,
             success_message=success_message,
@@ -704,25 +1020,35 @@ class WebServer:
                 session.clear()
                 return self._render_admin_login_page(error_message='Admin access is disabled. Configure ADMIN_PASSWORD in config.ini.'), 403
 
-            config_content = request.form.get('config_content') or ''
-            config_content = self._merge_masked_admin_password(config_content)
+            submitted_form_values = {}
 
             try:
-                self._save_config_text(config_content)
+                current_config = self._load_config_text()
+                parser = self._load_config_parser(current_config)
+                updates, submitted_form_values = self._collect_config_form_updates(request.form, parser)
+                updated_config = self._apply_config_updates(current_config, updates)
+            except ValueError as exc:
+                return self._render_admin_page(error_message=str(exc), form_values=submitted_form_values), 400
+            except Exception as exc:
+                Logger.error(f'WebServer: Error while preparing config.ini update: {exc}')
+                return self._render_admin_page(error_message='Error while preparing config.ini.', form_values=request.form), 500
+
+            try:
+                self._save_config_text(updated_config)
             except Exception:
-                return self._render_admin_page(error_message='Error while saving config.ini.', config_content=self._mask_admin_password_in_config(config_content)), 500
+                return self._render_admin_page(error_message='Error while saving config.ini.', form_values=submitted_form_values), 500
 
             try:
                 updated_config = self._load_config_text()
                 self._refresh_admin_password_from_config(updated_config)
             except Exception:
-                return self._render_admin_page(success_message='config.ini saved. Restart app to apply all changes.', config_content=self._mask_admin_password_in_config(config_content))
+                return self._render_admin_page(success_message='config.ini saved. Restart app to apply all changes.')
 
             if self.admin_password is None:
                 session.clear()
                 return self._render_admin_login_page(success_message='config.ini saved. Admin password disabled. Sign in is now disabled.')
 
-            return self._render_admin_page(success_message='config.ini saved. Restart app to apply all changes.', config_content=self._mask_admin_password_in_config(updated_config))
+            return self._render_admin_page(success_message='config.ini saved. Restart app to apply all changes.')
 
         @self.app.route('/admin/restart', methods=['POST'])
         def restart_app():
