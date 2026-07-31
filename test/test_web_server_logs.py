@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
+from libs.stats_store import StatsStore
 from libs.web_server import WebServer
 
 
@@ -60,3 +61,44 @@ def test_disk_usage_info_uses_save_directory(tmp_path):
     assert disk_usage['used'].endswith(('GB', 'TB'))
     assert disk_usage['free'].endswith(('GB', 'TB'))
     assert 0 <= disk_usage['used_percent'] <= 100
+
+
+def test_print_limit_reads_and_updates_stats(tmp_path):
+    stats_file = tmp_path / '.stats.json'
+    stats_file.write_text('{"prints": 2}\n', encoding='utf-8')
+
+    store = StatsStore(str(stats_file), max_prints=3)
+
+    info = store.get_print_limit_info()
+
+    assert info == {
+        'enabled': True,
+        'max_prints': 3,
+        'prints': 2,
+        'remaining': 1,
+        'reached': False,
+    }
+    assert store.can_print() is True
+
+    store.track_print()
+
+    updated_info = store.get_print_limit_info()
+    assert updated_info['prints'] == 3
+    assert updated_info['remaining'] == 0
+    assert updated_info['reached'] is True
+    assert store.can_print() is False
+
+
+def test_print_limit_disabled_by_default(tmp_path):
+    store = StatsStore(str(tmp_path / '.stats.json'))
+
+    info = store.get_print_limit_info()
+
+    assert info == {
+        'enabled': False,
+        'max_prints': None,
+        'prints': 0,
+        'remaining': None,
+        'reached': False,
+    }
+    assert store.can_print() is True

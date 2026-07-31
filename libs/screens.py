@@ -1622,6 +1622,7 @@ class PrintStatusPopup(FloatLayout):
         self._close_scheduled = False
         self._started_at = time.monotonic()
         self._print_started = False
+        self._print_counted = False
         self._print_task_id = None
         self._printer_wait_started_at = None
         self._timeout = getattr(self.app, 'PRINTER_WAIT_TIMEOUT', 45)
@@ -1780,6 +1781,9 @@ class PrintStatusPopup(FloatLayout):
 
         Logger.info('PrintStatusPopup: print status task=%s status=%s', self._print_task_id, status)
         if status == 'done':
+            if not self._print_counted:
+                self.app.track_print_sent()
+                self._print_counted = True
             self._set_done('PRINT SENT', 'The print job was sent to the printer.')
             Clock.schedule_once(lambda dt: self._close(None), 2)
         else:
@@ -1876,10 +1880,15 @@ class ReviewScreen(ColorScreen):
 
     def _sync_print_button(self):
         printer_available = self.app.has_printer()
+        print_available = self.app.can_start_print()
+
         if printer_available and self.btn_print.parent is None:
             self.overlay_layout.add_widget(self.btn_print)
         elif not printer_available and self.btn_print.parent is not None:
             self.overlay_layout.remove_widget(self.btn_print)
+
+        self.btn_print.disabled = not print_available
+        self.btn_print.opacity = 1.0 if print_available else 0.45
         self._layout_action_buttons()
 
     def _layout_action_buttons(self, *args):
@@ -1984,6 +1993,7 @@ class ReviewScreen(ColorScreen):
     def _dismiss_print_popup(self):
         if hasattr(self, 'print_popup') and self.print_popup.parent:
             self.layout.remove_widget(self.print_popup)
+        self._sync_print_button()
         self._reset_timeout()
 
     def _dismiss_qr_popup(self):

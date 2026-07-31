@@ -31,6 +31,7 @@ from libs.device_utils import DeviceUtils
 from libs.file_utils import FileUtils
 from libs.screens import ScreenMgr
 from libs.ringled import RingLed
+from libs.stats_store import StatsStore
 from libs.template_collage import load_templates
 from libs.usb_transfer import UsbTransfer
 from libs.web_server import WebServer
@@ -68,6 +69,7 @@ class PhotoboothApp(App):
         self.USB_EXPORT = config.get_usb_export_enabled()
         self.USB_MIN_FREE_GB = config.get_usb_min_free_gb()
         self.PRINTER = config.get_printer()
+        self.MAX_PRINTS = config.get_max_prints()
         self.CALIBRATION = config.get_calibration()
         self._dslr_liveview_params = config.get_dslr_liveview_params()
         self._dslr_capture_params = config.get_dslr_capture_params()
@@ -125,6 +127,10 @@ class PhotoboothApp(App):
         if not os.path.exists(self.DCIM_DIRECTORY): os.makedirs(self.DCIM_DIRECTORY)
         if not os.path.exists(self.tmp_directory): os.makedirs(self.tmp_directory)
         if not os.path.exists(self.save_directory): os.makedirs(self.save_directory)
+        self.stats_store = StatsStore(
+            os.path.join(self.save_directory, '.stats.json'),
+            max_prints=self.MAX_PRINTS,
+        )
 
         # Start USB transfer
         if self.USB_EXPORT:
@@ -140,6 +146,7 @@ class PhotoboothApp(App):
             host='0.0.0.0',
             port=self.WEB_PORT,
             admin_password=config.get_admin_password(),
+            stats_store=self.stats_store,
             restart_callback=self.request_restart,
         )
         if self.web_server.start():
@@ -459,10 +466,23 @@ class PhotoboothApp(App):
     def has_printer(self):
         return self.devices.has_printer()
 
+    def can_start_print(self):
+        if not self.has_printer():
+            return False
+        return self.stats_store.can_print()
+
+    def get_print_limit_info(self):
+        return self.stats_store.get_print_limit_info()
+
+    def track_print_sent(self):
+        self.stats_store.track_print()
+
     def trigger_print(self, copies, format=0):
         Logger.info('PhotoboothApp: trigger_print().')
         if not self.has_printer():
             raise RuntimeError('Printer is not available')
+        if not self.stats_store.can_print():
+            raise RuntimeError('Print limit reached')
         options = self.print_formats[format].get_print_params()
         options['copies'] = str(copies)
         Logger.info('PhotoboothApp: print request format=%s copies=%s printer_available=%s', format, copies, self.has_printer())
@@ -579,10 +599,9 @@ class PhotoboothApp(App):
         if moved_files:
             self.last_saved_session_directory = destination
         self._log_disk_space('after_save')
-        if getattr(self, 'web_server', None):
-            session_id = os.path.basename(destination)
-            for _ in range(moved_files):
-                self.web_server.track_photo_taken(session_id=session_id)
+        session_id = os.path.basename(destination)
+        for _ in range(moved_files):
+            self.stats_store.track_photo_taken(session_id=session_id)
 
     def purge_tmp(self):
         # List existing files and delete (including _print versions)

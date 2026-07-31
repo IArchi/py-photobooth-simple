@@ -1,12 +1,10 @@
 import os
 import hmac
 import io
-import json
 import re
 import shutil
 import threading
 import zipfile
-from datetime import datetime
 from flask import Flask, jsonify, request, send_file, render_template, redirect, session
 from werkzeug.serving import make_server
 from kivy.logger import Logger
@@ -19,11 +17,12 @@ class WebServer:
     LOG_FILENAME_PATTERN = re.compile(r'^[A-Za-z0-9._-]+$')
     ADMIN_PASSWORD_PLACEHOLDER = '__HIDDEN__'
     
-    def __init__(self, save_directory, host='0.0.0.0', port=5000, admin_password=None, restart_callback=None):
+    def __init__(self, save_directory, host='0.0.0.0', port=5000, admin_password=None, stats_store=None, restart_callback=None):
         self.save_directory = save_directory
         self.host = host
         self.port = port
         self.admin_password = admin_password.strip() if isinstance(admin_password, str) and admin_password.strip() else None
+        self.stats_store = stats_store
         self.restart_callback = restart_callback
         self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.web_directory = os.path.join(self.project_root, 'web')
@@ -44,8 +43,6 @@ class WebServer:
         self._server_lock = threading.Lock()
         self._watchdog_thread = None
         self._watchdog_stop = threading.Event()
-        self.stats_file = os.path.join(save_directory, '.stats.json')
-        self.stats_lock = threading.Lock()
         self.config_file = os.path.join(self.project_root, 'config.ini')
         self.logs_directory = os.path.join(self.project_root, 'logs')
         self.templates_directory = os.path.join(self.project_root, 'templates')
@@ -239,100 +236,7 @@ class WebServer:
             'free': self._format_bytes(usage.free),
             'used_percent': used_percent,
         }
-    
-    def _load_stats(self):
-        """Load statistics from JSON file."""
-        default_stats = {
-            'photos_taken': 0,
-            'downloads': 0,
-            'gallery_views': 0,
-            'collage_views': 0,
-            'image_views': 0,
-            'first_photo_date': None,
-            'last_photo_date': None,
-            'last_download_date': None,
-            'sessions': []
-        }
 
-        try:
-            with self.stats_lock:
-                if os.path.exists(self.stats_file):
-                    with open(self.stats_file, 'r', encoding='utf-8') as f:
-                        loaded_stats = json.load(f)
-
-                    if isinstance(loaded_stats, dict):
-                        default_stats.update(loaded_stats)
-                        return default_stats
-        except Exception as e:
-            Logger.error(f'WebServer: Error loading stats: {e}')
-
-        return default_stats
-    
-    def _save_stats(self, stats):
-        """Save statistics to JSON file."""
-        try:
-            with self.stats_lock:
-                stats_directory = os.path.dirname(self.stats_file)
-                if stats_directory:
-                    os.makedirs(stats_directory, exist_ok=True)
-
-                temp_stats_file = f'{self.stats_file}.tmp'
-                with open(temp_stats_file, 'w', encoding='utf-8') as f:
-                    json.dump(stats, f, indent=2)
-                    f.write('\n')
-
-                os.replace(temp_stats_file, self.stats_file)
-        except Exception as e:
-            Logger.error(f'WebServer: Error saving stats: {e}')
-    
-    def _track_event(self, event_type, session=None):
-        """Track an event in statistics."""
-        default_stats = {
-            'photos_taken': 0,
-            'downloads': 0,
-            'gallery_views': 0,
-            'collage_views': 0,
-            'image_views': 0,
-            'first_photo_date': None,
-            'last_photo_date': None,
-            'last_download_date': None,
-            'sessions': []
-        }
-
-        try:
-            with self.stats_lock:
-                stats = dict(default_stats)
-
-                if os.path.exists(self.stats_file):
-                    with open(self.stats_file, 'r', encoding='utf-8') as f:
-                        loaded_stats = json.load(f)
-
-                    if isinstance(loaded_stats, dict):
-                        stats.update(loaded_stats)
-
-                if event_type == 'download':
-                    stats['downloads'] += 1
-                    stats['last_download_date'] = datetime.now().isoformat()
-                elif event_type == 'gallery_view':
-                    stats['gallery_views'] += 1
-                elif event_type == 'collage_view':
-                    stats['collage_views'] += 1
-                elif event_type == 'image_view':
-                    stats['image_views'] += 1
-
-                stats_directory = os.path.dirname(self.stats_file)
-                if stats_directory:
-                    os.makedirs(stats_directory, exist_ok=True)
-
-                temp_stats_file = f'{self.stats_file}.tmp'
-                with open(temp_stats_file, 'w', encoding='utf-8') as f:
-                    json.dump(stats, f, indent=2)
-                    f.write('\n')
-
-                os.replace(temp_stats_file, self.stats_file)
-        except Exception as e:
-            Logger.error(f'WebServer: Error tracking event: {e}')
-    
     def _get_all_collages(self):
         """Get all collage files sorted by date (newest first)."""
         collages = []
@@ -406,17 +310,8 @@ class WebServer:
                     shutil.rmtree(session_path)
                     deleted_sessions += 1
 
-            stats = self._load_stats()
-            stats['photos_taken'] = 0
-            stats['downloads'] = 0
-            stats['gallery_views'] = 0
-            stats['collage_views'] = 0
-            stats['image_views'] = 0
-            stats['first_photo_date'] = None
-            stats['last_photo_date'] = None
-            stats['last_download_date'] = None
-            stats['sessions'] = []
-            self._save_stats(stats)
+            if self.stats_store is not None:
+                self.stats_store.reset()
         except Exception as e:
             Logger.error(f'WebServer: Error deleting sessions: {e}')
             raise
@@ -522,7 +417,7 @@ class WebServer:
             error_message=error_message,
             success_message=success_message,
         )
-    
+
     def _setup_routes(self):
         """Setup Flask routes."""
 
@@ -664,7 +559,8 @@ class WebServer:
         @self.app.route('/gallery')
         def gallery():
             """Gallery view with all collages."""
-            self._track_event('gallery_view')
+            if self.stats_store is not None:
+                self.stats_store.track_event('gallery_view')
             collages = self._get_all_collages()
 
             return render_template('gallery/index.html', collages=collages)
@@ -677,7 +573,8 @@ class WebServer:
             if collage_path is None:
                 return redirect('/')
             
-            self._track_event('collage_view', session)
+            if self.stats_store is not None:
+                self.stats_store.track_event('collage_view')
 
             return render_template('gallery/collage.html', session=session)
         
@@ -689,7 +586,8 @@ class WebServer:
             if image_path is None:
                 return "Not found", 404
             
-            self._track_event('image_view', session)
+            if self.stats_store is not None:
+                self.stats_store.track_event('image_view')
             return send_file(image_path, mimetype='image/jpeg')
         
         @self.app.route('/download/<session>/<filename>')
@@ -700,7 +598,8 @@ class WebServer:
             if image_path is None:
                 return "Not found", 404
             
-            self._track_event('download', session)
+            if self.stats_store is not None:
+                self.stats_store.track_event('download')
             return send_file(
                 image_path,
                 mimetype='image/jpeg',
@@ -727,7 +626,8 @@ class WebServer:
                 return 'Unable to create archive', 500
 
             archive_buffer.seek(0)
-            self._track_event('download')
+            if self.stats_store is not None:
+                self.stats_store.track_event('download')
 
             return send_file(
                 archive_buffer,
@@ -849,7 +749,19 @@ class WebServer:
         @self.app.route('/stats')
         def statistics():
             """Hidden statistics page - shows usage analytics."""
-            stats = self._load_stats()
+            stats = self.stats_store.load() if self.stats_store is not None else {
+                'photos_taken': 0,
+                'prints': 0,
+                'downloads': 0,
+                'gallery_views': 0,
+                'collage_views': 0,
+                'image_views': 0,
+                'first_photo_date': None,
+                'last_photo_date': None,
+                'last_print_date': None,
+                'last_download_date': None,
+                'sessions': [],
+            }
             collages = self._get_all_collages()
             downloadable_photos = self._get_all_downloadable_photos()
             
@@ -860,6 +772,13 @@ class WebServer:
                 'stats.html',
                 collages=collages,
                 downloadable_photos=downloadable_photos,
+                print_limit=self.stats_store.get_print_limit_info() if self.stats_store is not None else {
+                    'enabled': False,
+                    'max_prints': None,
+                    'prints': 0,
+                    'remaining': None,
+                    'reached': False,
+                },
                 stats=stats,
             )
         
@@ -933,28 +852,6 @@ class WebServer:
             self._ensure_watchdog()
             Logger.info('WebServer: Server started successfully')
             return True
-    
-    def track_photo_taken(self, session_id=None):
-        """Public method to track when a photo is taken.
-        
-        Args:
-            session_id: Optional session identifier for the photo
-        """
-        try:
-            stats = self._load_stats()
-            stats['photos_taken'] += 1
-            stats['last_photo_date'] = datetime.now().isoformat()
-            
-            if stats['first_photo_date'] is None:
-                stats['first_photo_date'] = datetime.now().isoformat()
-            
-            if session_id and session_id not in stats['sessions']:
-                stats['sessions'].append(session_id)
-            
-            self._save_stats(stats)
-            Logger.info(f'WebServer: Photo tracked - Total: {stats["photos_taken"]}')
-        except Exception as e:
-            Logger.error(f'WebServer: Error tracking photo: {e}')
     
     def stop(self):
         """Stop the web server."""

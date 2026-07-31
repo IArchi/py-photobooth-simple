@@ -83,6 +83,11 @@
                             <p>Files downloaded by visitors.</p>
                         </article>
                         <article class="stat-card">
+                            <div class="stat-label">Prints</div>
+                            <div class="stat-value">{{ stats.prints }}</div>
+                            <p>{% if print_limit.enabled %}{{ print_limit.remaining }} print(s) remaining out of {{ print_limit.max_prints }}.{% else %}Unlimited print mode.{% endif %}</p>
+                        </article>
+                        <article class="stat-card">
                             <div class="stat-label">Gallery views</div>
                             <div class="stat-value">{{ stats.gallery_views }}</div>
                             <p>Visits to the gallery listing page.</p>
@@ -100,8 +105,24 @@
                     <h2 style="margin-top: 0;">Additional information</h2>
                     <div class="info-list">
                         <div class="info-row">
+                            <strong>Last print</strong>
+                            <span>{{ stats.last_print_date or 'None' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <strong>Print limit</strong>
+                            <span>{% if print_limit.enabled %}{{ print_limit.max_prints }}{% else %}Unlimited{% endif %}</span>
+                        </div>
+                        <div class="info-row">
+                            <strong>Prints remaining</strong>
+                            <span>{% if print_limit.enabled %}{{ print_limit.remaining }}{% else %}Unlimited{% endif %}</span>
+                        </div>
+                        <div class="info-row">
                             <strong>Last download</strong>
                             <span>{{ stats.last_download_date or 'None' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <strong>Total prints</strong>
+                            <span>{{ stats.prints }}</span>
                         </div>
                         <div class="info-row">
                             <strong>Total sessions</strong>
