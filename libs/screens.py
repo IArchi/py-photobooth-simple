@@ -259,6 +259,7 @@ class StartScreen(BackgroundScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('StartScreen: on_entry().')
+        self.start_label.start_breeze()
         if self.app.ringled:
             self.app.ringled.start_rainbow()
         self._purge_when_idle()
@@ -276,6 +277,7 @@ class StartScreen(BackgroundScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('StartScreen: on_exit().')
+        self.start_label.stop_breeze()
         if self.app.ringled:
             self.app.ringled.clear()
 
@@ -720,14 +722,14 @@ class CountdownScreen(ColorScreen):
         )
         self.loading_layout.add_widget(icon)
 
-        loading = RotatingLabel(
+        self.loading = RotatingLabel(
             size_hint=(0.1, 0.1),
             pos_hint={'center_x': 0.5, 'y': 0.3},
             font_name=ICON_TTF,
             text=ICON_LOADING,
             wh_fraction=0.055,
         )
-        self.loading_layout.add_widget(loading)
+        self.loading_layout.add_widget(self.loading)
 
         # Home button (visible only when timer is not active) - top left
         self.btn_home = make_icon_button(ICON_HOME,
@@ -786,6 +788,7 @@ class CountdownScreen(ColorScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('CountdownScreen: on_exit().')
+        self.loading.stop_animation()
         self.camera.opacity = 1
         if self._clock:
             Clock.unschedule(self._clock)
@@ -866,6 +869,7 @@ class CountdownScreen(ColorScreen):
 
                 # Display loading
                 self.overlay_layout.remove_widget(self.circular_counter)
+                self.loading.start_animation()
                 if self.btn_trigger.parent:
                     self.overlay_layout.remove_widget(self.btn_trigger)
                 self.overlay_layout.add_widget(self.loading_layout)
@@ -1555,7 +1559,7 @@ class ProcessingScreen(ColorScreen):
         layout.add_widget(icon)
 
         # Display loading spinner
-        loading = RotatingLabel(
+        self.loading = RotatingLabel(
             size_hint=(0.1, 0.1),
             pos_hint={'center_x': 0.5, 'y': 0.3},
             font_name=ICON_TTF,
@@ -1563,11 +1567,12 @@ class ProcessingScreen(ColorScreen):
             wh_fraction=0.055,
         )
 
-        layout.add_widget(loading)
+        layout.add_widget(self.loading)
         self.add_widget(layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('ProcessingScreen: on_entry().')
+        self.loading.start_animation()
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         self._clock = Clock.schedule_once(self.timer_event, 0.2)
         if self.app.ringled:
@@ -1577,6 +1582,7 @@ class ProcessingScreen(ColorScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('ProcessingScreen: on_exit().')
+        self.loading.stop_animation()
         Clock.unschedule(self._clock)
         if self.app.ringled:
             self.app.ringled.clear()
@@ -2124,24 +2130,26 @@ class CopyingScreen(ColorScreen):
         layout.add_widget(self.progress)
 
         # Display loading spinner
-        loading = RotatingLabel(
+        self.loading = RotatingLabel(
             size_hint=(0.1, 0.1),
             pos_hint={'center_x': 0.5, 'y': 0.3},
             font_name=ICON_TTF,
             text=ICON_LOADING,
             wh_fraction=0.055,
         )
-        layout.add_widget(loading)
+        layout.add_widget(self.loading)
 
         self.add_widget(layout)
 
     def on_entry(self, kwargs={}):
         Logger.info('CopyingScreen: on_entry().')
+        self.loading.start_animation()
         if self.app.ringled:
             self.app.ringled.wave([255, 255, 255])
 
     def on_exit(self, kwargs={}):
         Logger.info('CopyingScreen: on_exit().')
+        self.loading.stop_animation()
         if self.app.ringled:
             self.app.ringled.clear()
 

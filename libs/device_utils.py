@@ -40,6 +40,14 @@ class CaptureDevice:
     def get_preview_frame_id(self):
         return 0
 
+    @staticmethod
+    def _sleep_to_target_fps(loop_started_at, target_fps, now_fn=time.monotonic, sleep_fn=time.sleep):
+        if target_fps <= 0:
+            return
+        remaining = (1.0 / target_fps) - (now_fn() - loop_started_at)
+        if remaining > 0:
+            sleep_fn(remaining)
+
     def get_preview(self, aspect_ratio=None):
         pass
 
@@ -188,7 +196,7 @@ class Cv2Camera(CaptureDevice):
         FileUtils.write_image(output_name, im)
 
         # Create small preview in background thread (non-blocking)
-        threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
+        threading.Thread(target=self._create_small_async, args=(im, output_name), daemon=True).start()
     
     def _create_small_async(self, image, output_name):
         """Create small preview image asynchronously to avoid blocking capture."""
@@ -220,6 +228,7 @@ class Gphoto2Camera(CaptureDevice):
                 self._camera_lock = threading.Lock()
                 self._preview_frame = None
                 self._preview_frame_back = None
+                self._preview_frame_id = 0
                 self._preview_thread = None
                 self._preview_stop = False
                 self._preview_fps = 15  # DSLR preview limited by USB throughput
@@ -325,6 +334,7 @@ class Gphoto2Camera(CaptureDevice):
                     im = cv2.rotate(im, cv2.ROTATE_180)
                     with self._preview_lock:
                         self._preview_frame, self._preview_frame_back = im, self._preview_frame
+                        self._preview_frame_id += 1
                 self._sleep_to_target_fps(loop_started_at, self._preview_fps)
             except Exception as e:
                 self._preview_failures += 1
@@ -333,14 +343,6 @@ class Gphoto2Camera(CaptureDevice):
                 else:
                     Logger.debug('Gphoto2Camera preview thread: %s', e)
                 self._sleep_to_target_fps(loop_started_at, self._preview_fps)
-
-    @staticmethod
-    def _sleep_to_target_fps(loop_started_at, target_fps, now_fn=time.monotonic, sleep_fn=time.sleep):
-        if target_fps <= 0:
-            return
-        remaining = (1.0 / target_fps) - (now_fn() - loop_started_at)
-        if remaining > 0:
-            sleep_fn(remaining)
 
     def _start_preview_thread(self):
         if self._preview_thread is not None and self._preview_thread.is_alive():
@@ -355,6 +357,10 @@ class Gphoto2Camera(CaptureDevice):
     def get_preview_fps(self):
         """Recommended FPS for preview (DSLR limited by USB throughput)."""
         return self._preview_fps
+
+    def get_preview_frame_id(self):
+        with self._preview_lock:
+            return self._preview_frame_id
 
     def get_preview(self, aspect_ratio=None, zoom=None):
         self._start_preview_thread()
@@ -399,7 +405,7 @@ class Gphoto2Camera(CaptureDevice):
         FileUtils.write_image(output_name, im)
 
         # Create small preview in background thread (non-blocking)
-        threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
+        threading.Thread(target=self._create_small_async, args=(im, output_name), daemon=True).start()
 
 
     def _create_small_async(self, image, output_name):
@@ -426,9 +432,10 @@ class Picamera2Camera(CaptureDevice):
         self._preview_lock = threading.Lock()
         self._camera_lock = threading.Lock()
         self._preview_frame = None
+        self._preview_frame_id = 0
         self._preview_thread = None
         self._preview_stop = False
-        self._preview_fps = 60
+        self._preview_fps = 30
         self._capturing = False
         if Picamera2:
             try:
@@ -450,18 +457,41 @@ class Picamera2Camera(CaptureDevice):
 
     def _preview_loop(self):
         """Read PiCamera frames continuously so Kivy never waits on camera I/O."""
+        measured_at = time.monotonic()
+        measured_frames = 0
+        capture_seconds = 0.0
         while not self._preview_stop:
+            loop_started_at = time.monotonic()
             try:
                 if self._capturing:
-                    time.sleep(1.0 / self._preview_fps)
+                    measured_at = time.monotonic()
+                    measured_frames = 0
+                    capture_seconds = 0.0
+                    self._sleep_to_target_fps(loop_started_at, self._preview_fps)
                     continue
                 with self._camera_lock:
+                    capture_started_at = time.monotonic()
                     im = self._instance.capture_array()
+                    capture_seconds += time.monotonic() - capture_started_at
                 with self._preview_lock:
                     self._preview_frame = im
-                time.sleep(1.0 / self._preview_fps)
+                    self._preview_frame_id += 1
+                measured_frames += 1
+                elapsed = time.monotonic() - measured_at
+                if elapsed >= 10:
+                    Logger.info(
+                        'Picamera2Camera: preview %.1f fps, capture_array %.1f ms average',
+                        measured_frames / elapsed,
+                        capture_seconds * 1000 / measured_frames,
+                    )
+                    measured_at = time.monotonic()
+                    measured_frames = 0
+                    capture_seconds = 0.0
+                # capture_array normally blocks until the sensor frame; only sleep any remainder.
+                self._sleep_to_target_fps(loop_started_at, self._preview_fps)
             except Exception as e:
                 Logger.debug('Picamera2Camera preview thread: %s', e)
+                self._sleep_to_target_fps(loop_started_at, self._preview_fps)
 
     def _start_preview_thread(self):
         if self._preview_thread is not None and self._preview_thread.is_alive():
@@ -475,7 +505,7 @@ class Picamera2Camera(CaptureDevice):
 
     def get_preview_frame_id(self):
         with self._preview_lock:
-            return id(self._preview_frame)
+            return self._preview_frame_id
 
     def get_preview(self, aspect_ratio=None, zoom=None):
         self._start_preview_thread()
@@ -505,7 +535,7 @@ class Picamera2Camera(CaptureDevice):
         FileUtils.write_image(output_name, im)
 
         # Create small preview in background thread (non-blocking)
-        threading.Thread(target=self._create_small_async, args=(im.copy(), output_name), daemon=True).start()
+        threading.Thread(target=self._create_small_async, args=(im, output_name), daemon=True).start()
     
     def _create_small_async(self, image, output_name):
         """Create small preview image asynchronously to avoid blocking capture."""

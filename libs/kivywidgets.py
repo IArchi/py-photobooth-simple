@@ -424,7 +424,6 @@ class BreezyBorderedLabel(Label):
     def __init__(self, **kwargs):
         super(BreezyBorderedLabel, self).__init__(**kwargs)
         self._animation_event = None
-        self.start_breeze()
 
     def on_size(self, *args):
         self.font_size = self.width / len(self.text) * 1.5
@@ -491,7 +490,17 @@ class RotatingImage(AsyncImage):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.angle = 0
-        Clock.schedule_interval(self.update, 1/30)
+        self._animation_event = None
+        self.start_animation()
+
+    def start_animation(self):
+        if self._animation_event is None:
+            self._animation_event = Clock.schedule_interval(self.update, 1/30)
+
+    def stop_animation(self):
+        if self._animation_event is not None:
+            self._animation_event.cancel()
+            self._animation_event = None
 
     def update(self, dt):
         self.angle -= 4  # Was 2 at 60fps, now 4 at 30fps for same visual speed
@@ -514,7 +523,16 @@ class RotatingLabel(ResizeLabel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.angle = 0
-        Clock.schedule_interval(self.update, 1/30)
+        self._animation_event = None
+
+    def start_animation(self):
+        if self._animation_event is None:
+            self._animation_event = Clock.schedule_interval(self.update, 1/30)
+
+    def stop_animation(self):
+        if self._animation_event is not None:
+            self._animation_event.cancel()
+            self._animation_event = None
 
     def update(self, dt):
         self.angle -= 4  # Was 2 at 60fps, now 4 at 30fps for same visual speed

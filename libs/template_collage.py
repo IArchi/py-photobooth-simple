@@ -60,6 +60,8 @@ class TemplateCollage:
         # Cache for loaded background/foreground images
         self._background_cache = None
         self._foreground_cache = None
+        self._foreground_resized_cache = None
+        self._foreground_alpha_cache = None
     
     def get_name(self):
         """Return the template name."""
@@ -236,10 +238,9 @@ class TemplateCollage:
         
         # Step 4: Apply foreground overlay if specified (resize to exact canvas size)
         if self._foreground:
-            overlay = self._load_image(self._foreground, cv2.IMREAD_UNCHANGED, cache_key='foreground')
+            overlay, alpha = self._get_foreground_overlay()
             if overlay is not None:
-                overlay = cv2.resize(overlay, (self._page_width, self._page_height), interpolation=cv2.INTER_AREA)
-                canvas = self._apply_overlay(canvas, overlay)
+                canvas = self._apply_overlay(canvas, overlay, alpha)
         
         # Step 5: Save base collage (without duplication for web gallery)
         if output_path:
@@ -264,7 +265,20 @@ class TemplateCollage:
         
         return canvas
     
-    def _apply_overlay(self, image, overlay):
+    def _get_foreground_overlay(self):
+        """Return the foreground resized once for this template's fixed canvas."""
+        if self._foreground_resized_cache is None:
+            overlay = self._load_image(self._foreground, cv2.IMREAD_UNCHANGED, cache_key='foreground')
+            if overlay is None:
+                return None, None
+            self._foreground_resized_cache = cv2.resize(
+                overlay, (self._page_width, self._page_height), interpolation=cv2.INTER_AREA
+            )
+            if self._foreground_resized_cache.shape[2] == 4:
+                self._foreground_alpha_cache = self._foreground_resized_cache[:, :, 3].astype(np.float32) / 255.0
+        return self._foreground_resized_cache, self._foreground_alpha_cache
+
+    def _apply_overlay(self, image, overlay, alpha_overlay=None):
         """
         Apply an overlay image on top of the base image.
         
@@ -276,7 +290,8 @@ class TemplateCollage:
             Image with overlay applied
         """
         if overlay.shape[2] == 4:  # If overlay has alpha channel
-            alpha_overlay = overlay[:, :, 3] / 255.0
+            if alpha_overlay is None:
+                alpha_overlay = overlay[:, :, 3].astype(np.float32) / 255.0
             alpha_image = 1.0 - alpha_overlay
             
             for c in range(0, 3):
