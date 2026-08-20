@@ -5,7 +5,6 @@ from datetime import datetime
 
 from kivy.logger import Logger
 
-
 class StatsStore:
     """Persist photobooth usage statistics in a JSON file."""
 
