@@ -314,6 +314,7 @@ class Gphoto2Camera(CaptureDevice):
     def _preview_loop(self):
         """Dedicated thread: continuous capture + decode so as not to block the UI."""
         while not self._preview_stop:
+            loop_started_at = time.monotonic()
             try:
                 with self._camera_lock:
                     cfile = self._instance.capture_preview()
@@ -324,14 +325,22 @@ class Gphoto2Camera(CaptureDevice):
                     im = cv2.rotate(im, cv2.ROTATE_180)
                     with self._preview_lock:
                         self._preview_frame, self._preview_frame_back = im, self._preview_frame
-                time.sleep(1.0 / self._preview_fps)
+                self._sleep_to_target_fps(loop_started_at, self._preview_fps)
             except Exception as e:
                 self._preview_failures += 1
                 if self._preview_failures in (5, 15) or self._preview_failures % 60 == 0:
                     Logger.warning('Gphoto2Camera preview thread failed %s times: %s', self._preview_failures, e)
                 else:
                     Logger.debug('Gphoto2Camera preview thread: %s', e)
-                time.sleep(1.0 / self._preview_fps)
+                self._sleep_to_target_fps(loop_started_at, self._preview_fps)
+
+    @staticmethod
+    def _sleep_to_target_fps(loop_started_at, target_fps, now_fn=time.monotonic, sleep_fn=time.sleep):
+        if target_fps <= 0:
+            return
+        remaining = (1.0 / target_fps) - (now_fn() - loop_started_at)
+        if remaining > 0:
+            sleep_fn(remaining)
 
     def _start_preview_thread(self):
         if self._preview_thread is not None and self._preview_thread.is_alive():
