@@ -75,10 +75,9 @@ class WebServer:
             ),
         },
         {
-            'title': 'Web & Logs',
-            'description': 'Web access and log retention settings.',
+            'title': 'Logs',
+            'description': 'Log retention settings.',
             'fields': (
-                {'section': 'Web', 'option': 'WEB_PORT', 'label': 'Web port', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
                 {'section': 'Log', 'option': 'LOG_RETENTION_DAYS', 'label': 'Log retention days', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
                 {'section': 'Log', 'option': 'LOG_MAX_FILES', 'label': 'Maximum log files', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
             ),
@@ -1121,6 +1120,11 @@ class WebServer:
         @self.app.route('/check_network_status.txt')
         @self.app.route('/mobile/status.php')
         def captive():
+            return redirect('/')
+
+        @self.app.route('/<path:path>', methods=['GET', 'HEAD'])
+        def captive_fallback(path):
+            """Redirect unknown HTTP paths requested through captive portal probes."""
             return redirect('/')
     
     def start(self, force_restart=False):

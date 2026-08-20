@@ -167,12 +167,12 @@ You can edit `config.ini` to change various parameters such as:
 
 ### Web server
 
-You can edit configuration file and download photos from <localip>:<WEB_PORT>.
+The web server uses the fixed port `5000`. You can download photos from `<localip>:5000`.
 
 ### Template Editor
 
 The application includes a **visual template editor** - a browser-based tool for creating and customizing photo layouts without coding.
-The editor is reachable from `<localip>:<WEB_PORT>/admin/editor` after admin authentication.
+The editor is reachable from `<localip>:5000/admin/editor` after admin authentication.
 
 - **Visual Canvas:** Interactive canvas with grid snapping for precise positioning
 - **Photo Frames:** Add, move, resize, and delete photo placeholders

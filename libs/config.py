@@ -45,7 +45,7 @@ class Config:
         return password if password and password.upper() != 'NONE' else None
 
     def get_web_port(self):
-        return self._get_int(('Web', 'Global'), 'WEB_PORT', fallback=5000)
+        return 5000
 
     def get_countdown(self):
         return self._get_int(('Capture', 'Picture'), 'COUNTDOWN', fallback=5)

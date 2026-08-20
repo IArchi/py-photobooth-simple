@@ -54,6 +54,28 @@ escape_systemd_value() {
     printf '%s' "$1" | sed 's/[[:space:]]/\\x20/g'
 }
 
+get_wifi_country() {
+    local country=""
+
+    if command -v raspi-config >/dev/null 2>&1; then
+        country=$(raspi-config nonint get_wifi_country 2>/dev/null || true)
+    fi
+
+    if [[ ! "$country" =~ ^[A-Za-z]{2}$ ]] && command -v iw >/dev/null 2>&1; then
+        country=$(iw reg get 2>/dev/null | sed -n 's/^country \([A-Za-z][A-Za-z]\):.*/\1/p' | sed -n '1p')
+    fi
+
+    if [[ ! "$country" =~ ^[A-Za-z]{2}$ ]]; then
+        country=$(locale 2>/dev/null | sed -n 's/^LANG=[^_]*_\([A-Za-z][A-Za-z]\).*/\1/p')
+    fi
+
+    if [[ "$country" =~ ^[A-Za-z]{2}$ ]]; then
+        printf '%s' "${country^^}"
+    else
+        return 1
+    fi
+}
+
 # Banner
 echo ""
 echo "╔═══════════════════════════════════════════════════════╗"
@@ -356,9 +378,6 @@ domain=photobooth.local
 dhcp-option=3,192.168.4.1
 dhcp-option=6,192.168.4.1
 
-# RFC 8910 captive portal hint, supported by recent Android/iOS versions.
-dhcp-option=114,http://192.168.4.1/
-
 # Captive Portal DNS - resolve every domain to the PhotoBooth.
 # Phones probe public domains to detect captive portals; this makes those probes hit Flask locally.
 address=/#/192.168.4.1
@@ -401,7 +420,12 @@ EOF'
         
         # Configure hostapd (WiFi Access Point)
         print_info "Configuring hostapd..."
-        sudo bash -c 'cat > /etc/hostapd/hostapd.conf << EOF
+        WIFI_COUNTRY=$(get_wifi_country) || {
+            print_error "Unable to detect the WiFi country. Configure it with raspi-config, then run this installer again."
+            exit 1
+        }
+        print_info "Using WiFi country: $WIFI_COUNTRY"
+        sudo bash -c "cat > /etc/hostapd/hostapd.conf << EOF
 # PhotoBooth WiFi AP Configuration
 interface=wlan0
 driver=nl80211
@@ -426,15 +450,15 @@ ieee80211n=1
 # wpa_pairwise=TKIP
 # rsn_pairwise=CCMP
 
-# Country code (adjust for your location)
-country_code=FR
+# Country code detected from Raspberry Pi OS, the regulatory domain, or locale
+country_code=$WIFI_COUNTRY
 
 # Beacon interval
 beacon_int=100
 
 # DTIM period
 dtim_period=2
-EOF'
+EOF"
         
         # Tell hostapd where to find the config file
         print_info "Updating hostapd daemon configuration..."
@@ -484,7 +508,7 @@ EOF'
         print_info "SSID: PhotoBooth"
         print_info "IP Address: 192.168.4.1"
         print_info "Web Server: http://192.168.4.1 (redirected to port 5000)"
-        print_info "Captive Portal: DNS wildcard + DHCP option 114 configured"
+        print_info "Captive Portal: DNS wildcard and HTTP redirect configured"
         NEED_REBOOT=true
     else
         print_info "Skipping WiFi Access Point configuration"
