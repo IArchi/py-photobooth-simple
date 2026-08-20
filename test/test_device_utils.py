@@ -31,6 +31,11 @@ class FakePrintFormat:
         return self._uses_print_version
 
 
+class FakeStatsStore:
+    def can_print(self):
+        return True
+
+
 def test_device_utils_print_returns_printer_task_id():
     devices = object.__new__(DeviceUtils)
     devices._printer = FakePrinter()
@@ -66,6 +71,7 @@ def test_trigger_print_ignores_stale_print_collage_for_fullpage(tmp_path):
 
     app = PhotoboothApp.__new__(PhotoboothApp)
     app.devices = printer
+    app.stats_store = FakeStatsStore()
     app.print_formats = [FakePrintFormat({'PageSize': 'w288h432'}, uses_print_version=False)]
     app.get_collage = lambda: str(collage)
     app.get_saved_collage = lambda: None
@@ -86,6 +92,7 @@ def test_trigger_print_uses_print_collage_for_duplicated_strip(tmp_path):
 
     app = PhotoboothApp.__new__(PhotoboothApp)
     app.devices = printer
+    app.stats_store = FakeStatsStore()
     app.print_formats = [FakePrintFormat({'PageSize': 'w288h432-div2'}, uses_print_version=True)]
     app.get_collage = lambda: str(collage)
     app.get_saved_collage = lambda: None
