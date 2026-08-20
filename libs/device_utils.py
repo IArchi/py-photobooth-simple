@@ -436,7 +436,7 @@ class Picamera2Camera(CaptureDevice):
                 self._preview_config = self._instance.create_preview_configuration(
                     main={'format': 'RGB888', 'size': (1280, 720)},
                     transform=Transform(hflip=1, vflip=1),
-                    controls={'FrameRate': 60},
+                    controls={'FrameRate': 30},
                 )
                 self._still_config = self._instance.create_still_configuration(main={"size": (2304, 1296), "format": "RGB888"}, buffer_count=2, controls={'FrameRate': 30})
                 self._instance.configure(self._preview_config)
