@@ -238,11 +238,12 @@ if ask_yes_no "Step 7/9: Do you want to install printer support (CUPS)?"; then
     
     # Install printer drivers
     sudo apt install -y printer-driver-gutenprint
+    sudo install -m 644 doc/DS620.ppd /usr/share/cups/model/DS620.ppd
     
     # Restart CUPS
     sudo /etc/init.d/cups restart
     
-    print_success "CUPS installed"
+    print_success "CUPS and DS620 PPD installed"
     print_info "Configure your printer at: https://$(hostname -I | awk '{print $1}'):631/admin/"
     print_warning "Remember to name your printer 'DS620' (or update config.ini accordingly)"
 else
