@@ -30,7 +30,7 @@ class WebServer:
     START_SCREEN_SHOW_TITLE_DEFAULT = True
     START_SCREEN_SHOW_INSTRUCTIONS_DEFAULT = True
     DSLR_SHUTTERSPEED_CHOICES = [
-        ('', 'Leave unchanged'),
+        ('', 'As defined on DSLR'),
         ('1/30', '1/30'),
         ('1/60', '1/60'),
         ('1/80', '1/80'),
@@ -44,7 +44,7 @@ class WebServer:
         ('1/500', '1/500'),
     ]
     DSLR_APERTURE_CHOICES = [
-        ('', 'Leave unchanged'),
+        ('', 'As defined on DSLR'),
         ('1.8', '1.8'),
         ('2', '2'),
         ('2.8', '2.8'),
@@ -57,7 +57,7 @@ class WebServer:
         ('22', '22'),
     ]
     DSLR_FOCUSMODE_CHOICES = [
-        ('', 'Leave unchanged'),
+        ('', 'As defined on DSLR'),
         ('One Shot', 'One Shot'),
         ('AF-S', 'AF-S'),
         ('AF-A', 'AF-A'),
@@ -65,7 +65,7 @@ class WebServer:
         ('Manual', 'Manual'),
     ]
     DSLR_ISO_CHOICES = [
-        ('', 'Leave unchanged'),
+        ('', 'As defined on DSLR'),
         ('100', '100'),
         ('200', '200'),
         ('400', '400'),
@@ -758,7 +758,7 @@ class WebServer:
             section_values.setdefault(section, {})[option] = value
 
         section_pattern = re.compile(r'^\s*\[(.+?)\]\s*$')
-        option_pattern = re.compile(r'^(\s*)([^=;#][^=]*?)(\s*=\s*)(.*?)(\r?\n?)$')
+        option_pattern = re.compile(r'^([ \t]*)([^=;#][^=]*?)([ \t]*=[ \t]*)(.*?)(\r?\n?)$')
         lines = content.splitlines(keepends=True)
         rendered_lines = []
         existing_sections = set()
@@ -794,7 +794,7 @@ class WebServer:
                 option_name = option_match.group(2).strip()
                 key = (current_section, option_name)
                 if key in updates:
-                    rendered_lines.append(f'{option_match.group(1)}{option_name}{option_match.group(3)}{updates[key]}{option_match.group(5) or line_ending}')
+                    rendered_lines.append(f'{option_match.group(1)}{option_name} = {updates[key]}{option_match.group(5) or line_ending}')
                     seen_options.add(key)
                     continue
 
@@ -869,12 +869,29 @@ class WebServer:
         elif config_error_message:
             error_message = config_error_message
 
+        try:
+            start_screen_preview = self._get_start_screen_preview(form_values=form_values)
+        except Exception as exc:
+            Logger.error(f'WebServer: Error building start screen preview: {exc}')
+            start_screen_preview = {
+                'image_url': '/api/admin/startscreen-preview-image',
+                'default_image_url': '/api/admin/startscreen-preview-image?default=1',
+                'has_custom_background': False,
+                'custom_background_path': '',
+                'text': 'PHOTO BOOTH',
+                'instructions_text': 'TAP TO START',
+                'text_color': self.START_SCREEN_TEXT_COLOR_DEFAULT,
+                'show_title': self.START_SCREEN_SHOW_TITLE_DEFAULT,
+                'show_instructions': self.START_SCREEN_SHOW_INSTRUCTIONS_DEFAULT,
+                'version_text': 'Version 1.2',
+            }
+
         return render_template(
             'admin/index.html',
             admin_enabled=admin_enabled,
             config_sections=config_sections,
             overview_stats=self._get_usage_stats(),
-            start_screen_preview=self._get_start_screen_preview(form_values=form_values),
+            start_screen_preview=start_screen_preview,
             disk_usage=self._get_disk_usage_info(),
             error_message=error_message,
             success_message=success_message,
