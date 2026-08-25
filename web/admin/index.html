@@ -11,6 +11,102 @@
             gap: 20px;
         }
 
+        .admin-layout {
+            display: grid;
+            grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+
+        .admin-sidebar {
+            position: sticky;
+            top: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .admin-sidebar-panel {
+            padding: 18px;
+        }
+
+        .admin-sidebar-actions {
+            margin-top: auto;
+        }
+
+        .admin-sidebar-title {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .admin-sidebar-copy {
+            margin: 8px 0 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .admin-sidebar-nav {
+            display: grid;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .admin-sidebar-link {
+            display: block;
+            padding: 12px 14px;
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            background: var(--panel-muted);
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .admin-sidebar-link:hover {
+            border-color: var(--accent);
+            background: rgba(0, 123, 255, 0.08);
+            color: var(--accent);
+        }
+
+        .admin-sidebar-link strong {
+            display: block;
+            font-size: 14px;
+        }
+
+        .admin-sidebar-link span {
+            display: block;
+            margin-top: 4px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .admin-sidebar-tools {
+            display: grid;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .admin-sidebar-tools .btn,
+        .admin-sidebar-tools form {
+            width: 100%;
+        }
+
+        .admin-sidebar-tools .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .admin-main {
+            display: grid;
+            gap: 20px;
+        }
+
+        .admin-section-anchor {
+            scroll-margin-top: 28px;
+        }
+
         .quick-actions {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -44,6 +140,19 @@
         .disk-card {
             display: grid;
             gap: 14px;
+        }
+
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+
+        .overview-grid .stat-card p {
+            margin: 8px 0 0;
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
         }
 
         .disk-stats {
@@ -111,9 +220,51 @@
             margin-bottom: 16px;
         }
 
+        .config-toolbar-actions {
+            display: flex;
+            justify-content: flex-end;
+        }
+
         .config-toolbar p {
             margin: 0;
             color: var(--text-secondary);
+        }
+
+        .config-save-button {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 40;
+            box-shadow: 0 18px 36px rgba(15, 23, 42, 0.22);
+            opacity: 0;
+            transform: translateY(16px);
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .config-save-button.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .config-summary {
+            padding: 18px;
+            border: 1px solid #eeeeee;
+            border-radius: 16px;
+            background: var(--panel-muted);
+            margin-bottom: 20px;
+        }
+
+        .config-summary h3 {
+            margin: 0 0 8px;
+            font-size: 16px;
+        }
+
+        .config-summary p {
+            margin: 0;
+            color: var(--text-secondary);
+            line-height: 1.6;
         }
 
         .config-sections {
@@ -148,6 +299,115 @@
         .config-field {
             display: grid;
             gap: 8px;
+        }
+
+        .upload-field {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .preview-card {
+            display: grid;
+            gap: 16px;
+            margin-top: 18px;
+            padding: 18px;
+            border: 1px solid #eeeeee;
+            border-radius: 16px;
+            background: #ffffff;
+        }
+
+        .startscreen-preview {
+            position: relative;
+            overflow: hidden;
+            min-height: 300px;
+            border-radius: 14px;
+            background: #0f172a;
+            aspect-ratio: 16 / 9;
+        }
+
+        .startscreen-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .startscreen-preview-title {
+            position: absolute;
+            left: 15%;
+            width: 70%;
+            padding: 20px 28px;
+            border: 4px solid currentColor;
+            text-align: center;
+            font-size: clamp(28px, 4vw, 54px);
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            bottom: 40%;
+            color: var(--preview-text-color, #FFFFFF);
+            box-sizing: border-box;
+            background: rgba(0, 0, 0, 0.08);
+            backdrop-filter: blur(1px);
+        }
+
+        .startscreen-preview-version {
+            position: absolute;
+            top: 4%;
+            right: 3%;
+            color: var(--preview-text-color, #FFFFFF);
+            font-size: 14px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .startscreen-preview-instructions {
+            position: absolute;
+            left: 50%;
+            bottom: 10%;
+            transform: translateX(-50%);
+            color: var(--preview-text-color, #FFFFFF);
+            font-size: clamp(18px, 2.1vw, 28px);
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-align: center;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .image-upload-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .custom-image-path {
+            flex: 1 1 280px;
+            min-height: 42px;
+            padding: 10px 14px;
+            border: 1px solid var(--panel-border-strong);
+            border-radius: 10px;
+            background: #ffffff;
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .remove-image-button {
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            border: 1px solid #fecaca;
+            border-radius: 999px;
+            background: #fff1f2;
+            color: #b91c1c;
+            font-size: 24px;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .remove-image-button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
         }
 
         .config-field.full-width {
@@ -248,7 +508,45 @@
             color: #8f1d2c;
         }
 
+        .danger-form {
+            display: grid;
+            gap: 14px;
+            max-width: 420px;
+        }
+
+        .danger-dialog {
+            width: min(480px, calc(100vw - 32px));
+            margin: auto;
+            padding: 0;
+            border: none;
+            border-radius: var(--radius-lg);
+            background: transparent;
+        }
+
+        .danger-dialog::backdrop {
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .danger-dialog-card {
+            padding: 24px;
+        }
+
+        .danger-dialog-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
         @media (max-width: 900px) {
+            .admin-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .admin-sidebar {
+                position: static;
+            }
+
             .quick-actions {
                 grid-template-columns: 1fr;
             }
@@ -267,9 +565,21 @@
         }
 
         @media (max-width: 720px) {
+            .admin-sidebar-panel {
+                padding: 16px;
+            }
+
             .config-toolbar {
                 flex-direction: column;
                 align-items: stretch;
+            }
+
+            .config-save-button {
+                right: 16px;
+                bottom: 16px;
+                left: 16px;
+                width: calc(100vw - 32px);
+                justify-content: center;
             }
         }
     </style>
@@ -281,7 +591,7 @@
                 <div>
                     <span class="eyebrow">Administration</span>
                     <h1>PhotoBooth control panel</h1>
-                    <p>Everything needed to manage templates, application settings and maintenance is grouped here with the most common actions first.</p>
+                    <p>Everything needed to manage templates, application settings and maintenance is grouped into clear work areas so common actions stay easy to find.</p>
                 </div>
                 <div class="actions">
                     <a href="/admin/logout" class="btn btn-secondary">Log out</a>
@@ -302,75 +612,121 @@
                     <div class="status error">ADMIN_PASSWORD is not set in <code>config.ini</code>. Admin actions are disabled.</div>
                     {% endif %}
                 </div>
-
-                <div class="quick-actions">
-                    <article class="quick-card">
-                        <span class="eyebrow">Templates</span>
-                        <h2>Edit layouts</h2>
-                        <p>Create, duplicate and save print templates from the visual editor.</p>
-                        <a href="/admin/editor" class="btn btn-primary">Open template editor</a>
-                    </article>
-
-                    <article class="quick-card">
-                        <span class="eyebrow">Maintenance</span>
-                        <h2>Restart or clean</h2>
-                        <p>Restart the booth after changes, or remove all saved sessions from the danger zone below.</p>
-                        <form method="post" action="/admin/restart">
-                            <div class="actions">
-                                <button type="submit" class="btn btn-warning {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Restart app</button>
-                            </div>
-                        </form>
-                    </article>
-
-                    <article class="quick-card">
-                        <span class="eyebrow">Logs</span>
-                        <h2>Read application logs</h2>
-                        <p>Open the newest log files from the <code>logs</code> folder directly in the browser.</p>
-                        <a href="/admin/logs" class="btn btn-ghost">Open logs</a>
-                    </article>
-                </div>
-
-                <article class="quick-card disk-card">
-                    <span class="eyebrow">Disk space</span>
-                    <h2>{{ disk_usage.free }} available</h2>
-                    <div class="disk-bar" aria-label="Disk used {{ disk_usage.used_percent }} percent">
-                        <div class="disk-bar-fill"></div>
-                    </div>
-                    <div class="disk-stats">
-                        <div class="disk-stat">
-                            <div class="disk-label">Used</div>
-                            <div class="disk-value">{{ disk_usage.used }}</div>
-                        </div>
-                        <div class="disk-stat">
-                            <div class="disk-label">Available</div>
-                            <div class="disk-value">{{ disk_usage.free }}</div>
-                        </div>
-                        <div class="disk-stat">
-                            <div class="disk-label">Total</div>
-                            <div class="disk-value">{{ disk_usage.total }}</div>
-                        </div>
-                    </div>
-                    <p class="disk-path">{{ disk_usage.used_percent }}% used on <code>{{ disk_usage.path }}</code></p>
-                </article>
             </section>
 
-            <section class="admin-stack">
-                <article class="panel section-card" id="config-section">
+            <div class="admin-layout">
+                <aside class="admin-sidebar">
+                    <nav class="panel admin-sidebar-panel" aria-label="Admin sections">
+                        <span class="eyebrow">Navigation</span>
+                        <h2 class="admin-sidebar-title">Admin menu</h2>
+                        <div class="admin-sidebar-nav">
+                            <a href="#overview-section" class="admin-sidebar-link">
+                                <strong>Overview</strong>
+                                <span>Stats and disk space.</span>
+                            </a>
+                            <a href="#config-section" class="admin-sidebar-link">
+                                <strong>Configuration</strong>
+                                <span>Edit <code>config.ini</code>.</span>
+                            </a>
+                        </div>
+                        <div class="admin-sidebar-tools">
+                            <a href="/admin/editor" class="btn btn-primary">Open template editor</a>
+                            <a href="/admin/logs" class="btn btn-ghost">Open logs</a>
+                            <form method="post" action="/admin/restart">
+                                <button type="submit" class="btn btn-warning {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Restart app</button>
+                            </form>
+                            <button type="button" id="delete-all-trigger" class="btn btn-danger {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Delete all photos</button>
+                        </div>
+                    </nav>
+                </aside>
+
+                <div class="admin-main">
+                    <section class="admin-stack admin-section-anchor" id="overview-section">
+                        <div class="overview-grid">
+                            <article class="stat-card">
+                                <div class="stat-label">Photos taken</div>
+                                <div class="stat-value">{{ overview_stats.photos_taken }}</div>
+                                <p>Total collages created by the booth.</p>
+                            </article>
+                            <article class="stat-card">
+                                <div class="stat-label">Downloads</div>
+                                <div class="stat-value">{{ overview_stats.downloads }}</div>
+                                <p>Files downloaded by visitors.</p>
+                            </article>
+                            <article class="stat-card">
+                                <div class="stat-label">Prints</div>
+                                <div class="stat-value">{{ overview_stats.prints }}</div>
+                                <p>Total print jobs triggered from the booth.</p>
+                            </article>
+                            <article class="stat-card">
+                                <div class="stat-label">Gallery views</div>
+                                <div class="stat-value">{{ overview_stats.gallery_views }}</div>
+                                <p>Visits to the gallery listing page.</p>
+                            </article>
+                        </div>
+
+                        <article class="quick-card disk-card">
+                            <span class="eyebrow">Disk space</span>
+                            <h2>{{ disk_usage.free }} available</h2>
+                            <div class="disk-bar" aria-label="Disk used {{ disk_usage.used_percent }} percent">
+                                <div class="disk-bar-fill"></div>
+                            </div>
+                            <div class="disk-stats">
+                                <div class="disk-stat">
+                                    <div class="disk-label">Used</div>
+                                    <div class="disk-value">{{ disk_usage.used }}</div>
+                                </div>
+                                <div class="disk-stat">
+                                    <div class="disk-label">Available</div>
+                                    <div class="disk-value">{{ disk_usage.free }}</div>
+                                </div>
+                                <div class="disk-stat">
+                                    <div class="disk-label">Total</div>
+                                    <div class="disk-value">{{ disk_usage.total }}</div>
+                                </div>
+                            </div>
+                            <p class="disk-path">{{ disk_usage.used_percent }}% used on <code>{{ disk_usage.path }}</code></p>
+                        </article>
+                    </section>
+
+                    <section class="admin-stack admin-section-anchor" id="config-section">
+                        <article class="panel section-card">
                     <span class="eyebrow">Configuration</span>
                     <h2>Edit <code>config.ini</code></h2>
-                    <p>Use this section when a printer, countdown, port or hardware setting must be changed. Choice-based fields use dropdowns, booleans use checkboxes, and <code>CALIBRATION</code> remains a raw string.</p>
 
-                    <form method="post" action="/admin/config">
+                    <form id="config-form" method="post" action="/admin/config" enctype="multipart/form-data">
                         <div class="config-toolbar">
                             <p>Apply your changes here, then restart PhotoBooth so the new configuration is loaded.</p>
-                            <button type="submit" class="btn btn-success {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Save config.ini</button>
+                            <div class="config-toolbar-actions">
+                                <button id="config-save-button" type="submit" class="btn btn-success config-save-button {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Save config.ini</button>
+                            </div>
                         </div>
                         <div class="config-sections">
                             {% for section in config_sections %}
-                            <section class="config-section">
+                            <section class="config-section admin-section-anchor" id="config-group-{{ loop.index0 }}">
                                 <h3>{{ section.title }}</h3>
                                 {% if section.description %}
                                 <p>{{ section.description }}</p>
+                                {% endif %}
+                                {% if section.title == 'Start screen' %}
+                                <div class="preview-card">
+                                    <div
+                                        class="startscreen-preview"
+                                        id="startscreen-preview"
+                                        style="--preview-text-color: {{ start_screen_preview.text_color }};"
+                                    >
+                                        <img
+                                            id="startscreen-preview-image"
+                                            src="{{ start_screen_preview.image_url }}"
+                                            data-default-src="{{ start_screen_preview.default_image_url }}"
+                                            alt="Start screen preview"
+                                        >
+                                        <div class="startscreen-preview-version" id="startscreen-preview-version">{{ start_screen_preview.version_text }}</div>
+                                        <div class="startscreen-preview-title" id="startscreen-preview-title" {% if not start_screen_preview.show_title %}hidden{% endif %}>{{ start_screen_preview.text }}</div>
+                                        <div class="startscreen-preview-instructions" id="startscreen-preview-instructions" {% if not start_screen_preview.show_instructions %}hidden{% endif %}>{{ start_screen_preview.instructions_text }}</div>
+                                    </div>
+                                    <p class="field-help">Prévisualisation approximative du rendu de l'écran d'accueil avec la couleur et la position du texte.</p>
+                                </div>
                                 {% endif %}
                                 <div class="config-fields">
                                     {% for field in section.fields %}
@@ -432,6 +788,36 @@
                                         {% if field.help %}
                                         <p class="field-help">{{ field.help }}</p>
                                         {% endif %}
+                                        {% if section.title == 'Start screen' and loop.first %}
+                                        <div class="upload-field">
+                                            <label class="field-label" for="startscreen-background-upload">Upload custom image</label>
+                                            {% if start_screen_preview.has_custom_background %}
+                                            <div class="image-upload-row">
+                                                <div class="custom-image-path">{{ start_screen_preview.custom_background_path }}</div>
+                                                <button
+                                                    type="button"
+                                                    class="remove-image-button"
+                                                    id="startscreen-background-remove"
+                                                    title="Supprimer l'image personnalisée"
+                                                    aria-label="Supprimer l'image personnalisée"
+                                                    {% if not admin_enabled %}disabled{% endif %}
+                                                >×</button>
+                                            </div>
+                                            {% endif %}
+                                            <div class="image-upload-row">
+                                                <input
+                                                    class="field-input"
+                                                    id="startscreen-background-upload"
+                                                    name="startscreen_background_upload"
+                                                    type="file"
+                                                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                                                    {% if not admin_enabled %}disabled{% endif %}
+                                                >
+                                            </div>
+                                            <input type="hidden" id="startscreen-background-remove-flag" name="startscreen_background_remove" value="">
+                                            <p class="field-help">Ajoute une image personnalisée. La croix supprime l'image personnalisée et revient au fond par défaut.</p>
+                                        </div>
+                                        {% endif %}
                                         {% endif %}
                                     </div>
                                     {% endif %}
@@ -443,20 +829,232 @@
                         <div class="config-note">Tip: save first, then use the restart action above to apply the updated configuration to the running application.</div>
                     </form>
                 </article>
+                    </section>
 
-                <article class="panel section-card danger-card">
+                </div>
+            </div>
+
+            <dialog id="delete-all-dialog" class="danger-dialog">
+                <div class="panel danger-card danger-dialog-card">
                     <span class="eyebrow">Danger Zone</span>
-                    <h2>Delete saved photos</h2>
-                    <p>This permanently removes all saved images, session folders and statistics linked to this session.</p>
-                    <div class="danger-callout">Only use this action when you intentionally want to clear the booth history.</div>
-                    <form method="post" action="/admin/delete-all">
-                        <div class="actions">
+                    <h2>Confirm photo deletion</h2>
+                    <p>Enter the current admin password to permanently delete all saved photos and session data.</p>
+                    <form method="post" action="/admin/delete-all" class="danger-form">
+                        <div class="config-field">
+                            <label class="field-label" for="delete-all-password-dialog">Admin password confirmation</label>
+                            <input
+                                class="field-input"
+                                id="delete-all-password-dialog"
+                                name="delete_all_password"
+                                type="password"
+                                autocomplete="current-password"
+                                placeholder="Enter admin password"
+                                {% if not admin_enabled %}disabled{% endif %}
+                                required
+                            >
+                            <p class="field-help">This action cannot be undone.</p>
+                        </div>
+                        <div class="danger-dialog-actions">
+                            <button type="button" id="delete-all-cancel" class="btn btn-ghost">Cancel</button>
                             <button type="submit" class="btn btn-danger {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Delete all photos</button>
                         </div>
                     </form>
-                </article>
-            </section>
+                </div>
+            </dialog>
         </div>
     </main>
+    <script>
+        (function () {
+            const deleteAllTrigger = document.getElementById('delete-all-trigger');
+            const deleteAllDialog = document.getElementById('delete-all-dialog');
+            const deleteAllCancel = document.getElementById('delete-all-cancel');
+            const deleteAllPasswordInput = document.getElementById('delete-all-password-dialog');
+            const configForm = document.getElementById('config-form');
+            const configSaveButton = document.getElementById('config-save-button');
+            const preview = document.getElementById('startscreen-preview');
+            const previewImage = document.getElementById('startscreen-preview-image');
+            const previewTitle = document.getElementById('startscreen-preview-title');
+            const previewInstructions = document.getElementById('startscreen-preview-instructions');
+
+            if (deleteAllTrigger && deleteAllDialog) {
+                deleteAllTrigger.addEventListener('click', function () {
+                    if (typeof deleteAllDialog.showModal === 'function') {
+                        deleteAllDialog.showModal();
+                    } else {
+                        deleteAllDialog.setAttribute('open', 'open');
+                    }
+
+                    if (deleteAllPasswordInput) {
+                        deleteAllPasswordInput.value = '';
+                        deleteAllPasswordInput.focus();
+                    }
+                });
+            }
+
+            if (deleteAllCancel && deleteAllDialog) {
+                deleteAllCancel.addEventListener('click', function () {
+                    if (typeof deleteAllDialog.close === 'function') {
+                        deleteAllDialog.close();
+                    } else {
+                        deleteAllDialog.removeAttribute('open');
+                    }
+                });
+            }
+
+            function serializeForm(form) {
+                const fields = [];
+
+                Array.from(form.elements).forEach(function (element) {
+                    if (!element.name || element.disabled) {
+                        return;
+                    }
+
+                    if (element.type === 'submit' || element.type === 'button' || element.type === 'reset') {
+                        return;
+                    }
+
+                    if (element.type === 'file') {
+                        fields.push({
+                            name: element.name,
+                            value: Array.from(element.files || []).map(function (file) {
+                                return [file.name, file.size, file.lastModified].join(':');
+                            }),
+                        });
+                        return;
+                    }
+
+                    if (element.type === 'checkbox' || element.type === 'radio') {
+                        fields.push({ name: element.name, value: element.checked });
+                        return;
+                    }
+
+                    fields.push({ name: element.name, value: element.value });
+                });
+
+                return JSON.stringify(fields);
+            }
+
+            function setupConfigSaveButton() {
+                if (!configForm || !configSaveButton || configSaveButton.disabled) {
+                    return;
+                }
+
+                const initialState = serializeForm(configForm);
+
+                function refreshConfigDirtyState() {
+                    const isDirty = serializeForm(configForm) !== initialState;
+                    configSaveButton.classList.toggle('is-visible', isDirty);
+                }
+
+                configForm.addEventListener('input', refreshConfigDirtyState);
+                configForm.addEventListener('change', refreshConfigDirtyState);
+                configForm.addEventListener('submit', function () {
+                    configSaveButton.classList.remove('is-visible');
+                });
+
+                refreshConfigDirtyState();
+            }
+
+            setupConfigSaveButton();
+
+            if (!preview || !previewImage) {
+                return;
+            }
+
+            const textColorInput = document.getElementById('startscreen__text_color');
+            const showTitleInput = document.getElementById('startscreen__show_title');
+            const showInstructionsInput = document.getElementById('startscreen__show_instructions');
+            const uploadInput = document.getElementById('startscreen-background-upload');
+            const removeButton = document.getElementById('startscreen-background-remove');
+            const removeFlagInput = document.getElementById('startscreen-background-remove-flag');
+            const defaultImageSrc = previewImage.dataset.defaultSrc;
+            const currentImageSrc = previewImage.getAttribute('src');
+
+            function clearObjectUrl() {
+                if (previewImage.dataset.objectUrl) {
+                    URL.revokeObjectURL(previewImage.dataset.objectUrl);
+                    delete previewImage.dataset.objectUrl;
+                }
+            }
+
+            function normalizeColor(value) {
+                const trimmed = (value || '').trim();
+                return /^#?[0-9a-fA-F]{6}$/.test(trimmed) ? `#${trimmed.replace('#', '').toUpperCase()}` : '#FFFFFF';
+            }
+
+            function refreshPreviewStyles() {
+                preview.style.setProperty('--preview-text-color', normalizeColor(textColorInput ? textColorInput.value : ''));
+                if (previewTitle) {
+                    previewTitle.hidden = !(showTitleInput && showTitleInput.checked);
+                }
+                if (previewInstructions) {
+                    previewInstructions.hidden = !(showInstructionsInput && showInstructionsInput.checked);
+                }
+            }
+
+            function refreshPreviewImage() {
+                if (removeFlagInput && removeFlagInput.value === 'true') {
+                    previewImage.src = defaultImageSrc;
+                    return;
+                }
+
+                if (uploadInput && uploadInput.files && uploadInput.files[0]) {
+                    const objectUrl = URL.createObjectURL(uploadInput.files[0]);
+                    clearObjectUrl();
+                    previewImage.src = objectUrl;
+                    previewImage.dataset.objectUrl = objectUrl;
+                    return;
+                }
+
+                previewImage.src = currentImageSrc;
+            }
+
+            function refreshRemoveButtonState() {
+                if (!removeButton) {
+                    return;
+                }
+                const hasUpload = Boolean(uploadInput && uploadInput.files && uploadInput.files[0]);
+                const hasCustomConfiguredImage = currentImageSrc !== defaultImageSrc;
+                const pendingRemoval = removeFlagInput && removeFlagInput.value === 'true';
+                removeButton.disabled = pendingRemoval || (!hasUpload && !hasCustomConfiguredImage);
+            }
+
+            if (textColorInput) {
+                textColorInput.addEventListener('input', refreshPreviewStyles);
+            }
+            if (showTitleInput) {
+                showTitleInput.addEventListener('change', refreshPreviewStyles);
+            }
+            if (showInstructionsInput) {
+                showInstructionsInput.addEventListener('change', refreshPreviewStyles);
+            }
+            if (uploadInput) {
+                uploadInput.addEventListener('change', function () {
+                    if (removeFlagInput) {
+                        removeFlagInput.value = '';
+                    }
+                    clearObjectUrl();
+                    refreshPreviewImage();
+                    refreshRemoveButtonState();
+                });
+            }
+            if (removeButton) {
+                removeButton.addEventListener('click', function () {
+                    if (removeFlagInput) {
+                        removeFlagInput.value = 'true';
+                    }
+                    if (uploadInput) {
+                        uploadInput.value = '';
+                    }
+                    clearObjectUrl();
+                    refreshPreviewImage();
+                    refreshRemoveButtonState();
+                });
+            }
+
+            refreshPreviewStyles();
+            refreshRemoveButtonState();
+        }());
+    </script>
 </body>
 </html>

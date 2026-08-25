@@ -29,6 +29,7 @@ from kivy.uix.screenmanager import FadeTransition
 from libs.config import Config
 from libs.device_utils import DeviceUtils
 from libs.file_utils import FileUtils
+from libs.i18n import I18n
 from libs.screens import ScreenMgr
 from libs.ringled import RingLed
 from libs.stats_store import StatsStore
@@ -37,6 +38,7 @@ from libs.usb_transfer import UsbTransfer
 from libs.web_server import WebServer
 
 RINGLED = None
+APP_VERSION = '1.2'
 
 def signal_handler(sig, frame):
     print("\nCtrl+C detected. Exiting gracefully...")
@@ -54,8 +56,13 @@ class PhotoboothApp(App):
         # Load configuration
         config = Config()
         self.FULLSCREEN = config.get_fullscreen()
+        self.LANGUAGE = config.get_language()
         self.SHARE = config.get_share()
         self.WEB_PORT = config.get_web_port()
+        self.STARTSCREEN_BACKGROUND_IMAGE = config.get_startscreen_background_image()
+        self.STARTSCREEN_TEXT_COLOR = config.get_startscreen_text_color()
+        self.STARTSCREEN_SHOW_TITLE = config.get_startscreen_show_title()
+        self.STARTSCREEN_SHOW_INSTRUCTIONS = config.get_startscreen_show_instructions()
         self.FILTERS = config.get_filters()
         self.PREVIEW_BLUR_REFRESH_FRAMES = config.get_preview_blur_refresh_frames()
         self.BLUR_CAMERA = config.get_blur_camera()
@@ -75,6 +82,8 @@ class PhotoboothApp(App):
         self._dslr_capture_params = config.get_dslr_capture_params()
         self._log_retention_days = config.get_log_retention_days()
         self._log_max_files = config.get_log_max_files()
+        self.i18n = I18n(self.LANGUAGE)
+        self.APP_VERSION = APP_VERSION
 
         self._rotate_logs()
         
@@ -160,7 +169,7 @@ class PhotoboothApp(App):
             Logger.error('PhotoboothApp: Web server failed to start; gallery and admin are unavailable')
             self._requested_screen = ScreenMgr.ERROR
             self._requested_kwargs = {
-                'message': f"Web server cannot be bound to port {self.WEB_PORT}.",
+                'message': self.t('web.port_error', port=self.WEB_PORT),
                 'show_continue': True,
                 'show_restart': True,
             }
@@ -180,6 +189,9 @@ class PhotoboothApp(App):
         if self._requested_screen and self._requested_kwargs:
             self.sm.current_screen.on_entry(self._requested_kwargs)
         return self.sm
+
+    def t(self, key, default=None, **kwargs):
+        return self.i18n.t(key, default=default, **kwargs)
 
     def on_stop(self):
         self._log_runtime_snapshot('shutdown')
@@ -321,7 +333,7 @@ class PhotoboothApp(App):
 
     def _disk_maintenance_kwargs(self):
         return {
-            'message': 'Photo storage is full. Please call an operator.',
+            'message': self.t('storage.full'),
             'show_continue': False,
             'show_restart': True,
         }
@@ -563,7 +575,7 @@ class PhotoboothApp(App):
                 Logger.error('PhotoboothApp: device recovery failed: %s', exc)
                 Logger.error(traceback.format_exc())
                 self.enter_maintenance_mode(
-                    message='Camera recovery failed. Please call an operator.',
+                    message=self.t('camera.recovery_failed'),
                 )
 
         threading.Thread(target=recover, name='photobooth-device-recovery', daemon=True).start()

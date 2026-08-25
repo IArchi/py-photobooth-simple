@@ -8,9 +8,11 @@ import shutil
 import threading
 import zipfile
 from datetime import datetime
+from pathlib import Path
 from flask import Flask, jsonify, request, send_file, render_template, redirect, session
 from werkzeug.serving import make_server
 from kivy.logger import Logger
+from libs.config import DEFAULT_STARTSCREEN_BACKGROUND_IMAGE
 
 class WebServer:
     """Flask web server for photo gallery with captive portal."""
@@ -18,6 +20,15 @@ class WebServer:
     SESSION_PATTERN = re.compile(r'^\d{8}_\d{6}$')
     IMAGE_FILENAME_PATTERN = re.compile(r'^(?:collage|capture-\d+)\.jpg$', re.IGNORECASE)
     LOG_FILENAME_PATTERN = re.compile(r'^[A-Za-z0-9._-]+$')
+    START_SCREEN_BACKGROUND_UPLOAD_FIELD = 'startscreen_background_upload'
+    START_SCREEN_BACKGROUND_REMOVE_FIELD = 'startscreen_background_remove'
+    DELETE_ALL_PASSWORD_FIELD = 'delete_all_password'
+    START_SCREEN_BACKGROUND_DEFAULT = str(DEFAULT_STARTSCREEN_BACKGROUND_IMAGE)
+    START_SCREEN_BACKGROUND_BASENAME = 'bg_waiting_custom'
+    START_SCREEN_BACKGROUND_EXTENSIONS = ('.jpg', '.jpeg', '.png')
+    START_SCREEN_TEXT_COLOR_DEFAULT = '#FFFFFF'
+    START_SCREEN_SHOW_TITLE_DEFAULT = True
+    START_SCREEN_SHOW_INSTRUCTIONS_DEFAULT = True
     DSLR_SHUTTERSPEED_CHOICES = [
         ('', 'Leave unchanged'),
         ('1/30', '1/30'),
@@ -71,6 +82,7 @@ class WebServer:
                 {'section': 'Global', 'option': 'FULLSCREEN', 'label': 'Fullscreen', 'control': 'checkbox', 'help': 'Launch PhotoBooth in fullscreen kiosk mode.'},
                 {'section': 'Global', 'option': 'SHARE', 'label': 'Share buttons', 'control': 'checkbox', 'help': 'Display web sharing actions in the booth interface.'},
                 {'section': 'Global', 'option': 'RINGLED', 'label': 'Ring LED', 'control': 'checkbox', 'help': 'Enable the SPI ring light hardware.'},
+                {'section': 'Global', 'option': 'LANGUAGE', 'label': 'Language', 'control': 'select', 'choices': (('fr', 'Français'), ('en', 'English')), 'help': 'Choose the UI language used by the PhotoBooth application.'},
                 {'section': 'Global', 'option': 'ADMIN_PASSWORD', 'label': 'Admin password', 'control': 'password', 'placeholder': 'Leave blank to keep current password', 'help': 'Enter a new password, or type None to disable admin login.'},
             ),
         },
@@ -80,6 +92,15 @@ class WebServer:
             'fields': (
                 {'section': 'Log', 'option': 'LOG_RETENTION_DAYS', 'label': 'Log retention days', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
                 {'section': 'Log', 'option': 'LOG_MAX_FILES', 'label': 'Maximum log files', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
+            ),
+        },
+        {
+            'title': 'Start screen',
+            'description': 'Customize the waiting screen background and title styling.',
+            'fields': (
+                {'section': 'StartScreen', 'option': 'TEXT_COLOR', 'label': 'Text color', 'control': 'text', 'default': START_SCREEN_TEXT_COLOR_DEFAULT, 'placeholder': '#FFFFFF', 'help': 'Hex color for the title, touch icon and version text.'},
+                {'section': 'StartScreen', 'option': 'SHOW_TITLE', 'label': 'Show title', 'control': 'checkbox', 'default': START_SCREEN_SHOW_TITLE_DEFAULT, 'help': 'Display the PHOTO BOOTH title on the waiting screen.'},
+                {'section': 'StartScreen', 'option': 'SHOW_INSTRUCTIONS', 'label': 'Show instructions', 'control': 'checkbox', 'default': START_SCREEN_SHOW_INSTRUCTIONS_DEFAULT, 'help': 'Display the TAP TO START instruction on the waiting screen.'},
             ),
         },
         {
@@ -357,6 +378,24 @@ class WebServer:
             'used_percent': used_percent,
         }
 
+    def _get_usage_stats(self):
+        """Return usage statistics with the same headline values as /stats."""
+        stats = self.stats_store.load() if self.stats_store is not None else {
+            'photos_taken': 0,
+            'prints': 0,
+            'downloads': 0,
+            'gallery_views': 0,
+            'collage_views': 0,
+            'image_views': 0,
+            'first_photo_date': None,
+            'last_photo_date': None,
+            'last_print_date': None,
+            'last_download_date': None,
+            'sessions': [],
+        }
+        stats['photos_taken'] = len(self._get_all_collages())
+        return stats
+
     def _get_all_collages(self):
         """Get all collage files sorted by date (newest first)."""
         collages = []
@@ -497,8 +536,68 @@ class WebServer:
             for field_spec in section_spec['fields']:
                 section = field_spec['section']
                 option = field_spec['option']
-                values[(section, option)] = parser.get(section, option, fallback='')
+                values[(section, option)] = parser.get(section, option, fallback=field_spec.get('default', ''))
         return values
+
+    def _get_config_field_spec(self, section, option):
+        for section_spec in self.CONFIG_FORM_SECTIONS:
+            for field_spec in section_spec['fields']:
+                if field_spec['section'] == section and field_spec['option'] == option:
+                    return field_spec
+        return None
+
+    def _resolve_start_screen_background_path(self, configured_path=None, use_default=False):
+        default_path = (Path(self.project_root) / self.START_SCREEN_BACKGROUND_DEFAULT).resolve()
+        if use_default:
+            return str(default_path)
+
+        raw_path = (configured_path or '').strip() or self.START_SCREEN_BACKGROUND_DEFAULT
+        background_path = Path(raw_path).expanduser()
+        if not background_path.is_absolute():
+            background_path = Path(self.project_root) / background_path
+        if background_path.is_file():
+            return str(background_path.resolve())
+        return str(default_path)
+
+    def _get_start_screen_preview(self, form_values=None):
+        parser = self._load_config_parser()
+        form_values = form_values or {}
+        configured_background_path = parser.get('StartScreen', 'BACKGROUND_IMAGE', fallback=self.START_SCREEN_BACKGROUND_DEFAULT)
+        resolved_default_path = self._resolve_start_screen_background_path(use_default=True)
+        resolved_current_path = self._resolve_start_screen_background_path(configured_path=configured_background_path)
+        has_custom_background = (
+            str(configured_background_path).strip() != self.START_SCREEN_BACKGROUND_DEFAULT
+            and resolved_current_path != resolved_default_path
+        )
+
+        def get_value(section, option):
+            field_spec = self._get_config_field_spec(section, option)
+            if field_spec is None:
+                return ''
+            field_name = self._get_form_field_name(section, option)
+            raw_value = form_values.get(field_name, parser.get(section, option, fallback=field_spec.get('default', '')))
+            return self._normalize_form_value(field_spec, raw_value)
+
+        text_color = get_value('StartScreen', 'TEXT_COLOR') or self.START_SCREEN_TEXT_COLOR_DEFAULT
+        if not re.fullmatch(r'#?[0-9A-Fa-f]{6}', text_color):
+            text_color = self.START_SCREEN_TEXT_COLOR_DEFAULT
+        text_color = f'#{text_color.lstrip("#").upper()}'
+
+        show_title = bool(get_value('StartScreen', 'SHOW_TITLE'))
+        show_instructions = bool(get_value('StartScreen', 'SHOW_INSTRUCTIONS'))
+
+        return {
+            'image_url': '/api/admin/startscreen-preview-image',
+            'default_image_url': '/api/admin/startscreen-preview-image?default=1',
+            'has_custom_background': has_custom_background,
+            'custom_background_path': configured_background_path if has_custom_background else '',
+            'text': 'PHOTO BOOTH',
+            'instructions_text': 'TAP TO START',
+            'text_color': text_color,
+            'show_title': show_title,
+            'show_instructions': show_instructions,
+            'version_text': 'Version 1.2',
+        }
 
     def _get_config_form_sections(self, form_values=None):
         parser = self._load_config_parser()
@@ -511,7 +610,7 @@ class WebServer:
                 section = field_spec['section']
                 option = field_spec['option']
                 field_name = self._get_form_field_name(section, option)
-                raw_value = form_values.get(field_name, parser.get(section, option, fallback=''))
+                raw_value = form_values.get(field_name, parser.get(section, option, fallback=field_spec.get('default', '')))
                 normalized_value = self._normalize_form_value(field_spec, raw_value)
 
                 rendered_field = dict(field_spec)
@@ -545,6 +644,11 @@ class WebServer:
 
         if option == 'ADMIN_PASSWORD':
             return current_value if value == '' else value
+
+        if option == 'TEXT_COLOR':
+            if not re.fullmatch(r'#?[0-9A-Fa-f]{6}', value):
+                raise ValueError('Text color must be a 6-digit hex value such as #FFFFFF.')
+            return f'#{value.lstrip("#").upper()}'
 
         if option == 'CALIBRATION':
             return value or 'None'
@@ -583,6 +687,47 @@ class WebServer:
             return value or 'None'
 
         return value
+
+    def _save_start_screen_background_upload(self, uploaded_file):
+        if uploaded_file is None:
+            return None
+
+        filename = os.path.basename((uploaded_file.filename or '').strip())
+        if not filename:
+            return None
+
+        extension = os.path.splitext(filename)[1].lower()
+        if extension not in self.START_SCREEN_BACKGROUND_EXTENSIONS:
+            raise ValueError('Start screen background must be a JPG or PNG image.')
+
+        backgrounds_directory = os.path.join(self.project_root, 'assets', 'backgrounds')
+        os.makedirs(backgrounds_directory, exist_ok=True)
+
+        saved_filename = f'{self.START_SCREEN_BACKGROUND_BASENAME}{extension}'
+        saved_path = os.path.join(backgrounds_directory, saved_filename)
+        uploaded_file.save(saved_path)
+
+        for extra_extension in self.START_SCREEN_BACKGROUND_EXTENSIONS:
+            if extra_extension == extension:
+                continue
+            extra_path = os.path.join(backgrounds_directory, f'{self.START_SCREEN_BACKGROUND_BASENAME}{extra_extension}')
+            if os.path.exists(extra_path):
+                os.remove(extra_path)
+
+        return f'./assets/backgrounds/{saved_filename}'
+
+    def _delete_start_screen_background_upload(self):
+        backgrounds_directory = os.path.join(self.project_root, 'assets', 'backgrounds')
+        for extension in self.START_SCREEN_BACKGROUND_EXTENSIONS:
+            background_path = os.path.join(backgrounds_directory, f'{self.START_SCREEN_BACKGROUND_BASENAME}{extension}')
+            if os.path.exists(background_path):
+                os.remove(background_path)
+
+    def _reset_start_screen_background_settings(self, updates, submitted_form_values):
+        self._delete_start_screen_background_upload()
+        background_field_name = self._get_form_field_name('StartScreen', 'BACKGROUND_IMAGE')
+        updates[('StartScreen', 'BACKGROUND_IMAGE')] = self.START_SCREEN_BACKGROUND_DEFAULT
+        submitted_form_values[background_field_name] = self.START_SCREEN_BACKGROUND_DEFAULT
 
     def _collect_config_form_updates(self, form, parser):
         current_values = self._get_current_config_values(parser)
@@ -728,6 +873,8 @@ class WebServer:
             'admin/index.html',
             admin_enabled=admin_enabled,
             config_sections=config_sections,
+            overview_stats=self._get_usage_stats(),
+            start_screen_preview=self._get_start_screen_preview(form_values=form_values),
             disk_usage=self._get_disk_usage_info(),
             error_message=error_message,
             success_message=success_message,
@@ -785,6 +932,29 @@ class WebServer:
                 return jsonify({'error': 'Unable to read log file'}), 500
 
             return jsonify({'filename': os.path.basename(log_path), 'content': content})
+
+        @self.app.route('/api/admin/startscreen-preview-image', methods=['GET'])
+        def startscreen_preview_image():
+            """Serve the configured start screen background for admin preview."""
+            auth_redirect = self._require_admin_auth()
+            if auth_redirect is not None:
+                return auth_redirect
+
+            use_default = request.args.get('default') == '1'
+
+            try:
+                configured_path = None
+                if not use_default:
+                    parser = self._load_config_parser()
+                    configured_path = parser.get('StartScreen', 'BACKGROUND_IMAGE', fallback=self.START_SCREEN_BACKGROUND_DEFAULT)
+                image_path = self._resolve_start_screen_background_path(configured_path=configured_path, use_default=use_default)
+            except Exception as e:
+                Logger.error(f'WebServer: Error preparing start screen preview image: {e}')
+                return 'Preview unavailable', 500
+
+            response = send_file(image_path)
+            response.headers['Cache-Control'] = 'no-store'
+            return response
 
         @self.app.route('/api/admin/logs', methods=['DELETE'])
         def delete_admin_logs():
@@ -958,7 +1128,10 @@ class WebServer:
             if auth_redirect is not None:
                 return auth_redirect
 
-            return self._render_admin_page()
+            restart_flag = request.args.get('restart') == '1'
+            success_message = 'Application restart requested. Page may become unavailable for a few seconds.' if restart_flag else None
+
+            return self._render_admin_page(success_message=success_message)
 
         @self.app.route('/admin/login')
         def admin_login_page():
@@ -1001,6 +1174,10 @@ class WebServer:
                 session.clear()
                 return self._render_admin_login_page(error_message='Admin access is disabled. Configure ADMIN_PASSWORD in config.ini.'), 403
 
+            confirmation_password = request.form.get(self.DELETE_ALL_PASSWORD_FIELD) or ''
+            if not self._is_admin_password_valid(confirmation_password):
+                return self._render_admin_page(error_message='Admin password confirmation is invalid.'), 403
+
             try:
                 deleted_sessions = self._delete_all_sessions()
             except Exception:
@@ -1025,6 +1202,16 @@ class WebServer:
                 current_config = self._load_config_text()
                 parser = self._load_config_parser(current_config)
                 updates, submitted_form_values = self._collect_config_form_updates(request.form, parser)
+                if request.form.get(self.START_SCREEN_BACKGROUND_REMOVE_FIELD):
+                    self._reset_start_screen_background_settings(updates, submitted_form_values)
+                else:
+                    uploaded_background_path = self._save_start_screen_background_upload(
+                        request.files.get(self.START_SCREEN_BACKGROUND_UPLOAD_FIELD)
+                    )
+                    if uploaded_background_path is not None:
+                        field_name = self._get_form_field_name('StartScreen', 'BACKGROUND_IMAGE')
+                        updates[('StartScreen', 'BACKGROUND_IMAGE')] = uploaded_background_path
+                        submitted_form_values[field_name] = uploaded_background_path
                 updated_config = self._apply_config_updates(current_config, updates)
             except ValueError as exc:
                 return self._render_admin_page(error_message=str(exc), form_values=submitted_form_values), 400
@@ -1064,34 +1251,25 @@ class WebServer:
                 return self._render_admin_page(error_message='Restart callback is unavailable.'), 500
 
             try:
-                self.restart_callback()
+                def request_restart_after_response():
+                    try:
+                        self.restart_callback()
+                    except Exception as e:
+                        Logger.error(f'WebServer: Delayed restart failed: {e}')
+
+                threading.Timer(0.5, request_restart_after_response).start()
             except Exception as e:
                 Logger.error(f'WebServer: Error restarting app: {e}')
                 return self._render_admin_page(error_message='Error while restarting app.'), 500
 
-            return self._render_admin_page(success_message='Application restart requested. Page may become unavailable for a few seconds.')
+            return redirect('/admin?restart=1')
         
         @self.app.route('/stats')
         def statistics():
             """Hidden statistics page - shows usage analytics."""
-            stats = self.stats_store.load() if self.stats_store is not None else {
-                'photos_taken': 0,
-                'prints': 0,
-                'downloads': 0,
-                'gallery_views': 0,
-                'collage_views': 0,
-                'image_views': 0,
-                'first_photo_date': None,
-                'last_photo_date': None,
-                'last_print_date': None,
-                'last_download_date': None,
-                'sessions': [],
-            }
+            stats = self._get_usage_stats()
             collages = self._get_all_collages()
             downloadable_photos = self._get_all_downloadable_photos()
-            
-            # Calculate photos taken from number of sessions
-            stats['photos_taken'] = len(collages)
 
             return render_template(
                 'stats.html',

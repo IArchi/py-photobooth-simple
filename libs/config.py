@@ -1,9 +1,14 @@
 import configparser
 import ast
+import re
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = PROJECT_ROOT / 'config.ini'
+DEFAULT_STARTSCREEN_BACKGROUND_IMAGE = Path('./assets/backgrounds/bg_start.jpeg')
+DEFAULT_STARTSCREEN_TEXT_COLOR = '#FFFFFF'
+DEFAULT_STARTSCREEN_SHOW_TITLE = True
+DEFAULT_STARTSCREEN_SHOW_INSTRUCTIONS = True
 
 class Config:
     def __init__(self):
@@ -43,6 +48,48 @@ class Config:
     def get_admin_password(self):
         password = self._get_string(('Global',), 'ADMIN_PASSWORD', fallback='').strip()
         return password if password and password.upper() != 'NONE' else None
+
+    def get_language(self):
+        language = self._get_string(('Global',), 'LANGUAGE', fallback='en').strip().lower()
+        return language if language in {'en', 'fr'} else 'en'
+
+    def _get_startscreen_configured_background_path(self):
+        configured_path = self._get_string(
+            ('StartScreen',),
+            'BACKGROUND_IMAGE',
+            fallback=str(DEFAULT_STARTSCREEN_BACKGROUND_IMAGE),
+        ).strip()
+        background_path = Path(configured_path).expanduser() if configured_path else DEFAULT_STARTSCREEN_BACKGROUND_IMAGE
+        if not background_path.is_absolute():
+            background_path = PROJECT_ROOT / background_path
+        return background_path.resolve()
+
+    def _has_missing_custom_startscreen_background(self):
+        configured_background_path = self._get_startscreen_configured_background_path()
+        default_background_path = (PROJECT_ROOT / DEFAULT_STARTSCREEN_BACKGROUND_IMAGE).resolve()
+        return configured_background_path != default_background_path and not configured_background_path.is_file()
+
+    def get_startscreen_background_image(self):
+        background_path = self._get_startscreen_configured_background_path()
+        if not background_path.is_file():
+            background_path = DEFAULT_STARTSCREEN_BACKGROUND_IMAGE
+        return str(background_path.resolve())
+
+    def get_startscreen_text_color(self):
+        color = self._get_string(
+            ('StartScreen',),
+            'TEXT_COLOR',
+            fallback=DEFAULT_STARTSCREEN_TEXT_COLOR,
+        ).strip().upper()
+        if re.fullmatch(r'#?[0-9A-F]{6}', color):
+            return f'#{color.lstrip("#")}'
+        return DEFAULT_STARTSCREEN_TEXT_COLOR
+
+    def get_startscreen_show_title(self):
+        return self._get_boolean(('StartScreen',), 'SHOW_TITLE', fallback=DEFAULT_STARTSCREEN_SHOW_TITLE)
+
+    def get_startscreen_show_instructions(self):
+        return self._get_boolean(('StartScreen',), 'SHOW_INSTRUCTIONS', fallback=DEFAULT_STARTSCREEN_SHOW_INSTRUCTIONS)
 
     def get_web_port(self):
         return 5000

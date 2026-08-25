@@ -213,37 +213,44 @@ class StartScreen(BackgroundScreen):
     """
     def __init__(self, app, **kwargs):
         Logger.info('StartScreen: __init__().')
-        super(StartScreen, self).__init__(bg='./assets/backgrounds/bg_waiting.jpeg', **kwargs)
+        label_color = hex_to_rgba(app.STARTSCREEN_TEXT_COLOR)
+        super(StartScreen, self).__init__(bg=app.STARTSCREEN_BACKGROUND_IMAGE, **kwargs)
 
         self.app = app
 
         overlay_layout = LayoutButton()
 
         start = BreezyBorderedLabel(
-            text='PHOTO BOOTH',
-            border_color=(1,1,1,1),
+            text=app.t('start.title'),
+            color=label_color,
+            border_color=label_color,
             border_width=Window.height * 0.006,
             size_hint=(0.7, 0.2),
             padding=(Window.height * 0.033, Window.height * 0.033, Window.height * 0.033, Window.height * 0.033),
             pos_hint={'x': 0.15, 'y': 0.4},
+            opacity=1 if app.STARTSCREEN_SHOW_TITLE else 0,
         )
         # BreezyBorderedLabel.on_size() recomputes font_size from width — no wh_bind needed
         overlay_layout.add_widget(start)
         self.start_label = start
 
         # Touch icon
-        icon = ResizeLabel(
+        instructions = Label(
+            text=app.t('start.tap_to_start'),
+            color=label_color,
+            font_size=NORMAL_FONT(),
+            halign='left',
+            valign='middle',
             size_hint=(0.15, 0.2),
             pos_hint={'x': 0.42, 'y': 0.1},
-            font_name=ICON_TTF,
-            text=ICON_TOUCH,
-            wh_fraction=0.22,
+            opacity=1 if app.STARTSCREEN_SHOW_INSTRUCTIONS else 0,
         )
-        overlay_layout.add_widget(icon)
+        overlay_layout.add_widget(instructions)
 
         # Version
         version = Label(
-            text='Version 1.2',
+            text=app.t('start.version', version=app.APP_VERSION),
+            color=label_color,
             font_size=TINY_FONT(),
             halign='left',
             valign='middle',
@@ -500,7 +507,7 @@ class SelectFormatScreen(ColorScreen):
         # Number of photos
         num_photos = format_template.get_photos_required()
         photos_label = ResizeLabel(
-            text=f"{num_photos} photo{'s' if num_photos > 1 else ''}",
+            text=self.app.t('select_format.photos_many' if num_photos > 1 else 'select_format.photos_one', count=num_photos),
             size_hint=(1, 0.1),
             wh_fraction=0.018,
             halign='center',
@@ -562,7 +569,7 @@ class ErrorScreen(ColorScreen):
 
         self.title = Label(
             size_hint=(1, 0.10),
-            text='Error',
+            text=app.t('error.title'),
             font_size=LARGE_FONT(),
             bold=True,
             halign='center',
@@ -574,7 +581,7 @@ class ErrorScreen(ColorScreen):
 
         self.message = Label(
             size_hint=(1, 0.24),
-            text='An error occurred.',
+            text=app.t('error.default_message'),
             font_size=SMALL_FONT(),
             halign='center',
             valign='middle',
@@ -591,7 +598,7 @@ class ErrorScreen(ColorScreen):
         )
 
         self.btn_restart = RoundedButton(
-            text='RESTART',
+            text=app.t('error.restart'),
             size_hint=(1, 1),
             background_color=HOME_COLOR,
             font_size=SMALL_FONT(),
@@ -605,7 +612,7 @@ class ErrorScreen(ColorScreen):
         self.actions.add_widget(self.btn_restart)
 
         self.btn_continue = RoundedButton(
-            text='CONTINUE',
+            text=app.t('error.continue'),
             size_hint=(1, 1),
             background_color=CONFIRM_COLOR,
             font_size=SMALL_FONT(),
@@ -624,13 +631,13 @@ class ErrorScreen(ColorScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('ErrorScreen: on_entry().')
-        self.title.text = 'Error'
+        self.title.text = self.app.t('error.title')
         self.icon.text = str(kwargs.get('error', ICON_ERROR))
-        self.message.text = str(kwargs.get('message', 'An error occurred.'))
+        self.message.text = str(kwargs.get('message', self.app.t('error.default_message')))
         self._show_continue = bool(kwargs.get('show_continue', True))
         self._show_restart = bool(kwargs.get('show_restart', False))
-        self.btn_continue.text = str(kwargs.get('continue_text', 'CONTINUE'))
-        self.btn_restart.text = str(kwargs.get('restart_text', 'RESTART'))
+        self.btn_continue.text = str(kwargs.get('continue_text', self.app.t('error.continue')))
+        self.btn_restart.text = str(kwargs.get('restart_text', self.app.t('error.restart')))
         self.btn_continue.opacity = 1 if self._show_continue else 0
         self.btn_continue.disabled = not self._show_continue
         self.btn_restart.opacity = 1 if self._show_restart else 0
@@ -721,6 +728,18 @@ class CountdownScreen(ColorScreen):
             wh_fraction=0.22,
         )
         self.loading_layout.add_widget(icon)
+
+        loading_title = Label(
+            size_hint=(1, 0.10),
+            text=app.t('generic.loading'),
+            font_size=NORMAL_FONT(),
+            bold=True,
+            halign='center',
+            valign='middle',
+        )
+        wh_bind(loading_title, 'font_size', NORMAL_FONT)
+        loading_title.bind(size=loading_title.setter('text_size'))
+        self.loading_layout.add_widget(loading_title)
 
         self.loading = RotatingLabel(
             size_hint=(0.1, 0.1),
@@ -874,7 +893,7 @@ class CountdownScreen(ColorScreen):
                     self.overlay_layout.remove_widget(self.btn_trigger)
                 self.overlay_layout.add_widget(self.loading_layout)
             except:
-                return self.app.transition_to(ScreenMgr.ERROR, message='Unable to start photo capture.')
+                return self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('capture.error_start'))
 
     def timer_bg(self, obj):
         self.camera.opacity = 0
@@ -888,7 +907,7 @@ class CountdownScreen(ColorScreen):
                 if hasattr(self.app, 'recover_devices_and_return_home'):
                     self.app.recover_devices_and_return_home(reason='capture_timeout')
                 else:
-                    self.app.transition_to(ScreenMgr.ERROR, message='Photo capture took too long.')
+                    self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('capture.error_timeout'))
             else:
                 # Retry after 1sec
                 self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
@@ -900,7 +919,7 @@ class CountdownScreen(ColorScreen):
             if hasattr(self.app, 'recover_devices_and_return_home'):
                 self.app.recover_devices_and_return_home(reason='capture_failure')
             else:
-                self.app.transition_to(ScreenMgr.ERROR, message='Photo capture failed.')
+                self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('capture.error_failed'))
         else:
             # Display photo for validation
             self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
@@ -1558,6 +1577,18 @@ class ProcessingScreen(ColorScreen):
         )
         layout.add_widget(icon)
 
+        title = Label(
+            size_hint=(1, 0.10),
+            text=app.t('generic.loading'),
+            font_size=NORMAL_FONT(),
+            bold=True,
+            halign='center',
+            valign='middle',
+        )
+        wh_bind(title, 'font_size', NORMAL_FONT)
+        title.bind(size=title.setter('text_size'))
+        layout.add_widget(title)
+
         # Display loading spinner
         self.loading = RotatingLabel(
             size_hint=(0.1, 0.1),
@@ -1596,7 +1627,7 @@ class ProcessingScreen(ColorScreen):
         if self.app.get_pending_photo_error():
             Logger.error('ProcessingScreen: photo preparation failed.')
             Logger.error(self.app.get_pending_photo_error())
-            self.app.transition_to(ScreenMgr.ERROR, message='Photo processing failed.')
+            self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('processing.error_photo'))
             return
 
         if not self._collage_started:
@@ -1612,7 +1643,7 @@ class ProcessingScreen(ColorScreen):
             error_details = self.app.get_process_error('collage')
             if error_details:
                 Logger.error(error_details)
-            self.app.transition_to(ScreenMgr.ERROR, message='Collage creation failed.')
+            self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('processing.error_collage'))
         else:
             self.app.transition_to(ScreenMgr.REVIEW, format=self._current_format)
 
@@ -1664,7 +1695,7 @@ class PrintStatusPopup(FloatLayout):
         self.card.add_widget(self.icon)
 
         self.title = ResizeLabel(
-            text='PRINTING',
+            text=app.t('print.title_printing'),
             size_hint=(1, 0.15),
             wh_fraction=0.05,
             bold=True,
@@ -1675,7 +1706,7 @@ class PrintStatusPopup(FloatLayout):
         self.card.add_widget(self.title)
 
         self.message = Label(
-            text='Saving photo before printing...',
+            text=app.t('print.status_save_before'),
             size_hint=(1, 0.28),
             font_size=SMALL_FONT(),
             color=(0, 0, 0, 1),
@@ -1688,7 +1719,7 @@ class PrintStatusPopup(FloatLayout):
 
         self.btn_close = make_icon_text_button(
             icon=ICON_CONFIRM,
-            text='OK',
+            text=app.t('common.ok'),
             size_hint=(0.24, 0.13),
             pos_hint={'center_x': 0.5},
             icon_font=ICON_TTF,
@@ -1726,15 +1757,15 @@ class PrintStatusPopup(FloatLayout):
         self._clock = None
 
     def _set_print_error(self, detail=None):
-        message = 'Printing failed but the photo has been saved.'
+        message = self.app.t('print.error_failed_body')
         if detail:
             message = f'{message}\n{detail}'
         Logger.error('PrintStatusPopup: print failed: %s', detail or '-')
-        self._set_done('PRINT FAILED', message, error=True)
+        self._set_done(self.app.t('print.error_failed_title'), message, error=True)
 
     def _tick(self, obj):
         if self.app.has_pending_photo_tasks():
-            self.message.text = 'Saving photo before printing...'
+            self.message.text = self.app.t('print.status_save_before')
             self._clock = Clock.schedule_once(self._tick, 0.2)
             return
 
@@ -1742,15 +1773,15 @@ class PrintStatusPopup(FloatLayout):
         if pending_error:
             Logger.error('PrintStatusPopup: save before print failed.')
             Logger.error(pending_error)
-            self._set_done('SAVE FAILED', 'The photo could not be saved, so printing was stopped.', error=True)
+            self._set_done(self.app.t('print.error_save_failed_title'), self.app.t('print.error_save_failed_body'), error=True)
             return
 
         if time.monotonic() - self._started_at >= self._timeout:
-            self._set_print_error('The print operation timed out.')
+            self._set_print_error(self.app.t('print.error_timeout'))
             return
 
         if not self._print_started:
-            self.message.text = 'Sending photo to printer...'
+            self.message.text = self.app.t('print.status_sending')
             try:
                 print_task_id = self.app.trigger_print(1, self.format_idx)
                 if print_task_id is None:
@@ -1768,9 +1799,9 @@ class PrintStatusPopup(FloatLayout):
                 Logger.warning('PrintStatusPopup: printer unavailable, waiting for recovery')
             waited = time.monotonic() - self._printer_wait_started_at
             remaining = max(0, int(self._timeout - waited))
-            self.message.text = f'Printer unavailable. Waiting for reconnection... {remaining}s'
+            self.message.text = self.app.t('print.status_printer_wait', seconds=remaining)
             if waited >= self._timeout:
-                self._set_print_error('The printer did not reconnect in time.')
+                self._set_print_error(self.app.t('print.error_reconnect_timeout'))
                 return
             self._clock = Clock.schedule_once(self._tick, 1)
             return
@@ -1790,10 +1821,10 @@ class PrintStatusPopup(FloatLayout):
             if not self._print_counted:
                 self.app.track_print_sent()
                 self._print_counted = True
-            self._set_done('PRINT SENT', 'The print job was sent to the printer.')
+            self._set_done(self.app.t('print.title_sent'), self.app.t('print.status_sent'))
             Clock.schedule_once(lambda dt: self._close(None), 2)
         else:
-            self.message.text = 'Printing...'
+            self.message.text = self.app.t('print.status_printing')
             self._clock = Clock.schedule_once(self._tick, 1)
 
     def _close(self, obj):
@@ -1846,7 +1877,7 @@ class ReviewScreen(ColorScreen):
 
         self.btn_print = make_icon_text_button(
             icon=ICON_PRINT,
-            text='PRINT',
+            text=app.t('review.print'),
             size_hint=(0.16, 0.09),
             pos_hint={},
             icon_font=ICON_TTF,
@@ -1861,7 +1892,7 @@ class ReviewScreen(ColorScreen):
         if self.app.SHARE:
             self.btn_share = make_icon_text_button(
                 icon=ICON_SHARE,
-                text='SHARE',
+                text=app.t('review.share'),
                 size_hint=(0.16, 0.09),
                 pos_hint={},
                 icon_font=ICON_TTF,
@@ -2044,7 +2075,7 @@ class SuccessScreen(ColorScreen):
 
         title = Label(
             size_hint=(1, 0.10),
-            text='Awesome !',
+            text=app.t('success.title'),
             font_size=LARGE_FONT(),
             bold=True,
             halign='center',
@@ -2115,7 +2146,7 @@ class CopyingScreen(ColorScreen):
         info = ResizeLabel(
             size_hint=(0.9, 0.1),
             pos_hint={'center_x': 0.5, 'center_y': 0.6},
-            text='Do not disconnect your USB dongle before this screen disapears !',
+            text=app.t('copying.info'),
             wh_fraction=0.07,
         )
         layout.add_widget(info)
@@ -2155,7 +2186,7 @@ class CopyingScreen(ColorScreen):
 
     def on_update(self, kwargs={}):
         if not 'label' in kwargs: return
-        self.progress.text = f"Copying {kwargs.get('label')}"
+        self.progress.text = self.app.t('copying.progress', label=kwargs.get('label'))
 
 class QRCodePopup(FloatLayout):
     """Popup overlay to show QR code."""
@@ -2236,6 +2267,7 @@ class QRCodePopup(FloatLayout):
         super(QRCodePopup, self).__init__(**kwargs)
         self.on_dismiss = on_dismiss
         self._close_scheduled = False
+        self._translator = self._resolve_translator(on_dismiss)
         
         # Semi-transparent overlay
         with self.canvas.before:
@@ -2260,7 +2292,7 @@ class QRCodePopup(FloatLayout):
         self.card.bind(pos=self._update_card, size=self._update_card)
 
         scan_label = ResizeLabel(
-            text='SCAN ME',
+            text=self._t('qr.scan', 'SCAN ME'),
             size_hint=(1, 0.1),
             wh_fraction=0.055,
             bold=True,
@@ -2278,7 +2310,7 @@ class QRCodePopup(FloatLayout):
         self.card.add_widget(self.qr_image)
 
         hint_label = ResizeLabel(
-            text='Go to http://192.168.4.1',
+            text=self._t('qr.hint', 'Go to http://192.168.4.1'),
             size_hint=(1, 0.08),
             wh_fraction=0.022,
             bold=True,
@@ -2331,6 +2363,16 @@ class QRCodePopup(FloatLayout):
         if QRCodePopup._qr_texture_cache is not None:
             self.qr_image.texture = QRCodePopup._qr_texture_cache
             Logger.info('QRCodePopup: Using cached QR code')
+
+    def _resolve_translator(self, on_dismiss):
+        owner = getattr(on_dismiss, '__self__', None)
+        app = getattr(owner, 'app', None)
+        return getattr(app, 't', None)
+
+    def _t(self, key, default=None, **kwargs):
+        if callable(self._translator):
+            return self._translator(key, default=default, **kwargs)
+        return default if default is not None else key
     
     def _close(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
