@@ -88,6 +88,12 @@
             margin-top: 16px;
         }
 
+        .admin-sidebar-separator {
+            margin: 4px 0;
+            border: 0;
+            border-top: 1px solid var(--panel-border);
+        }
+
         .admin-sidebar-tools .btn,
         .admin-sidebar-tools form {
             width: 100%;
@@ -632,6 +638,7 @@
                         <div class="admin-sidebar-tools">
                             <a href="/admin/editor" class="btn btn-primary">Open template editor</a>
                             <a href="/admin/logs" class="btn btn-ghost">Open logs</a>
+                            <hr class="admin-sidebar-separator">
                             <form method="post" action="/admin/restart">
                                 <button type="submit" class="btn btn-warning {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Restart app</button>
                             </form>

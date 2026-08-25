@@ -24,6 +24,10 @@
             color: var(--text-secondary);
             line-height: 1.6;
         }
+
+        .login-form-actions {
+            margin-top: 16px;
+        }
     </style>
 </head>
 <body>
@@ -47,8 +51,8 @@
 
             <form method="post" action="/admin/login">
                 <label class="field-label" for="password">Admin password</label>
-                <input class="field-input" id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" {% if not admin_enabled %}disabled{% endif %}>
-                <div class="actions">
+                <input class="field-input" id="password" name="password" type="password" autocomplete="current-password" placeholder="Password" autofocus {% if not admin_enabled %}disabled{% endif %}>
+                <div class="actions login-form-actions">
                     <button type="submit" class="btn btn-primary {% if not admin_enabled %}disabled{% endif %}" {% if not admin_enabled %}disabled{% endif %}>Sign in</button>
                     <a href="/stats" class="btn btn-ghost">Back to stats</a>
                 </div>
