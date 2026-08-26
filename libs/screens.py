@@ -97,6 +97,7 @@ SHARE_COLOR = hex_to_rgba('#667eea')
 
 # Icons
 ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font and https://hugeicons.com/icons?style=Stroke&type=Rounded
+MONTSERRAT_SEMIBOLD_TTF = './assets/fonts/Montserrat-SemiBold.ttf'
 ICON_TOUCH = '\u3d3e'
 ICON_ERROR = '\u3b03'
 ICON_ERROR_PRINTING = '\u458d'
@@ -562,9 +563,9 @@ class SelectFormatScreen(ColorScreen):
             text=format_template.get_name(),
             size_hint=(1, 0.15),
             font_size=SMALL_FONT(),
+            font_name=MONTSERRAT_SEMIBOLD_TTF,
             halign='center',
             valign='middle',
-            bold=True,
         )
         wh_bind(name_label, 'font_size', SMALL_FONT)
         name_label.bind(size=name_label.setter('text_size'))
