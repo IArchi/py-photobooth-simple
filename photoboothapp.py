@@ -23,8 +23,18 @@ KivyConfig.set('kivy', 'exit_on_escape', '0')
 # os.environ['KIVY_NO_CONSOLELOG'] = '1'
 from kivy.app import App
 from kivy.clock import Clock
+from kivy.core.text import LabelBase
 from kivy.logger import Logger
 from kivy.uix.screenmanager import FadeTransition
+
+APP_FONT = PROJECT_ROOT / 'assets' / 'fonts' / 'Montserrat-Regular.ttf'
+LabelBase.register(
+    name='Roboto',
+    fn_regular=str(APP_FONT),
+    fn_bold=str(APP_FONT),
+    fn_italic=str(APP_FONT),
+    fn_bolditalic=str(APP_FONT),
+)
 
 from libs.config import Config
 from libs.device_utils import DeviceUtils

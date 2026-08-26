@@ -11,12 +11,49 @@ from kivy.graphics.texture import Texture
 from kivy.properties import ColorProperty, StringProperty, ListProperty, NumericProperty, BooleanProperty
 from kivy.metrics import dp, sp
 from kivy.logger import Logger
+from kivy.core.text import Label as CoreLabel
 from kivy.core.window import Window
 import numpy as np
 import cv2
 
 
 from libs.file_utils import FileUtils
+
+
+def fit_text_to_box(text, box_size, max_font_size, font_name='Roboto', bold=False, multiline=False, width_ratio=0.9, height_ratio=0.8):
+    """Return the largest font size that fits the given box."""
+    width, height = box_size
+    if not text or width <= 1 or height <= 1:
+        return max(sp(1), max_font_size)
+
+    target_width = max(1, width * width_ratio)
+    target_height = max(1, height * height_ratio)
+    text_size = (target_width, None) if multiline else (None, None)
+
+    low = sp(1)
+    high = max(sp(1), max_font_size)
+    best = low
+
+    while high - low > 0.5:
+        mid = (low + high) / 2
+        probe = CoreLabel(
+            text=text,
+            font_name=font_name,
+            bold=bold,
+            font_size=mid,
+            text_size=text_size,
+            halign='center',
+            valign='middle',
+        )
+        probe.refresh()
+        texture = probe.texture
+        if texture and texture.size[0] <= target_width and texture.size[1] <= target_height:
+            best = mid
+            low = mid
+        else:
+            high = mid
+
+    return best
 
 # Widget to display camera
 class KivyCamera(Image):
@@ -426,7 +463,16 @@ class BreezyBorderedLabel(Label):
         self._animation_event = None
 
     def on_size(self, *args):
-        self.font_size = self.width / len(self.text) * 1.5
+        self.font_size = fit_text_to_box(
+            self.text,
+            self.size,
+            max_font_size=self.height * 0.62,
+            font_name=self.font_name,
+            bold=self.bold,
+            multiline=False,
+            width_ratio=0.95,
+            height_ratio=0.9,
+        )
     
     def start_breeze(self):
         if self._animation_event is None:
@@ -537,6 +583,41 @@ class RotatingLabel(ResizeLabel):
     def update(self, dt):
         self.angle -= 4  # Was 2 at 60fps, now 4 at 30fps for same visual speed
         self.angle %= 360
+
+Builder.load_string('''
+<PulsingLabel>:
+    canvas.before:
+        PushMatrix
+        Scale:
+            x: root.pulse_scale
+            y: root.pulse_scale
+            z: 1
+            origin: root.center
+    canvas.after:
+        PopMatrix
+''')
+class PulsingLabel(Label):
+    pulse_scale = NumericProperty(1.0)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._pulse_animation = None
+
+    def start_pulse(self, min_scale=1.0, max_scale=1.08, duration=1.1):
+        self.stop_pulse(reset=False)
+        self.pulse_scale = min_scale
+        self._pulse_animation = (
+            Animation(pulse_scale=max_scale, d=duration, t='in_out_sine') +
+            Animation(pulse_scale=min_scale, d=duration, t='in_out_sine')
+        )
+        self._pulse_animation.repeat = True
+        self._pulse_animation.start(self)
+
+    def stop_pulse(self, reset=True):
+        Animation.cancel_all(self, 'pulse_scale')
+        self._pulse_animation = None
+        if reset:
+            self.pulse_scale = 1.0
 
 Builder.load_string('''
 <ThickProgressBar@ProgressBar>:
@@ -777,11 +858,20 @@ def make_icon_text_button(icon, text, size_hint=(0.25, 0.09), pos_hint={}, icon_
         bold=True,
         halign='center',
         valign='middle',
+        shorten=False,
     )
     def resize_text(*args):
-        text_label.text_size = text_label.size
-        fit_width = text_label.width / max(len(text), 1) * 1.5
-        text_label.font_size = max(sp(1), min(text_label.height * 0.7, fit_width))
+        text_label.text_size = (None, None)
+        text_label.font_size = fit_text_to_box(
+            text,
+            text_label.size,
+            max_font_size=text_label.height * 0.7,
+            font_name=text_font,
+            bold=True,
+            multiline=False,
+            width_ratio=0.96,
+            height_ratio=0.8,
+        )
     text_label.bind(size=resize_text)
     Clock.schedule_once(resize_text, 0)
     button.add_widget(text_label)

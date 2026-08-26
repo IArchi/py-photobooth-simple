@@ -293,18 +293,21 @@ class StartScreen(BackgroundScreen):
         overlay_layout.add_widget(start)
         self.start_label = start
 
-        # Touch icon
-        instructions = Label(
+        # Instructions
+        instructions = PulsingLabel(
             text=app.t('start.tap_to_start'),
             color=label_color,
             font_size=NORMAL_FONT(),
-            halign='left',
+            halign='center',
             valign='middle',
-            size_hint=(0.15, 0.2),
-            pos_hint={'x': 0.42, 'y': 0.1},
+            size_hint=(1.0, 0.1),
+            pos_hint={'x': 0, 'y': 0.05},
             opacity=1 if app.STARTSCREEN_SHOW_INSTRUCTIONS else 0,
         )
+        instructions.bind(size=instructions.setter('text_size'))
         overlay_layout.add_widget(instructions)
+        self.instructions_label = instructions
+        wh_bind(self.instructions_label, 'font_size', NORMAL_FONT)
 
         # Version
         version = Label(
@@ -327,6 +330,8 @@ class StartScreen(BackgroundScreen):
         Logger.info('StartScreen: on_entry().')
         # Temporary ponytail: disable StartScreen breeze effect and keep the label static.
         # self.start_label.start_breeze()
+        if self.app.STARTSCREEN_SHOW_INSTRUCTIONS:
+            self.instructions_label.start_pulse(max_scale=1.05, duration=1.1)
         if self.app.ringled:
             self.app.ringled.start_rainbow()
         self._purge_when_idle()
@@ -344,6 +349,7 @@ class StartScreen(BackgroundScreen):
 
     def on_exit(self, kwargs={}):
         Logger.info('StartScreen: on_exit().')
+        self.instructions_label.stop_pulse()
         self.start_label.stop_breeze()
         if self.app.ringled:
             self.app.ringled.clear()
