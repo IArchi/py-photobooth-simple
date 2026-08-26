@@ -1065,6 +1065,9 @@ class WebServer:
                 self.stats_store.track_event('gallery_view')
             collages = self._get_all_collages()
 
+            if not collages:
+                return render_template('gallery/empty.html')
+
             return render_template('gallery/index.html', collages=collages)
         
         @self.app.route('/collage/<session>')
@@ -1146,9 +1149,23 @@ class WebServer:
                 return auth_redirect
 
             restart_flag = request.args.get('restart') == '1'
+            delete_all_status = request.args.get('delete_all')
+            deleted_sessions_count = request.args.get('deleted_sessions')
             success_message = 'Application restart requested. Page may become unavailable for a few seconds.' if restart_flag else None
+            error_message = None
 
-            return self._render_admin_page(success_message=success_message)
+            if delete_all_status == 'invalid-password':
+                error_message = 'Admin password confirmation is invalid.'
+            elif delete_all_status == 'error':
+                error_message = 'Error while deleting files.'
+            elif delete_all_status == 'success':
+                try:
+                    deleted_sessions = int(deleted_sessions_count or '0')
+                except ValueError:
+                    deleted_sessions = 0
+                success_message = f'{deleted_sessions} session(s) deleted.'
+
+            return self._render_admin_page(error_message=error_message, success_message=success_message)
 
         @self.app.route('/admin/login')
         def admin_login_page():
@@ -1193,14 +1210,14 @@ class WebServer:
 
             confirmation_password = request.form.get(self.DELETE_ALL_PASSWORD_FIELD) or ''
             if not self._is_admin_password_valid(confirmation_password):
-                return self._render_admin_page(error_message='Admin password confirmation is invalid.'), 403
+                return redirect('/admin?delete_all=invalid-password'), 303
 
             try:
                 deleted_sessions = self._delete_all_sessions()
             except Exception:
-                return self._render_admin_page(error_message='Error while deleting files.'), 500
+                return redirect('/admin?delete_all=error'), 303
 
-            return self._render_admin_page(success_message=f'{deleted_sessions} session(s) deleted.')
+            return redirect(f'/admin?delete_all=success&deleted_sessions={deleted_sessions}'), 303
 
         @self.app.route('/admin/config', methods=['POST'])
         def save_admin_config():

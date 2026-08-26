@@ -882,6 +882,7 @@
             const previewImage = document.getElementById('startscreen-preview-image');
             const previewTitle = document.getElementById('startscreen-preview-title');
             const previewInstructions = document.getElementById('startscreen-preview-instructions');
+            let refreshConfigDirtyState = function () {};
 
             if (deleteAllTrigger && deleteAllDialog) {
                 deleteAllTrigger.addEventListener('click', function () {
@@ -948,10 +949,10 @@
 
                 const initialState = serializeForm(configForm);
 
-                function refreshConfigDirtyState() {
+                refreshConfigDirtyState = function () {
                     const isDirty = serializeForm(configForm) !== initialState;
                     configSaveButton.classList.toggle('is-visible', isDirty);
-                }
+                };
 
                 configForm.addEventListener('input', refreshConfigDirtyState);
                 configForm.addEventListener('change', refreshConfigDirtyState);
@@ -1043,6 +1044,7 @@
                     clearObjectUrl();
                     refreshPreviewImage();
                     refreshRemoveButtonState();
+                    refreshConfigDirtyState();
                 });
             }
             if (removeButton) {
@@ -1056,6 +1058,7 @@
                     clearObjectUrl();
                     refreshPreviewImage();
                     refreshRemoveButtonState();
+                    refreshConfigDirtyState();
                 });
             }
 
