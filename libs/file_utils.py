@@ -5,6 +5,13 @@ import numpy as np
 
 class FileUtils:
     @staticmethod
+    def _odd_kernel_size(limit, preferred=51):
+        size = max(1, min(int(preferred), int(limit)))
+        if size % 2 == 0:
+            size = max(1, size - 1)
+        return size
+
+    @staticmethod
     def get_small_path(path):
         directory = os.path.dirname(path)
         filename = os.path.basename(path)
@@ -222,3 +229,39 @@ class FileUtils:
             combined_image = im
         
         return (combined_image, blur_cache) if return_cache else combined_image
+
+    @staticmethod
+    def extract_blurred_region(image, screen_size, region, blur_kernel_size=51):
+        """
+        Stretch the source image to the screen size, then crop and blur one region.
+
+        `region` uses Kivy coordinates: (x, y, width, height) with y starting at the bottom.
+        """
+        if image is None:
+            return None
+
+        screen_width = max(1, int(screen_size[0]))
+        screen_height = max(1, int(screen_size[1]))
+        x, y, width, height = [int(v) for v in region]
+        target_width = max(1, width)
+        target_height = max(1, height)
+
+        stretched = cv2.resize(image, (screen_width, screen_height), interpolation=cv2.INTER_LINEAR)
+
+        left = max(0, min(screen_width, x))
+        right = max(left + 1, min(screen_width, x + width))
+        top = max(0, min(screen_height, screen_height - (y + height)))
+        bottom = max(top + 1, min(screen_height, screen_height - y))
+
+        region_image = stretched[top:bottom, left:right]
+        if region_image.size == 0:
+            return None
+
+        if region_image.shape[1] != target_width or region_image.shape[0] != target_height:
+            region_image = cv2.resize(region_image, (target_width, target_height), interpolation=cv2.INTER_LINEAR)
+
+        kernel_size = FileUtils._odd_kernel_size(min(region_image.shape[:2]), preferred=blur_kernel_size)
+        if kernel_size > 1:
+            region_image = cv2.GaussianBlur(region_image, (kernel_size, kernel_size), 0)
+
+        return region_image

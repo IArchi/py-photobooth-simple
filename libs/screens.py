@@ -203,6 +203,55 @@ class ColorScreen(Screen):
     def on_update(self, kwargs={}):
         pass
 
+class BlurredPanel(Image):
+    def __init__(self, source_path, **kwargs):
+        super(BlurredPanel, self).__init__(**kwargs)
+        self.source_path = source_path
+        self._source_image = None
+        self._loaded_source_path = None
+        self._bound_parent = None
+        self.bind(pos=self._schedule_refresh, size=self._schedule_refresh)
+        Clock.schedule_once(self._refresh_texture, 0)
+
+    def on_parent(self, instance, parent):
+        if self._bound_parent is not None:
+            self._bound_parent.unbind(size=self._schedule_refresh, pos=self._schedule_refresh)
+        self._bound_parent = parent
+        if parent is not None:
+            parent.bind(size=self._schedule_refresh, pos=self._schedule_refresh)
+        self._schedule_refresh()
+
+    def _schedule_refresh(self, *args):
+        Clock.unschedule(self._refresh_texture)
+        Clock.schedule_once(self._refresh_texture, 0)
+
+    def _get_source_image(self):
+        if self._loaded_source_path != self.source_path:
+            self._source_image = cv2.imread(self.source_path)
+            self._loaded_source_path = self.source_path
+        return self._source_image
+
+    def _refresh_texture(self, *args):
+        if self.parent is None or self.width <= 1 or self.height <= 1:
+            return
+
+        source_image = self._get_source_image()
+        if source_image is None:
+            return
+
+        region = FileUtils.extract_blurred_region(
+            source_image,
+            screen_size=(self.parent.width, self.parent.height),
+            region=(self.x, self.y, self.width, self.height),
+        )
+        if region is None:
+            return
+
+        region = cv2.flip(region, 0)
+        texture = Texture.create(size=(region.shape[1], region.shape[0]), colorfmt='bgr')
+        texture.blit_buffer(region.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
+        self.texture = texture
+
 class StartScreen(BackgroundScreen):
     """
     +-----------------+
@@ -220,14 +269,24 @@ class StartScreen(BackgroundScreen):
 
         overlay_layout = LayoutButton()
 
+        title_size_hint = (0.7, 0.2)
+        title_pos_hint = {'x': 0.15, 'y': 0.4}
+
+        if app.STARTSCREEN_SHOW_TITLE:
+            overlay_layout.add_widget(BlurredPanel(
+                source_path=app.STARTSCREEN_BACKGROUND_IMAGE,
+                size_hint=title_size_hint,
+                pos_hint=title_pos_hint,
+            ))
+
         start = BreezyBorderedLabel(
             text=app.t('start.title'),
             color=label_color,
             border_color=label_color,
             border_width=Window.height * 0.006,
-            size_hint=(0.7, 0.2),
+            size_hint=title_size_hint,
             padding=(Window.height * 0.033, Window.height * 0.033, Window.height * 0.033, Window.height * 0.033),
-            pos_hint={'x': 0.15, 'y': 0.4},
+            pos_hint=title_pos_hint,
             opacity=1 if app.STARTSCREEN_SHOW_TITLE else 0,
         )
         # BreezyBorderedLabel.on_size() recomputes font_size from width — no wh_bind needed
