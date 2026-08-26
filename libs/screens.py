@@ -325,7 +325,8 @@ class StartScreen(BackgroundScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('StartScreen: on_entry().')
-        self.start_label.start_breeze()
+        # Temporary ponytail: disable StartScreen breeze effect and keep the label static.
+        # self.start_label.start_breeze()
         if self.app.ringled:
             self.app.ringled.start_rainbow()
         self._purge_when_idle()
