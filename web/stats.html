@@ -19,6 +19,10 @@
             line-height: 1.5;
         }
 
+        .stats-actions {
+            flex-wrap: nowrap;
+        }
+
         .info-list {
             display: grid;
             gap: 12px;
@@ -47,6 +51,10 @@
         }
 
         @media (max-width: 720px) {
+            .stats-actions {
+                flex-wrap: wrap;
+            }
+
             .info-row {
                 grid-template-columns: 1fr;
                 gap: 6px;
@@ -63,7 +71,7 @@
                     <h1>{{ t('web.stats.heading') }}</h1>
                     <p>{{ t('web.stats.description') }}</p>
                 </div>
-                <div class="actions">
+                <div class="actions stats-actions">
                     <a href="/download/all-photos" class="btn btn-success {% if not downloadable_photos %}disabled{% endif %}">{{ t('web.stats.download_all') }}</a>
                     <a href="/gallery" class="btn btn-ghost">{{ t('web.gallery.title') }}</a>
                 </div>
