@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoBooth</title>
+    <title>{{ t('web.gallery.empty.page_title') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
     <style>
         .empty-shell {
@@ -38,20 +38,20 @@
         <div class="page-container">
             <section class="page-hero">
                 <div>
-                    <span class="eyebrow">Gallery</span>
+                    <span class="eyebrow">{{ t('web.gallery.title') }}</span>
                 </div>
                 <div class="actions">
-                    <a href="/stats" class="btn btn-primary">Stats</a>
-                    <a href="/admin" class="btn btn-ghost">Admin</a>
+                    <a href="/stats" class="btn btn-primary">{{ t('web.gallery.stats') }}</a>
+                    <a href="/admin" class="btn btn-ghost">{{ t('web.gallery.admin') }}</a>
                 </div>
             </section>
 
             <section class="empty-shell">
                 <section class="panel empty-card">
                     <div class="empty-icon">📸</div>
-                    <span class="eyebrow">Gallery</span>
-                    <h1>No collage available yet</h1>
-                    <p>The web gallery will appear here as soon as the first PhotoBooth session is saved.</p>
+                    <span class="eyebrow">{{ t('web.gallery.title') }}</span>
+                    <h1>{{ t('web.gallery.empty.title') }}</h1>
+                    <p>{{ t('web.gallery.empty.description') }}</p>
                 </section>
             </section>
         </div>

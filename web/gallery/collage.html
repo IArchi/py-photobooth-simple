@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoBooth - Collage</title>
+    <title>{{ t('web.collage.page_title') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
     <style>
         .collage-stage {
@@ -30,18 +30,18 @@
         <div class="page-container">
             <section class="page-hero">
                 <div>
-                    <span class="eyebrow">Collage</span>
+                    <span class="eyebrow">{{ t('web.collage.title') }}</span>
                     <h1>{{ session }}</h1>
                 </div>
                 <div class="actions">
-                    <a href="/gallery" class="btn btn-ghost">Gallery</a>
-                    <a href="/download/{{ session }}/collage.jpg" class="btn btn-success">Download</a>
+                    <a href="/gallery" class="btn btn-ghost">{{ t('web.collage.back_to_gallery') }}</a>
+                    <a href="/download/{{ session }}/collage.jpg" class="btn btn-success">{{ t('web.gallery.download') }}</a>
                 </div>
             </section>
 
             <section class="collage-stage">
                 <div class="panel collage-frame">
-                    <img src="/image/{{ session }}/collage.jpg" alt="Collage {{ session }}">
+                    <img src="/image/{{ session }}/collage.jpg" alt="{{ t('web.gallery.collage_alt', session=session) }}">
                 </div>
             </section>
         </div>

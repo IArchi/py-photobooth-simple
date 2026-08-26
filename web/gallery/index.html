@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoBooth - Gallery</title>
+    <title>{{ t('web.gallery.page_title') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
     <style>
         .gallery-grid {
@@ -45,11 +45,11 @@
         <div class="page-container">
             <section class="page-hero">
                 <div>
-                    <span class="eyebrow">Gallery</span>
+                    <span class="eyebrow">{{ t('web.gallery.title') }}</span>
                 </div>
                 <div class="actions">
-                    <a href="/stats" class="btn btn-primary">Stats</a>
-                    <a href="/admin" class="btn btn-ghost">Admin</a>
+                    <a href="/stats" class="btn btn-primary">{{ t('web.gallery.stats') }}</a>
+                    <a href="/admin" class="btn btn-ghost">{{ t('web.gallery.admin') }}</a>
                 </div>
             </section>
 
@@ -57,12 +57,12 @@
                 {% for collage in collages %}
                 <article class="panel gallery-card">
                     <a href="/collage/{{ collage.session }}" style="display: block; text-decoration: none;">
-                        <img src="/image/{{ collage.session }}/collage.jpg" alt="Collage {{ collage.session }}">
+                        <img src="/image/{{ collage.session }}/collage.jpg" alt="{{ t('web.gallery.collage_alt', session=collage.session) }}">
                     </a>
                     <div class="gallery-card-body">
                         <h2>{{ collage.session }}</h2>
                         <div class="actions">
-                            <a href="/download/{{ collage.session }}/collage.jpg" class="btn btn-success">Download</a>
+                            <a href="/download/{{ collage.session }}/collage.jpg" class="btn btn-success">{{ t('web.gallery.download') }}</a>
                         </div>
                     </div>
                 </article>

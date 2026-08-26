@@ -12,7 +12,8 @@ from pathlib import Path
 from flask import Flask, jsonify, request, send_file, render_template, redirect, session
 from werkzeug.serving import make_server
 from kivy.logger import Logger
-from libs.config import DEFAULT_STARTSCREEN_BACKGROUND_IMAGE
+from libs.config import DEFAULT_STARTSCREEN_BACKGROUND_IMAGE, Config
+from libs.i18n import I18n
 
 class WebServer:
     """Flask web server for photo gallery with captive portal."""
@@ -165,6 +166,8 @@ class WebServer:
         self.admin_password = admin_password.strip() if isinstance(admin_password, str) and admin_password.strip() else None
         self.stats_store = stats_store
         self.restart_callback = restart_callback
+        self.config = Config()
+        self.i18n = I18n(self.config.get_language())
         self.project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.web_directory = os.path.join(self.project_root, 'web')
         self.web_assets_directory = os.path.join(self.web_directory, 'assets')
@@ -189,6 +192,9 @@ class WebServer:
         self.templates_directory = os.path.join(self.project_root, 'templates')
         self.template_editor_path = os.path.join(self.web_directory, 'editor', 'template_editor.html')
         self._setup_routes()
+
+    def t(self, key, default=None, **kwargs):
+        return self.i18n.t(key, default=default, **kwargs)
 
     def _watchdog_loop(self):
         while not self._watchdog_stop.wait(timeout=5):
@@ -899,6 +905,13 @@ class WebServer:
 
     def _setup_routes(self):
         """Setup Flask routes."""
+
+        @self.app.context_processor
+        def inject_template_helpers():
+            return {
+                't': self.t,
+                'current_language': self.i18n.language,
+            }
 
         @self.app.route('/admin/editor')
         def admin_template_editor():

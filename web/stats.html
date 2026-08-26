@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ current_language }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhotoBooth - Statistics</title>
+    <title>{{ t('web.stats.page_title') }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
     <style>
         .stats-grid {
@@ -59,13 +59,13 @@
         <div class="page-container">
             <section class="page-hero">
                 <div>
-                    <span class="eyebrow">Statistics</span>
-                    <h1>PhotoBooth usage overview</h1>
-                    <p>Review captured sessions, downloads and gallery usage from the embedded web server.</p>
+                    <span class="eyebrow">{{ t('web.stats.title') }}</span>
+                    <h1>{{ t('web.stats.heading') }}</h1>
+                    <p>{{ t('web.stats.description') }}</p>
                 </div>
                 <div class="actions">
-                    <a href="/download/all-photos" class="btn btn-success {% if not downloadable_photos %}disabled{% endif %}">Download all photos</a>
-                    <a href="/gallery" class="btn btn-ghost">Gallery</a>
+                    <a href="/download/all-photos" class="btn btn-success {% if not downloadable_photos %}disabled{% endif %}">{{ t('web.stats.download_all') }}</a>
+                    <a href="/gallery" class="btn btn-ghost">{{ t('web.gallery.title') }}</a>
                 </div>
             </section>
 
@@ -73,63 +73,63 @@
                 <div class="panel-section">
                     <div class="stats-grid">
                         <article class="stat-card">
-                            <div class="stat-label">Photos taken</div>
+                            <div class="stat-label">{{ t('web.stats.photos_taken') }}</div>
                             <div class="stat-value">{{ stats.photos_taken }}</div>
-                            <p>Total collages created by the booth.</p>
+                            <p>{{ t('web.stats.photos_taken_help') }}</p>
                         </article>
                         <article class="stat-card">
-                            <div class="stat-label">Downloads</div>
+                            <div class="stat-label">{{ t('web.stats.downloads') }}</div>
                             <div class="stat-value">{{ stats.downloads }}</div>
-                            <p>Files downloaded by visitors.</p>
+                            <p>{{ t('web.stats.downloads_help') }}</p>
                         </article>
                         <article class="stat-card">
-                            <div class="stat-label">Prints</div>
+                            <div class="stat-label">{{ t('web.stats.prints') }}</div>
                             <div class="stat-value">{{ stats.prints }}</div>
-                            <p>{% if print_limit.enabled %}{{ print_limit.remaining }} print(s) remaining out of {{ print_limit.max_prints }}.{% else %}Unlimited print mode.{% endif %}</p>
+                            <p>{% if print_limit.enabled %}{{ t('web.stats.prints_help_limited', remaining=print_limit.remaining, max_prints=print_limit.max_prints) }}{% else %}{{ t('web.stats.prints_help_unlimited') }}{% endif %}</p>
                         </article>
                         <article class="stat-card">
-                            <div class="stat-label">Gallery views</div>
+                            <div class="stat-label">{{ t('web.stats.gallery_views') }}</div>
                             <div class="stat-value">{{ stats.gallery_views }}</div>
-                            <p>Visits to the gallery listing page.</p>
+                            <p>{{ t('web.stats.gallery_views_help') }}</p>
                         </article>
                         <article class="stat-card">
-                            <div class="stat-label">Collage views</div>
+                            <div class="stat-label">{{ t('web.stats.collage_views') }}</div>
                             <div class="stat-value">{{ stats.collage_views }}</div>
-                            <p>Visits to single collage pages.</p>
+                            <p>{{ t('web.stats.collage_views_help') }}</p>
                         </article>
                     </div>
                 </div>
 
                 <div class="panel-section">
-                    <span class="eyebrow">Details</span>
-                    <h2 style="margin-top: 0;">Additional information</h2>
+                    <span class="eyebrow">{{ t('web.stats.details') }}</span>
+                    <h2 style="margin-top: 0;">{{ t('web.stats.additional_information') }}</h2>
                     <div class="info-list">
                         <div class="info-row">
-                            <strong>Last print</strong>
-                            <span>{{ stats.last_print_date or 'None' }}</span>
+                            <strong>{{ t('web.stats.last_print') }}</strong>
+                            <span>{{ stats.last_print_date or t('web.stats.none') }}</span>
                         </div>
                         <div class="info-row">
-                            <strong>Print limit</strong>
-                            <span>{% if print_limit.enabled %}{{ print_limit.max_prints }}{% else %}Unlimited{% endif %}</span>
+                            <strong>{{ t('web.stats.print_limit') }}</strong>
+                            <span>{% if print_limit.enabled %}{{ print_limit.max_prints }}{% else %}{{ t('web.stats.unlimited') }}{% endif %}</span>
                         </div>
                         <div class="info-row">
-                            <strong>Prints remaining</strong>
-                            <span>{% if print_limit.enabled %}{{ print_limit.remaining }}{% else %}Unlimited{% endif %}</span>
+                            <strong>{{ t('web.stats.prints_remaining') }}</strong>
+                            <span>{% if print_limit.enabled %}{{ print_limit.remaining }}{% else %}{{ t('web.stats.unlimited') }}{% endif %}</span>
                         </div>
                         <div class="info-row">
-                            <strong>Last download</strong>
-                            <span>{{ stats.last_download_date or 'None' }}</span>
+                            <strong>{{ t('web.stats.last_download') }}</strong>
+                            <span>{{ stats.last_download_date or t('web.stats.none') }}</span>
                         </div>
                         <div class="info-row">
-                            <strong>Total prints</strong>
+                            <strong>{{ t('web.stats.total_prints') }}</strong>
                             <span>{{ stats.prints }}</span>
                         </div>
                         <div class="info-row">
-                            <strong>Total sessions</strong>
+                            <strong>{{ t('web.stats.total_sessions') }}</strong>
                             <span>{{ collages|length }}</span>
                         </div>
                         <div class="info-row">
-                            <strong>Total files</strong>
+                            <strong>{{ t('web.stats.total_files') }}</strong>
                             <span>{{ downloadable_photos|length }}</span>
                         </div>
                     </div>
