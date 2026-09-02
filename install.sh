@@ -3,7 +3,10 @@
 # Simple PhotoBooth - Automated Installation Script
 # This script will guide you through the installation process
 
-set -e  # Exit on error
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+NEED_REBOOT=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -29,10 +32,116 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+append_root_line_if_missing() {
+    local file="$1"
+    local line="$2"
+
+    sudo touch "$file"
+    if sudo grep -Fqx "$line" "$file"; then
+        return 0
+    fi
+
+    printf '%s\n' "$line" | sudo tee -a "$file" > /dev/null
+}
+
+append_root_block_if_missing() {
+    local file="$1"
+    local marker="$2"
+    local block="$3"
+
+    sudo touch "$file"
+    if sudo grep -Fqx "$marker" "$file"; then
+        return 0
+    fi
+
+    printf '\n%s\n%s\n' "$marker" "$block" | sudo tee -a "$file" > /dev/null
+}
+
+backup_root_file_once() {
+    local source="$1"
+    local backup_path="${2:-$1.backup}"
+
+    if ! sudo test -e "$source"; then
+        return 0
+    fi
+
+    if sudo test -e "$backup_path"; then
+        return 0
+    fi
+
+    sudo cp "$source" "$backup_path"
+}
+
+write_root_file_if_changed() {
+    local path="$1"
+    local content="$2"
+    local mode="${3:-644}"
+    local temp_file
+    temp_file=$(mktemp)
+
+    printf '%s' "$content" > "$temp_file"
+
+    if sudo test -f "$path" && sudo cmp -s "$temp_file" "$path"; then
+        rm -f "$temp_file"
+        return 0
+    fi
+
+    sudo install -d "$(dirname "$path")"
+    sudo install -m "$mode" "$temp_file" "$path"
+    rm -f "$temp_file"
+}
+
+replace_or_append_root_line() {
+    local file="$1"
+    local search_pattern="$2"
+    local replacement_line="$3"
+    local temp_file
+    temp_file=$(mktemp)
+
+    sudo touch "$file"
+
+    if sudo grep -Eq "$search_pattern" "$file"; then
+        sudo sed -E "s|$search_pattern|$replacement_line|" "$file" > "$temp_file"
+    else
+        sudo cp "$file" "$temp_file"
+        printf '\n%s\n' "$replacement_line" >> "$temp_file"
+    fi
+
+    if sudo cmp -s "$temp_file" "$file"; then
+        rm -f "$temp_file"
+        return 0
+    fi
+
+    sudo install -m 644 "$temp_file" "$file"
+    rm -f "$temp_file"
+}
+
+download_file() {
+    local url="$1"
+    local destination="$2"
+
+    if command_exists curl; then
+        curl -fsSL "$url" -o "$destination"
+        return 0
+    fi
+
+    if command_exists wget; then
+        wget -q -O "$destination" "$url"
+        return 0
+    fi
+
+    print_error "Neither curl nor wget is available for downloading $url"
+    return 1
+}
+
 # Ask yes/no question
 ask_yes_no() {
     while true; do
-        read -p "$1 (y/n): " yn
+        read -r -p "$1 (y/n): " yn
         case $yn in
             [Yy]* ) return 0;;
             [Nn]* ) return 1;;
@@ -77,6 +186,8 @@ get_wifi_country() {
 }
 
 # Banner
+cd "$SCRIPT_DIR"
+
 echo ""
 echo "╔═══════════════════════════════════════════════════════╗"
 echo "║                                                       ║"
@@ -111,9 +222,8 @@ echo ""
 # ============================================================================
 print_info "Step 1/9: Installing base system dependencies..."
 
-sudo apt update
-sudo apt-get install -y gcc make build-essential git scons swig
-sudo apt install -y ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev
+sudo apt-get update
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcc make build-essential git scons swig ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev
 
 print_success "Base dependencies installed"
 echo ""
@@ -121,11 +231,11 @@ echo ""
 # ============================================================================
 # STEP 2: Python Dependencies
 # ============================================================================
-print_info "Step 2/9: Installing Python dependencies..."
+print_info "Step 2/9: Installing Python dependencies for the current user..."
 
-pip3 install -r requirements.txt --break-system-packages
+python3 -m pip install --user -r "$SCRIPT_DIR/requirements.txt"
 
-print_success "Python dependencies installed"
+print_success "Python dependencies installed for user $(id -un)"
 echo ""
 
 # ============================================================================
@@ -147,7 +257,7 @@ if is_raspberry_pi; then
         fi
         
         # Disable power warning
-        echo "avoid_warnings=1" | sudo tee -a /boot/firmware/config.txt > /dev/null
+        append_root_line_if_missing /boot/firmware/config.txt "avoid_warnings=1"
         sudo apt remove lxplug-ptbatt -y || true
         
         # Disable media mount dialog
@@ -172,13 +282,11 @@ if is_raspberry_pi; then
     if ask_yes_no "Step 4/9: Are you using the Ingcool 7\" touchscreen?"; then
         print_info "Configuring Ingcool 7\" touchscreen..."
         
-        sudo sh -c "echo '# Ingcool 7in touch screen' >> /boot/firmware/config.txt"
-        sudo sh -c "echo 'max_usb_current=1' >> /boot/firmware/config.txt"
-        sudo sh -c "echo 'hdmi_group=2' >> /boot/firmware/config.txt"
-        sudo sh -c "echo 'hdmi_mode=87' >> /boot/firmware/config.txt"
-        sudo sh -c "echo 'hdmi_cvt 1024 600 60 6 0 0 0' >> /boot/firmware/config.txt"
-        sudo sh -c "echo 'hdmi_drive=1' >> /boot/firmware/config.txt"
-        sudo sh -c "echo '' >> /boot/firmware/config.txt"
+        append_root_block_if_missing /boot/firmware/config.txt "# Ingcool 7in touch screen" "max_usb_current=1
+hdmi_group=2
+hdmi_mode=87
+hdmi_cvt 1024 600 60 6 0 0 0
+hdmi_drive=1"
         
         print_success "Ingcool touchscreen configured"
         NEED_REBOOT=true
@@ -199,12 +307,10 @@ if is_raspberry_pi; then
         print_info "Configuring Pi Camera Module V3..."
         
         # Allocate more memory
-        sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
+        replace_or_append_root_line /boot/firmware/config.txt '^dtoverlay=vc4-kms-v3d$' 'dtoverlay=vc4-kms-v3d,cma-512'
         
         # Enable camera
-        sudo sh -c "echo '# Camera module 3' >> /boot/firmware/config.txt"
-        sudo sh -c "echo 'dtoverlay=imx708,cam0' >> /boot/firmware/config.txt"
-        sudo sh -c "echo '' >> /boot/firmware/config.txt"
+        append_root_block_if_missing /boot/firmware/config.txt "# Camera module 3" "dtoverlay=imx708,cam0"
         
         print_success "Pi Camera Module V3 configured"
         print_warning "After reboot, you can test the camera with: libcamera-still --list-camera"
@@ -225,16 +331,15 @@ if ask_yes_no "Step 6/9: Do you want to install DSLR support (gPhoto2)?"; then
     print_info "Installing gPhoto2..."
     
     # Download and run gPhoto2 updater
-    cd /tmp
-    wget -q https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/gphoto2-updater.sh
-    wget -q https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/.env
-    chmod +x gphoto2-updater.sh
+    GPHOTO_TMP_DIR=$(mktemp -d)
+    download_file https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/gphoto2-updater.sh "$GPHOTO_TMP_DIR/gphoto2-updater.sh"
+    download_file https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/.env "$GPHOTO_TMP_DIR/.env"
+    chmod +x "$GPHOTO_TMP_DIR/gphoto2-updater.sh"
     
     print_info "Running gPhoto2 updater (this may take several minutes)..."
-    sudo ./gphoto2-updater.sh -s
+    sudo "$GPHOTO_TMP_DIR/gphoto2-updater.sh" -s
     
-    rm -f gphoto2-updater.sh .env
-    cd - > /dev/null
+    rm -rf "$GPHOTO_TMP_DIR"
     
     # Fix USB access issues
     sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor || true
@@ -254,13 +359,12 @@ echo ""
 if ask_yes_no "Step 7/9: Do you want to install printer support (CUPS)?"; then
     print_info "Installing CUPS..."
     
-    sudo apt-get install -y cups libcups2-dev python3-cups
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cups libcups2-dev python3-cups printer-driver-gutenprint
     sudo usermod -a -G lpadmin $USER
     sudo cupsctl --remote-admin --remote-any
     
     # Install printer drivers
-    sudo apt install -y printer-driver-gutenprint
-    sudo install -m 644 doc/DS620.ppd /usr/share/cups/model/DS620.ppd
+    sudo install -m 644 "$SCRIPT_DIR/doc/DS620.ppd" /usr/share/cups/model/DS620.ppd
     
     # Restart CUPS
     sudo /etc/init.d/cups restart
@@ -282,10 +386,16 @@ if is_raspberry_pi; then
         print_info "Configuring LED Ring support..."
         
         # Enable SPI
-        sudo sed -i 's/^#dtparam=spi=on/dtparam=spi=on/' /boot/firmware/config.txt
+        if sudo grep -Fqx 'dtparam=spi=on' /boot/firmware/config.txt; then
+            :
+        elif sudo grep -Fqx '#dtparam=spi=on' /boot/firmware/config.txt; then
+            sudo sed -i 's/^#dtparam=spi=on$/dtparam=spi=on/' /boot/firmware/config.txt
+        else
+            append_root_line_if_missing /boot/firmware/config.txt 'dtparam=spi=on'
+        fi
         
         # Install Python dependency
-        pip3 install spidev --break-system-packages
+        python3 -m pip install --user spidev
         
         print_success "LED Ring support configured"
         print_info "Connect LED Ring: GND to Pin 6/9/14/20/25, DIN to Pin 19 (GPIO 10), VCC to Pin 2/4 (5V)"
@@ -308,7 +418,7 @@ if is_raspberry_pi; then
         
         # Install required packages
         print_info "Installing hostapd and dnsmasq..."
-        sudo apt-get install -y hostapd dnsmasq iptables
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y hostapd dnsmasq iptables
         
         # Stop services during configuration
         print_info "Stopping services..."
@@ -317,24 +427,24 @@ if is_raspberry_pi; then
         
         # Backup original configuration files
         print_info "Backing up original configurations..."
-        sudo cp /etc/dhcpcd.conf /etc/dhcpcd.conf.backup 2>/dev/null || true
-        sudo cp /etc/dnsmasq.conf /etc/dnsmasq.conf.backup 2>/dev/null || true
-        sudo cp /etc/hostapd/hostapd.conf /etc/hostapd/hostapd.conf.backup 2>/dev/null || true
-        sudo cp /etc/NetworkManager/conf.d/unmanaged-wlan0.conf /etc/NetworkManager/conf.d/unmanaged-wlan0.conf.backup 2>/dev/null || true
-        sudo cp /etc/systemd/system/photobooth-ap-network.service /etc/systemd/system/photobooth-ap-network.service.backup 2>/dev/null || true
-        sudo cp /etc/systemd/system/photobooth-http-redirect.service /etc/systemd/system/photobooth-http-redirect.service.backup 2>/dev/null || true
+        backup_root_file_once /etc/dhcpcd.conf
+        backup_root_file_once /etc/dnsmasq.conf
+        backup_root_file_once /etc/hostapd/hostapd.conf
+        backup_root_file_once /etc/NetworkManager/conf.d/unmanaged-wlan0.conf
+        backup_root_file_once /etc/systemd/system/photobooth-ap-network.service
+        backup_root_file_once /etc/systemd/system/photobooth-http-redirect.service
         
         # Configure static IP for wlan0 using the active network manager
         if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
             print_info "Configuring NetworkManager to ignore wlan0..."
-            sudo mkdir -p /etc/NetworkManager/conf.d
-            sudo bash -c 'cat > /etc/NetworkManager/conf.d/unmanaged-wlan0.conf << EOF
+            write_root_file_if_changed "/etc/NetworkManager/conf.d/unmanaged-wlan0.conf" "$(cat <<'EOF'
 [keyfile]
 unmanaged-devices=interface-name:wlan0
-EOF'
+EOF
+)"
 
             print_info "Creating static IP service for wlan0..."
-            sudo bash -c 'cat > /etc/systemd/system/photobooth-ap-network.service << EOF
+            write_root_file_if_changed "/etc/systemd/system/photobooth-ap-network.service" "$(cat <<'EOF'
 [Unit]
 Description=Static IP for PhotoBooth AP
 Before=hostapd.service dnsmasq.service photobooth-http-redirect.service
@@ -351,22 +461,19 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-EOF'
+EOF
+)"
         else
             print_info "Configuring static IP for wlan0 via dhcpcd..."
-            sudo bash -c 'cat >> /etc/dhcpcd.conf << EOF
-
-# PhotoBooth WiFi AP Configuration
-interface wlan0
+            append_root_block_if_missing /etc/dhcpcd.conf "# PhotoBooth WiFi AP Configuration" "interface wlan0
     static ip_address=192.168.4.1/24
-    nohook wpa_supplicant
-EOF'
+    nohook wpa_supplicant"
         fi
         
         # Configure dnsmasq (DHCP and DNS server)
         print_info "Configuring dnsmasq..."
-        sudo bash -c 'cat > /etc/dnsmasq.conf << EOF
-# PhotoBooth WiFi AP - DHCP/DNS/Captive Portal Configuration
+        write_root_file_if_changed "/etc/dnsmasq.conf" "$(cat <<'EOF'
+# PhotoBooth WiFi AP Configuration
 interface=wlan0
 bind-interfaces
 dhcp-authoritative
@@ -398,11 +505,12 @@ address=/nmcheck.gnome.org/192.168.4.1
 # Logging (optional, comment out for production)
 log-queries
 log-dhcp
-EOF'
+EOF
+)"
 
         # Redirect HTTP traffic from port 80 to the application on port 5000
         print_info "Creating HTTP redirect service (80 -> 5000)..."
-        sudo bash -c 'cat > /etc/systemd/system/photobooth-http-redirect.service << EOF
+        write_root_file_if_changed "/etc/systemd/system/photobooth-http-redirect.service" "$(cat <<'EOF'
 [Unit]
 Description=Redirect HTTP traffic to PhotoBooth web app
 After=photobooth-ap-network.service hostapd.service
@@ -416,7 +524,8 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-EOF'
+EOF
+)"
         
         # Configure hostapd (WiFi Access Point)
         print_info "Configuring hostapd..."
@@ -425,7 +534,7 @@ EOF'
             exit 1
         }
         print_info "Using WiFi country: $WIFI_COUNTRY"
-        sudo bash -c "cat > /etc/hostapd/hostapd.conf << EOF
+        write_root_file_if_changed "/etc/hostapd/hostapd.conf" "$(cat <<EOF
 # PhotoBooth WiFi AP Configuration
 interface=wlan0
 driver=nl80211
@@ -458,26 +567,28 @@ beacon_int=100
 
 # DTIM period
 dtim_period=2
-EOF"
+EOF
+)"
         
         # Tell hostapd where to find the config file
         print_info "Updating hostapd daemon configuration..."
-        sudo bash -c 'cat > /etc/default/hostapd << EOF
+        write_root_file_if_changed "/etc/default/hostapd" "$(cat <<'EOF'
 # Defaults for hostapd initscript
 DAEMON_CONF="/etc/hostapd/hostapd.conf"
-EOF'
+EOF
+)"
 
         if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
             print_info "Making hostapd wait for wlan0 AP setup..."
-            sudo mkdir -p /etc/systemd/system/hostapd.service.d
-            sudo bash -c 'cat > /etc/systemd/system/hostapd.service.d/photobooth-ap.conf << EOF
+            write_root_file_if_changed "/etc/systemd/system/hostapd.service.d/photobooth-ap.conf" "$(cat <<'EOF'
 [Unit]
 After=photobooth-ap-network.service
 Requires=photobooth-ap-network.service
 
 [Service]
 ExecStartPre=/usr/sbin/rfkill unblock wifi
-EOF'
+EOF
+)"
         fi
         
         # Unmask and enable services
@@ -526,14 +637,15 @@ if is_raspberry_pi; then
     if ask_yes_no "Do you want the photobooth to start automatically on boot?"; then
         print_info "Configuring systemd photobooth service..."
 
-        PHOTOBOOTH_DIR=$(pwd)
+        PHOTOBOOTH_DIR="$SCRIPT_DIR"
         PHOTOBOOTH_USER=$(id -un)
         PHOTOBOOTH_GROUP=$(id -gn)
         PHOTOBOOTH_DIR_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_DIR")
+        PHOTOBOOTH_PYTHON_ESCAPED=$(escape_systemd_value "/usr/bin/python3")
         DISPLAY_TARGET="$(loginctl show-user "$PHOTOBOOTH_USER" -p Display --value 2>/dev/null || true)"
         DISPLAY_TARGET=${DISPLAY_TARGET:-:0}
 
-        sudo bash -c "cat > /etc/systemd/system/photobooth.service << EOF
+        write_root_file_if_changed "/etc/systemd/system/photobooth.service" "$(cat <<EOF
 [Unit]
 Description=Simple PhotoBooth application
 After=network-online.target display-manager.service graphical.target
@@ -546,7 +658,7 @@ Group=$PHOTOBOOTH_GROUP
 WorkingDirectory=$PHOTOBOOTH_DIR_ESCAPED
 Environment=PYTHONUNBUFFERED=1
 Environment=DISPLAY=$DISPLAY_TARGET
-ExecStart=/usr/bin/python3 $PHOTOBOOTH_DIR_ESCAPED/photoboothapp.py
+ExecStart=$PHOTOBOOTH_PYTHON_ESCAPED $PHOTOBOOTH_DIR_ESCAPED/photoboothapp.py
 Restart=always
 RestartSec=5
 StartLimitIntervalSec=300
@@ -558,7 +670,8 @@ StandardError=append:/var/log/photobooth.log
 
 [Install]
 WantedBy=graphical.target
-EOF"
+EOF
+)"
 
         sudo touch /var/log/photobooth.log
         sudo chown "$PHOTOBOOTH_USER:$PHOTOBOOTH_GROUP" /var/log/photobooth.log
@@ -607,7 +720,7 @@ fi
 
 echo ""
 print_info "To start the photobooth manually, run:"
-echo "  cd $(pwd)"
+echo "  cd $SCRIPT_DIR"
 echo "  python3 photoboothapp.py"
 echo ""
 print_info "For more information, see INSTALLATION.md and README.md"
