@@ -3,7 +3,9 @@ import cv2
 import json
 import base64
 import tempfile
+import time
 import numpy as np
+from PIL import Image as PilImage
 from kivy.logger import Logger
 
 from libs.file_utils import FileUtils
@@ -264,6 +266,67 @@ class TemplateCollage:
                 Logger.info(f'TemplateCollage: Saved print version to {print_path}')
         
         return canvas
+
+    def _media_frame(self, image):
+        """Render one source frame through this template."""
+        canvas = np.full((self._page_height, self._page_width, 3), 255, dtype=np.uint8)
+        if self._background:
+            background = self._load_image(self._background, cv2.IMREAD_COLOR, cache_key='background')
+            if background is not None:
+                canvas = cv2.resize(background, (self._page_width, self._page_height), interpolation=cv2.INTER_AREA)
+        for photo_spec in self._photos:
+            x, y = photo_spec['x'], photo_spec['y']
+            width, height = photo_spec['width'], photo_spec['height']
+            rendered = FileUtils.resize_and_crop(image, (height, width))
+            canvas[y:y + height, x:x + width] = rendered[:height, :width]
+        if self._foreground:
+            overlay, alpha = self._get_foreground_overlay()
+            if overlay is not None:
+                canvas = self._apply_overlay(canvas, overlay, alpha)
+        return canvas
+
+    def assemble_gif(self, image_paths, output_path, frame_delay):
+        frames = []
+        for path in image_paths:
+            image = cv2.imread(path, cv2.IMREAD_COLOR)
+            if image is None:
+                raise IOError(f'Cannot load GIF frame: {path}')
+            frame = cv2.cvtColor(self._media_frame(image), cv2.COLOR_BGR2RGB)
+            frames.append(PilImage.fromarray(frame))
+        frames[0].save(
+            output_path,
+            save_all=True,
+            append_images=frames[1:],
+            duration=max(20, round(frame_delay * 1000)),
+            loop=0,
+            optimize=True,
+        )
+
+    def record_video(self, frame_source, output_path, duration, fps, boomerang=False):
+        fps = max(1, min(30, int(fps or 20)))
+        frames = []
+        started_at = time.monotonic()
+        next_frame_at = started_at
+        while time.monotonic() - started_at < duration:
+            now = time.monotonic()
+            if now < next_frame_at:
+                time.sleep(next_frame_at - now)
+            frame = frame_source(self.get_aspect_ratio())
+            if frame is not None:
+                frames.append(self._media_frame(frame.copy()))
+            next_frame_at += 1.0 / fps
+        if not frames:
+            raise IOError('No video frame received from camera')
+        output_frames = frames + frames[-2:0:-1] if boomerang and len(frames) > 2 else frames
+        height, width = output_frames[0].shape[:2]
+        writer = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
+        if not writer.isOpened():
+            raise IOError('Cannot create MP4 video')
+        try:
+            for frame in output_frames:
+                writer.write(frame)
+        finally:
+            writer.release()
     
     def _get_foreground_overlay(self):
         """Return the foreground resized once for this template's fixed canvas."""

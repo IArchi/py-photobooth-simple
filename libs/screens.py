@@ -3,6 +3,7 @@ import time
 import io
 import cv2
 import numpy as np
+from PIL import Image as PilImage, ImageSequence
 from kivy.clock import Clock
 from kivy.logger import Logger
 from kivy.uix.boxlayout import BoxLayout
@@ -116,6 +117,9 @@ ICON_USB = '\u49ba'
 ICON_TRIGGER = '\u3d3e'
 ICON_QRCODE = '\u45f4'
 ICON_SHARE = '\u46d4'
+ICON_VIDEO = '\u47f2'
+ICON_GIF = '\u45ec'
+ICON_BOOMERANG = '\u46d4'
 
 
 class ScreenMgr(ScreenManager):
@@ -123,6 +127,7 @@ class ScreenMgr(ScreenManager):
     START = 'start'
     READY = 'ready'
     SELECT_FORMAT = 'select_format'
+    SELECT_MODE = 'select_mode'
     ERROR = 'error'
     COUNTDOWN = 'countdown'
     CONFIRM_CAPTURE = 'confirm_capture'
@@ -138,6 +143,7 @@ class ScreenMgr(ScreenManager):
         self.app = app
         self.pb_screens = {
             self.START              : StartScreen(app, name=self.START),
+            self.SELECT_MODE        : SelectModeScreen(app, name=self.SELECT_MODE),
             self.SELECT_FORMAT      : SelectFormatScreen(app, name=self.SELECT_FORMAT),
             self.ERROR              : ErrorScreen(app, name=self.ERROR),
             self.COUNTDOWN          : CountdownScreen(app, name=self.COUNTDOWN),
@@ -203,6 +209,108 @@ class ColorScreen(Screen):
 
     def on_update(self, kwargs={}):
         pass
+
+
+class AnimatedGifPreview(Image):
+    """Display GIF frames without relying on Kivy's optional GIF image provider."""
+
+    def __init__(self, **kwargs):
+        super(AnimatedGifPreview, self).__init__(**kwargs)
+        self._frames = []
+        self._frame_index = 0
+        self._clock = None
+        self._load_token = 0
+
+    def load(self, path, frame_delay):
+        self.stop()
+        self._load_token += 1
+        load_token = self._load_token
+
+        def decode():
+            decoded_frames = []
+            with PilImage.open(path) as gif:
+                for frame in ImageSequence.Iterator(gif):
+                    rgba = frame.convert('RGBA')
+                    decoded_frames.append((rgba.size, rgba.tobytes()))
+
+            def start(dt):
+                if load_token != self._load_token or not decoded_frames:
+                    return
+                textures = []
+                for size, pixels in decoded_frames:
+                    texture = Texture.create(size=size, colorfmt='rgba')
+                    texture.blit_buffer(pixels, colorfmt='rgba', bufferfmt='ubyte')
+                    texture.flip_vertical()
+                    textures.append(texture)
+                self._frames = textures
+                self._frame_index = 0
+                self.texture = textures[0]
+                self._clock = Clock.schedule_interval(self._next_frame, max(0.02, frame_delay))
+
+            Clock.schedule_once(start, 0)
+
+        threading.Thread(target=decode, name='photobooth-gif-preview', daemon=True).start()
+
+    def _next_frame(self, dt):
+        if not self._frames:
+            return
+        self._frame_index = (self._frame_index + 1) % len(self._frames)
+        self.texture = self._frames[self._frame_index]
+
+    def stop(self):
+        self._load_token += 1
+        if self._clock:
+            Clock.unschedule(self._clock)
+            self._clock = None
+        self._frames = []
+        self.texture = None
+
+
+class OpenCvVideoPreview(Image):
+    """Loop an MP4 through OpenCV, avoiding Kivy's optional FFVideo provider."""
+
+    def __init__(self, **kwargs):
+        super(OpenCvVideoPreview, self).__init__(**kwargs)
+        self._capture = None
+        self._clock = None
+        self._texture = None
+
+    def play(self, path):
+        self.stop()
+        capture = cv2.VideoCapture(path)
+        if not capture.isOpened():
+            capture.release()
+            raise IOError(f'Cannot open video preview: {path}')
+        self._capture = capture
+        fps = capture.get(cv2.CAP_PROP_FPS) or 20
+        self._clock = Clock.schedule_interval(self._next_frame, 1.0 / max(1, min(60, fps)))
+        self._next_frame(0)
+
+    def _next_frame(self, dt):
+        if self._capture is None:
+            return False
+        ok, frame = self._capture.read()
+        if not ok:
+            self._capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ok, frame = self._capture.read()
+        if not ok:
+            return
+        height, width = frame.shape[:2]
+        if self._texture is None or self._texture.size != (width, height):
+            self._texture = Texture.create(size=(width, height), colorfmt='bgr')
+            self.texture = self._texture
+        self._texture.blit_buffer(frame.tobytes(), colorfmt='bgr', bufferfmt='ubyte')
+        self.canvas.ask_update()
+
+    def stop(self):
+        if self._clock:
+            Clock.unschedule(self._clock)
+            self._clock = None
+        if self._capture:
+            self._capture.release()
+            self._capture = None
+        self._texture = None
+        self.texture = None
 
 class BlurredPanel(Image):
     def __init__(self, source_path, **kwargs):
@@ -358,11 +466,97 @@ class StartScreen(BackgroundScreen):
     def on_click(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('StartScreen: on_click().')
-        self.app.transition_to(ScreenMgr.SELECT_FORMAT)
+        self.app.transition_to(self.app.get_screen_after_start())
 
     def on_keyboard_action(self):
         Logger.info('StartScreen: on_keyboard_action().')
-        self.app.transition_to(ScreenMgr.SELECT_FORMAT)
+        self.app.transition_to(self.app.get_screen_after_start())
+        return True
+
+
+class SelectModeScreen(ColorScreen):
+    """Small, rounded capture-mode choices aligned near the bottom."""
+
+    def __init__(self, app, **kwargs):
+        super(SelectModeScreen, self).__init__(**kwargs)
+        self.app = app
+        root = FloatLayout()
+        title = Label(
+            text=app.t('select_mode.title'),
+            font_name=MONTSERRAT_SEMIBOLD_TTF,
+            font_size=LARGE_FONT(),
+            size_hint=(1, 0.15),
+            pos_hint={'x': 0, 'top': 0.75},
+            halign='center',
+            valign='middle',
+        )
+        title.bind(size=title.setter('text_size'))
+        wh_bind(title, 'font_size', LARGE_FONT)
+        root.add_widget(title)
+
+        choices = BoxLayout(
+            orientation='horizontal',
+            spacing=Window.height * 0.025,
+            padding=(Window.width * 0.06, 0),
+            size_hint=(1, 0.22),
+            pos_hint={'x': 0, 'y': 0.08},
+        )
+        icons = {'photo': ICON_TRIGGER, 'gif': ICON_GIF, 'video': ICON_VIDEO, 'boomerang': ICON_BOOMERANG}
+        for mode in self.app.ENABLED_MODES:
+            choice = BoxLayout(orientation='vertical', spacing=dp(8))
+            button = make_icon_button(
+                icons[mode],
+                size=1,
+                font=ICON_TTF,
+                font_size_fraction=0.055,
+                bgcolor=hex_to_rgba('#3d4f5c'),
+                on_release=self.on_mode_selected,
+            )
+            button.size_hint = (1, 0.72)
+            for child in button.children:
+                if isinstance(child, LabelRoundButton):
+                    child.capture_mode = mode
+                    break
+            label = Label(
+                text=app.t(f'select_mode.{mode}'),
+                font_name=MONTSERRAT_SEMIBOLD_TTF,
+                font_size=SMALL_FONT(),
+                size_hint=(1, 0.28),
+                halign='center',
+                valign='middle',
+            )
+            label.bind(size=label.setter('text_size'))
+            wh_bind(label, 'font_size', SMALL_FONT)
+            choice.add_widget(button)
+            choice.add_widget(label)
+            choices.add_widget(choice)
+        root.add_widget(choices)
+        self.add_widget(root)
+
+    def on_entry(self, kwargs={}):
+        Logger.info('SelectModeScreen: on_entry().')
+        if self.app.ringled:
+            self.app.ringled.start_rainbow()
+
+    def on_exit(self, kwargs={}):
+        Logger.info('SelectModeScreen: on_exit().')
+        if self.app.ringled:
+            self.app.ringled.clear()
+
+    def on_mode_selected(self, obj):
+        if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if obj.capture_mode == 'photo':
+            self.app.transition_to(ScreenMgr.SELECT_FORMAT, mode='photo')
+        else:
+            self.app.transition_to(
+                ScreenMgr.COUNTDOWN,
+                shot=0,
+                format=self.app.MEDIA_FORMAT,
+                mode=obj.capture_mode,
+            )
+
+    def on_keyboard_action(self):
+        self.app.transition_to(ScreenMgr.SELECT_FORMAT, mode='photo')
         return True
 
 class SelectFormatScreen(ColorScreen):
@@ -388,6 +582,7 @@ class SelectFormatScreen(ColorScreen):
         Logger.info('SelectFormatScreen: __init__().')
         super(SelectFormatScreen, self).__init__(**kwargs)
         self.app = app
+        self._current_mode = 'photo'
 
         # Format cards container (scrollable if needed)
         from kivy.uix.gridlayout import GridLayout
@@ -590,6 +785,7 @@ class SelectFormatScreen(ColorScreen):
     
     def on_entry(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_entry().')
+        self._current_mode = kwargs.get('mode', 'photo')
         # OPTIMIZED: Previews are now cached in templates, no need to reload
         # Previously: reloaded all previews on every entry (slow)
         # Now: previews are generated once and cached in TemplateCollage
@@ -605,7 +801,7 @@ class SelectFormatScreen(ColorScreen):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         format_idx = obj.format_idx
         Logger.info(f'SelectFormatScreen: on_format_selected({format_idx}).')
-        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=format_idx)
+        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=format_idx, mode=self._current_mode)
 
 class ErrorScreen(ColorScreen):
     """
@@ -749,6 +945,7 @@ class CountdownScreen(ColorScreen):
         self.app = app
         self._current_shot = 0
         self._current_format = 0
+        self._current_mode = 'photo'
         self._timer_active = False
         self._home_timeout_clock = None
         self._home_progress_clock = None
@@ -840,6 +1037,18 @@ class CountdownScreen(ColorScreen):
             on_release=self.trigger_event
         )
 
+        self.recording_time = Label(
+            text='',
+            font_name=MONTSERRAT_SEMIBOLD_TTF,
+            font_size=NORMAL_FONT(),
+            size_hint=(0.5, 0.1),
+            pos_hint={'center_x': 0.5, 'top': 0.95},
+            halign='center',
+            valign='middle',
+        )
+        self.recording_time.bind(size=self.recording_time.setter('text_size'))
+        wh_bind(self.recording_time, 'font_size', NORMAL_FONT)
+
         self.add_widget(self.layout)
 
     def on_entry(self, kwargs={}):
@@ -849,6 +1058,8 @@ class CountdownScreen(ColorScreen):
         self._timer_active = False
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self._current_mode = kwargs.get('mode', 'photo')
+        self.app.begin_mode(self._current_mode)
         aspect_ratio = self.app.get_format_aspect_ratio(self._current_format)
         self.camera.start(aspect_ratio)
         
@@ -871,6 +1082,10 @@ class CountdownScreen(ColorScreen):
         self._clock = None
         self._clock_progress = None
         self._clock_trigger = None
+        self._recording_started_at = None
+        self.recording_time.text = ''
+        if self.recording_time.parent:
+            self.overlay_layout.remove_widget(self.recording_time)
 
     def on_exit(self, kwargs={}):
         Logger.info('CountdownScreen: on_exit().')
@@ -882,6 +1097,7 @@ class CountdownScreen(ColorScreen):
             Clock.unschedule(self._clock_progress)
         if self._clock_trigger:
             Clock.unschedule(self._clock_trigger)
+        Clock.unschedule(self._update_recording)
         self._stop_home_timeout()
         if self.app.ringled:
             self.app.ringled.clear()
@@ -945,8 +1161,18 @@ class CountdownScreen(ColorScreen):
                 self._clock_progress = None
             self.circular_counter.set_progress(0)
             
-            # Trigger shot
+            # Trigger shot or start a silent video recording.
             try:
+                if self._current_mode in ('video', 'boomerang'):
+                    self.overlay_layout.remove_widget(self.circular_counter)
+                    if self.btn_trigger.parent:
+                        self.overlay_layout.remove_widget(self.btn_trigger)
+                    self.overlay_layout.add_widget(self.recording_time)
+                    self._recording_started_at = Clock.get_boottime()
+                    self.app.trigger_recording(self._current_format, self._current_mode)
+                    self._update_recording(0)
+                    self._clock_trigger = Clock.schedule_interval(self._update_recording, 1 / 10.0)
+                    return
                 # Make screen blink
                 self.layout.add_widget(self.color_background)
                 self.app.trigger_shot(self._current_shot, self._current_format)
@@ -988,8 +1214,42 @@ class CountdownScreen(ColorScreen):
             else:
                 self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('capture.error_failed'))
         else:
-            # Display photo for validation
-            self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
+            if self._current_mode == 'gif':
+                if self._current_shot + 1 < self.app.GIF_PHOTO_COUNT:
+                    self._current_shot += 1
+                    self.camera.opacity = 1
+                    if self.loading_layout.parent:
+                        self.overlay_layout.remove_widget(self.loading_layout)
+                    self.loading.stop_animation()
+                    self._timer_active = True
+                    self._clock_trigger = Clock.schedule_once(lambda dt: self.start_countdown(), 0.2)
+                else:
+                    self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format, mode='gif')
+            else:
+                # Display photo for validation
+                self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
+
+    @staticmethod
+    def _format_duration(seconds):
+        seconds = max(0, int(seconds))
+        return f'{seconds // 60:02d}:{seconds % 60:02d}'
+
+    def _update_recording(self, dt):
+        elapsed = min(self.app.VIDEO_DURATION, Clock.get_boottime() - self._recording_started_at)
+        self.recording_time.text = (
+            f'{self._format_duration(elapsed)} / {self._format_duration(self.app.VIDEO_DURATION)}'
+        )
+        if self.app.is_media_completed():
+            Clock.unschedule(self._update_recording)
+            if self.app.has_process_failed('media'):
+                self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('processing.error_media'))
+            else:
+                self.app.transition_to(
+                    ScreenMgr.REVIEW,
+                    format=self._current_format,
+                    mode=self._current_mode,
+                )
+            return False
 
     def trigger_event(self, obj):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
@@ -1028,8 +1288,9 @@ class CountdownScreen(ColorScreen):
                 break
         
         # Reset timer
-        self.time_remaining = self.app.COUNTDOWN
-        self.total_countdown = self.app.COUNTDOWN
+        countdown = self.app.GIF_PHOTO_INTERVAL if self._current_mode == 'gif' and self._current_shot else self.app.COUNTDOWN
+        self.time_remaining = countdown
+        self.total_countdown = countdown
         self.start_time = Clock.get_boottime()
         self.circular_counter.set_text(str(self.time_remaining))
         self.circular_counter.set_progress(1.0)
@@ -1631,6 +1892,7 @@ class ProcessingScreen(ColorScreen):
 
         self.app = app
         self._current_format = 0
+        self._current_mode = 'photo'
 
         layout = BoxLayout(orientation='vertical')
 
@@ -1672,6 +1934,7 @@ class ProcessingScreen(ColorScreen):
         Logger.info('ProcessingScreen: on_entry().')
         self.loading.start_animation()
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self._current_mode = kwargs.get('mode', 'photo')
         self._clock = Clock.schedule_once(self.timer_event, 0.2)
         if self.app.ringled:
             self.app.ringled.start_rainbow()
@@ -1687,6 +1950,17 @@ class ProcessingScreen(ColorScreen):
 
     def timer_event(self, obj):
         Logger.info('ProcessingScreen: timer_event().')
+        if self._current_mode == 'gif':
+            if not self._collage_started:
+                self._collage_started = True
+                self.app.trigger_media_processing(self._current_format)
+            if not self.app.is_media_completed():
+                self._clock = Clock.schedule_once(self.timer_event, 0.2)
+            elif self.app.has_process_failed('media'):
+                self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('processing.error_media'))
+            else:
+                self.app.transition_to(ScreenMgr.REVIEW, format=self._current_format, mode='gif')
+            return
         if self.app.has_pending_photo_tasks():
             self._clock = Clock.schedule_once(self.timer_event, 0.2)
             return
@@ -1914,6 +2188,7 @@ class ReviewScreen(ColorScreen):
 
         self.app = app
         self._current_format = 0
+        self._current_mode = 'photo'
         self._home_timeout_clock = None
         self._home_progress_clock = None
         self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
@@ -1927,6 +2202,8 @@ class ReviewScreen(ColorScreen):
             pos_hint={'x': 0, 'y': 0},
         )
         self.overlay_layout.add_widget(self.preview)
+        self.gif_preview = AnimatedGifPreview(fit_mode='contain', size_hint=(1, 1))
+        self.video_preview = OpenCvVideoPreview(fit_mode='contain', size_hint=(1, 1))
 
         self.btn_home = make_icon_button(
             ICON_HOME,
@@ -1955,6 +2232,25 @@ class ReviewScreen(ColorScreen):
         )
         self.overlay_layout.add_widget(self.btn_print)
 
+        self.btn_retry = make_icon_text_button(
+            icon=ICON_CANCEL,
+            text=app.t('review.retry'),
+            size_hint=(0.18, 0.09),
+            pos_hint={},
+            icon_font=ICON_TTF,
+            bgcolor=CANCEL_COLOR,
+            on_release=self.retry_event,
+        )
+        self.btn_confirm = make_icon_text_button(
+            icon=ICON_CONFIRM,
+            text=app.t('review.confirm'),
+            size_hint=(0.18, 0.09),
+            pos_hint={},
+            icon_font=ICON_TTF,
+            bgcolor=CONFIRM_COLOR,
+            on_release=self.confirm_event,
+        )
+
         self.btn_share = None
         if self.app.SHARE:
             self.btn_share = make_icon_text_button(
@@ -1978,8 +2274,10 @@ class ReviewScreen(ColorScreen):
         buttons = []
         if self.btn_share is not None:
             buttons.append(self.btn_share)
-        if self.btn_print.parent is not None:
+        if self._current_mode == 'photo' and self.btn_print.parent is not None:
             buttons.append(self.btn_print)
+        elif self._current_mode != 'photo':
+            buttons.extend((self.btn_retry, self.btn_confirm))
         return buttons
 
     def _sync_print_button(self):
@@ -2015,12 +2313,32 @@ class ReviewScreen(ColorScreen):
     def on_entry(self, kwargs={}):
         Logger.info('ReviewScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self._current_mode = kwargs.get('mode', 'photo')
         self._start_home_timeout()
         if self.app.ringled:
             self.app.ringled.start_rainbow()
-        self._sync_print_button()
-        self._load_preview_async(FileUtils.get_small_path(self.app.get_collage()))
-        self.app.start_photo_task(self.app.save_collage)
+        if self._current_mode == 'photo':
+            if not self.preview.parent:
+                self.overlay_layout.add_widget(self.preview, index=len(self.overlay_layout.children))
+            self._sync_print_button()
+            self._load_preview_async(FileUtils.get_small_path(self.app.get_collage()))
+            self.app.start_photo_task(self.app.save_collage)
+        else:
+            if self.preview.parent:
+                self.overlay_layout.remove_widget(self.preview)
+            if self.btn_print.parent:
+                self.overlay_layout.remove_widget(self.btn_print)
+            for button in (self.btn_retry, self.btn_confirm):
+                if not button.parent:
+                    self.overlay_layout.add_widget(button)
+            path = self.app.get_media(self._current_mode)
+            if self._current_mode == 'gif':
+                self.gif_preview.load(path, self.app.GIF_FRAME_DELAY)
+                self.overlay_layout.add_widget(self.gif_preview, index=len(self.overlay_layout.children))
+            else:
+                self.video_preview.play(path)
+                self.overlay_layout.add_widget(self.video_preview, index=len(self.overlay_layout.children))
+            self._layout_action_buttons()
         if self.app.SHARE:
             QRCodePopup.preload_async()
 
@@ -2041,6 +2359,11 @@ class ReviewScreen(ColorScreen):
     def on_exit(self, kwargs={}):
         Logger.info('ReviewScreen: on_exit().')
         self._stop_home_timeout()
+        self.gif_preview.stop()
+        self.video_preview.stop()
+        for widget in (self.gif_preview, self.video_preview, self.btn_retry, self.btn_confirm):
+            if widget.parent:
+                self.overlay_layout.remove_widget(widget)
         if hasattr(self, 'qr_popup') and self.qr_popup.parent:
             self.layout.remove_widget(self.qr_popup)
         if hasattr(self, 'print_popup') and self.print_popup.parent:
@@ -2074,10 +2397,29 @@ class ReviewScreen(ColorScreen):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ReviewScreen: home_event().')
         self._stop_home_timeout()
+        if self._current_mode == 'photo':
+            self.app.transition_to(ScreenMgr.SUCCESS)
+        else:
+            self.app.transition_to(ScreenMgr.START)
+
+    def retry_event(self, obj):
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
+        self.app.purge_tmp()
+        self.app.transition_to(
+            ScreenMgr.COUNTDOWN,
+            shot=0,
+            format=self._current_format,
+            mode=self._current_mode,
+        )
+
+    def confirm_event(self, obj):
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
+        self.app.start_photo_task(self.app.save_media)
         self.app.transition_to(ScreenMgr.SUCCESS)
 
     def print_event(self, obj):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
+        if self._current_mode != 'photo': return
         Logger.info('ReviewScreen: print_event().')
         self._reset_timeout()
         if hasattr(self, 'print_popup') and self.print_popup.parent:
@@ -2111,8 +2453,12 @@ class ReviewScreen(ColorScreen):
         self.app.transition_to(ScreenMgr.START)
 
     def on_keyboard_action(self):
-        self.home_event(None)
+        if self._current_mode == 'photo':
+            self.home_event(None)
+        else:
+            self.confirm_event(None)
         return True
+
 
 class SuccessScreen(ColorScreen):
     """

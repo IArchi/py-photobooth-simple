@@ -80,6 +80,12 @@ class PhotoboothApp(App):
         self.BLUR_IMAGES = config.get_blur_images()
         self.BLUR_COLLAGE = config.get_blur_collage()
         self.COUNTDOWN = config.get_countdown()
+        self.ENABLED_MODES = config.get_enabled_modes()
+        self.GIF_PHOTO_COUNT = config.get_gif_photo_count()
+        self.GIF_PHOTO_INTERVAL = config.get_gif_photo_interval()
+        self.GIF_FRAME_DELAY = config.get_gif_frame_delay()
+        self.VIDEO_DURATION = config.get_video_duration()
+        self.MEDIA_TEMPLATE = config.get_media_template()
         self.DCIM_DIRECTORY = config.get_dcim_directory()
         self.DISK_MIN_FREE_GB = config.get_disk_min_free_gb()
         self.DISK_MAX_USED_PERCENT = config.get_disk_max_used_percent()
@@ -113,6 +119,7 @@ class PhotoboothApp(App):
         self._pending_photo_error = None
         self._pending_photo_lock = threading.Lock()
         self.last_saved_session_directory = None
+        self.current_mode = 'photo'
         self.processes = []
         self._process_lock = threading.Lock()
         self._process_state = {
@@ -140,6 +147,11 @@ class PhotoboothApp(App):
         if len(self.print_formats) == 0:
             Logger.error('No templates found in templates/ directory!')
             raise Exception('No templates found. Please ensure template JSON files exist in the templates/ directory.')
+        self.MEDIA_FORMAT = next(
+            (index for index, template in enumerate(self.print_formats)
+             if os.path.basename(template._template_path) == self.MEDIA_TEMPLATE),
+            0,
+        )
 
         # Create required directories
         self.tmp_directory = os.path.join(self.DCIM_DIRECTORY, 'tmp')
@@ -253,6 +265,13 @@ class PhotoboothApp(App):
     def get_shot(self, shot_idx):
         return os.path.join(self.tmp_directory, "capture-{}.jpg".format(shot_idx))
 
+    def get_screen_after_start(self):
+        return ScreenMgr.SELECT_MODE if len(self.ENABLED_MODES) > 1 else ScreenMgr.SELECT_FORMAT
+
+    def get_media(self, mode=None):
+        mode = mode or self.current_mode
+        return os.path.join(self.tmp_directory, 'collage.gif' if mode == 'gif' else 'collage.mp4')
+
     def get_collage(self):
         return os.path.join(self.tmp_directory, 'collage.jpg')
 
@@ -269,6 +288,8 @@ class PhotoboothApp(App):
         return path if os.path.exists(path) else None
 
     def get_shots_to_take(self, format=0):
+        if self.current_mode == 'gif':
+            return self.GIF_PHOTO_COUNT
         return self.print_formats[format].get_photos_required()
 
     def get_layout_previews(self, format=0):
@@ -277,6 +298,30 @@ class PhotoboothApp(App):
     def get_format_aspect_ratio(self, format_idx):
         """Get the aspect ratio (width/height) for the given format."""
         return self.print_formats[format_idx].get_aspect_ratio()
+
+    def begin_mode(self, mode):
+        if mode not in self.ENABLED_MODES:
+            raise ValueError(f'Disabled capture mode: {mode}')
+        self.current_mode = mode
+
+    def trigger_media_processing(self, format_idx):
+        if self.current_mode == 'gif':
+            photos = [self.get_shot(i) for i in range(self.GIF_PHOTO_COUNT)]
+            self._start_background_process(
+                'media', self.print_formats[format_idx].assemble_gif,
+                photos, self.get_media(), self.GIF_FRAME_DELAY,
+            )
+
+    def trigger_recording(self, format_idx, mode):
+        self.begin_mode(mode)
+        self._start_background_process(
+            'media', self.print_formats[format_idx].record_video,
+            self.devices.get_preview, self.get_media(mode), self.VIDEO_DURATION,
+            self.devices.get_preview_fps(), mode == 'boomerang',
+        )
+
+    def is_media_completed(self):
+        return not any(process.is_alive() for process in self.processes)
 
     def _log_disk_space(self, context):
         try:
@@ -625,6 +670,18 @@ class PhotoboothApp(App):
         session_id = os.path.basename(destination)
         for _ in range(moved_files):
             self.stats_store.track_photo_taken(session_id=session_id)
+
+    def save_media(self):
+        """Move the validated GIF/video session out of the temporary directory."""
+        if not self.ensure_disk_space_or_maintenance():
+            raise RuntimeError('Media storage is almost full')
+        media_path = self.get_media()
+        if not os.path.isfile(media_path):
+            raise FileNotFoundError(media_path)
+        destination = os.path.join(self.save_directory, datetime.now().strftime('%Y%m%d_%H%M%S'))
+        os.makedirs(destination, exist_ok=True)
+        FileUtils.move_file(media_path, os.path.join(destination, os.path.basename(media_path)))
+        self.last_saved_session_directory = destination
 
     def purge_tmp(self):
         # List existing files and delete (including _print versions)

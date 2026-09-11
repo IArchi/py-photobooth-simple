@@ -1,5 +1,6 @@
 import configparser
 import ast
+import os
 import re
 from pathlib import Path
 
@@ -96,6 +97,33 @@ class Config:
 
     def get_countdown(self):
         return self._get_int(('Capture', 'Picture'), 'COUNTDOWN', fallback=5)
+
+    def get_enabled_modes(self):
+        return ['photo'] + [
+            mode for mode, option in (
+                ('gif', 'GIF_ENABLED'),
+                ('video', 'VIDEO_ENABLED'),
+                ('boomerang', 'BOOMERANG_ENABLED'),
+            )
+            if self._get_boolean(('Media',), option, fallback=False)
+        ]
+
+    def get_gif_photo_count(self):
+        return max(2, self._get_int(('Media',), 'GIF_PHOTO_COUNT', fallback=4))
+
+    def get_gif_photo_interval(self):
+        return max(1, self._get_int(('Media',), 'GIF_PHOTO_INTERVAL', fallback=2))
+
+    def get_gif_frame_delay(self):
+        return max(0.02, self._get_float(('Media',), 'GIF_FRAME_DELAY', fallback=0.3))
+
+    def get_video_duration(self):
+        return max(1, self._get_int(('Media',), 'VIDEO_DURATION', fallback=5))
+
+    def get_media_template(self):
+        return os.path.basename(
+            self._get_string(('Media',), 'TEMPLATE', fallback='fullpage.json').strip()
+        ) or 'fullpage.json'
 
     def get_dcim_directory(self):
         dcim_directory = self._get_string(('Storage', 'Picture'), 'DCIM_DIRECTORY', fallback='./DCIM')

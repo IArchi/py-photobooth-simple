@@ -118,6 +118,20 @@ class WebServer:
             ),
         },
         {
+            'title': 'GIF & video',
+            'description': 'Enable optional modes and configure their capture timing.',
+            'fields': (
+                {'section': 'Media', 'option': 'GIF_ENABLED', 'label': 'GIF mode', 'control': 'checkbox', 'help': 'Create an animated GIF from several photos.'},
+                {'section': 'Media', 'option': 'VIDEO_ENABLED', 'label': 'Video mode', 'control': 'checkbox', 'help': 'Record a silent video.'},
+                {'section': 'Media', 'option': 'BOOMERANG_ENABLED', 'label': 'Boomerang mode', 'control': 'checkbox', 'help': 'Play a silent video forwards and backwards.'},
+                {'section': 'Media', 'option': 'GIF_PHOTO_COUNT', 'label': 'GIF photo count', 'control': 'number', 'number_type': 'int', 'min': 2, 'step': 1},
+                {'section': 'Media', 'option': 'GIF_PHOTO_INTERVAL', 'label': 'Delay between GIF photos (seconds)', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
+                {'section': 'Media', 'option': 'GIF_FRAME_DELAY', 'label': 'GIF frame delay (seconds)', 'control': 'number', 'number_type': 'float', 'min': 0.02, 'step': 0.01},
+                {'section': 'Media', 'option': 'VIDEO_DURATION', 'label': 'Video duration (seconds)', 'control': 'number', 'number_type': 'int', 'min': 1, 'step': 1},
+                {'section': 'Media', 'option': 'TEMPLATE', 'label': 'Media template', 'control': 'select', 'choices': (('fullpage.json', 'Full Page'), ('strip.json', 'Photo Strip')), 'help': 'Template used for GIF, video, and boomerang output.'},
+            ),
+        },
+        {
             'title': 'Storage',
             'description': 'Disk paths and safeguards against full storage.',
             'fields': (
