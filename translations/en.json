@@ -29,6 +29,7 @@
   "print.error_reconnect_timeout": "The printer did not reconnect in time.",
   "review.print": "PRINT",
   "review.share": "SHARE",
+  "review.retake": "RETAKE",
   "success.title": "Awesome !",
   "copying.info": "Do not disconnect your USB dongle before this screen disappears !",
   "copying.progress": "Copying {label}",

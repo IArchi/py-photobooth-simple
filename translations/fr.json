@@ -29,6 +29,7 @@
   "print.error_reconnect_timeout": "L'imprimante ne s'est pas reconnectée à temps.",
   "review.print": "IMPRIMER",
   "review.share": "PARTAGER",
+  "review.retake": "REFAIRE",
   "success.title": "Magnifique !",
   "copying.info": "Ne débranchez pas votre clé USB avant que cet écran disparaisse !",
   "copying.progress": "Copie de {label}",

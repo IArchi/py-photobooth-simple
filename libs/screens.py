@@ -94,6 +94,7 @@ HOME_COLOR = hex_to_rgba('#534969')
 HOME_PROGRESS_COLOR = darken_rgba(HOME_COLOR) #lighten_rgba(HOME_COLOR)
 BADGE_COLOR = hex_to_rgba('#8b4846')
 SHARE_COLOR = hex_to_rgba('#667eea')
+RETAKE_COLOR = hex_to_rgba('#e6c76a')
 
 # Icons
 ICON_TTF = './assets/fonts/hugeicons.ttf' # https://hugeicons.com/free-icon-font and https://hugeicons.com/icons?style=Stroke&type=Rounded
@@ -108,6 +109,7 @@ ICON_SHOT_TO_TAKE = '\u47f2'
 ICON_SHOT_TAKEN = '\u3daa'
 ICON_CONFIRM = '\u4908'
 ICON_CANCEL = '\u3d42'
+ICON_RETAKE = '\u3b82'
 ICON_HOME = '\u4161'
 ICON_PRINT = '\u458e'
 ICON_SUCCESS = '\u4903'
@@ -752,6 +754,8 @@ class CountdownScreen(ColorScreen):
         self._timer_active = False
         self._home_timeout_clock = None
         self._home_progress_clock = None
+        self._collage_started = False
+        self._save_started = False
 
         self.time_remaining = self.app.COUNTDOWN
         self.total_countdown = self.app.COUNTDOWN
@@ -847,6 +851,8 @@ class CountdownScreen(ColorScreen):
         self.time_remaining = self.app.COUNTDOWN
         self.total_countdown = self.app.COUNTDOWN
         self._timer_active = False
+        self._collage_started = False
+        self._save_started = False
         self._current_shot = kwargs.get('shot') if 'shot' in kwargs else 0
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
         aspect_ratio = self.app.get_format_aspect_ratio(self._current_format)
@@ -871,6 +877,8 @@ class CountdownScreen(ColorScreen):
         self._clock = None
         self._clock_progress = None
         self._clock_trigger = None
+        if kwargs.get('auto_start'):
+            self.trigger_event(None)
 
     def on_exit(self, kwargs={}):
         Logger.info('CountdownScreen: on_exit().')
@@ -988,8 +996,34 @@ class CountdownScreen(ColorScreen):
             else:
                 self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('capture.error_failed'))
         else:
-            # Display photo for validation
-            self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
+            if self.app.get_shots_to_take(self._current_format) > 1:
+                self.app.transition_to(ScreenMgr.CONFIRM_CAPTURE, shot=self._current_shot, format=self._current_format)
+            elif not self._collage_started:
+                # Keep the existing loading view visible while building a single-photo collage.
+                self._collage_started = True
+                self.app.trigger_collage(self._current_format)
+                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
+            elif not self.app.is_collage_completed():
+                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
+            elif self.app.has_process_failed('collage'):
+                Logger.error('CountdownScreen: collage generation failed.')
+                error_details = self.app.get_process_error('collage')
+                if error_details:
+                    Logger.error(error_details)
+                self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('processing.error_collage'))
+            elif not self._save_started:
+                # Keep loading visible until the accepted image is safely stored.
+                self._save_started = True
+                self.app.start_photo_task(self.app.save_collage)
+                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
+            elif self.app.has_pending_photo_tasks():
+                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
+            elif self.app.get_pending_photo_error():
+                Logger.error('CountdownScreen: photo save failed.')
+                Logger.error(self.app.get_pending_photo_error())
+                self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('processing.error_photo'))
+            else:
+                self.app.transition_to(ScreenMgr.REVIEW, format=self._current_format, saved=True)
 
     def trigger_event(self, obj):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
@@ -1208,12 +1242,12 @@ class ConfirmCaptureScreen(ColorScreen):
         self.overlay_layout.add_widget(self.btn_home)
 
         # Cancel button - bottom left (always at same position)
-        btn_cancel = make_icon_button(ICON_CANCEL,
+        btn_cancel = make_icon_button(ICON_RETAKE,
                              size=0.14,
                              pos_hint={'x': 0.05, 'y': 0.05},
                              font=ICON_TTF,
                              font_size_fraction=0.07,
-                             bgcolor=CANCEL_COLOR,
+                             bgcolor=RETAKE_COLOR,
                              on_release=self.no_event
                              )
         self.overlay_layout.add_widget(btn_cancel)
@@ -1596,7 +1630,12 @@ class ConfirmCaptureScreen(ColorScreen):
         if self._current_shot == self.app.get_shots_to_take(self._current_format) - 1:
             self.app.transition_to(ScreenMgr.PROCESSING, format=self._current_format)
         else:
-            self.app.transition_to(ScreenMgr.COUNTDOWN, shot=self._current_shot + 1, format=self._current_format)
+            self.app.transition_to(
+                ScreenMgr.COUNTDOWN,
+                shot=self._current_shot + 1,
+                format=self._current_format,
+                auto_start=True,
+            )
 
     def no_event(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
@@ -1914,6 +1953,7 @@ class ReviewScreen(ColorScreen):
 
         self.app = app
         self._current_format = 0
+        self._save_started = False
         self._home_timeout_clock = None
         self._home_progress_clock = None
         self.layout = AnchorLayout(padding=BORDER_THINKNESS, anchor_x='center', anchor_y='top')
@@ -1941,6 +1981,18 @@ class ReviewScreen(ColorScreen):
             on_release=self.home_event,
         )
         self.overlay_layout.add_widget(self.btn_home)
+
+        self.btn_retake = make_icon_text_button(
+            icon=ICON_RETAKE,
+            text=app.t('review.retake'),
+            size_hint=(0.16, 0.09),
+            pos_hint={'x': 0.05, 'y': 0.05},
+            icon_font=ICON_TTF,
+            icon_font_size_fraction=0.07,
+            text_font_size_fraction=0.035,
+            bgcolor=RETAKE_COLOR,
+            on_release=self.retake_event,
+        )
 
         self.btn_print = make_icon_text_button(
             icon=ICON_PRINT,
@@ -2015,14 +2067,27 @@ class ReviewScreen(ColorScreen):
     def on_entry(self, kwargs={}):
         Logger.info('ReviewScreen: on_entry().')
         self._current_format = kwargs.get('format') if 'format' in kwargs else 0
+        self._save_started = kwargs.get('saved', False)
+        single_photo = self.app.get_shots_to_take(self._current_format) == 1
+        if single_photo:
+            if self.btn_retake.parent is None:
+                self.overlay_layout.add_widget(self.btn_retake)
+        elif self.btn_retake.parent is not None:
+            self.overlay_layout.remove_widget(self.btn_retake)
         self._start_home_timeout()
         if self.app.ringled:
             self.app.ringled.start_rainbow()
         self._sync_print_button()
         self._load_preview_async(FileUtils.get_small_path(self.app.get_collage()))
-        self.app.start_photo_task(self.app.save_collage)
+        if not single_photo:
+            self._save_collage()
         if self.app.SHARE:
             QRCodePopup.preload_async()
+
+    def _save_collage(self):
+        if not self._save_started:
+            self._save_started = True
+            self.app.start_photo_task(self.app.save_collage)
 
     def _load_preview_async(self, path):
         def load_image():
@@ -2074,12 +2139,22 @@ class ReviewScreen(ColorScreen):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ReviewScreen: home_event().')
         self._stop_home_timeout()
+        self._save_collage()
         self.app.transition_to(ScreenMgr.SUCCESS)
+
+    def retake_event(self, obj):
+        if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
+        Logger.info('ReviewScreen: retake_event().')
+        self._stop_home_timeout()
+        self.app.delete_last_saved_session()
+        self.app.purge_tmp()
+        self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=self._current_format)
 
     def print_event(self, obj):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ReviewScreen: print_event().')
         self._reset_timeout()
+        self._save_collage()
         if hasattr(self, 'print_popup') and self.print_popup.parent:
             return
         self.print_popup = PrintStatusPopup(self.app, self._current_format, on_dismiss=self._dismiss_print_popup)
@@ -2089,6 +2164,7 @@ class ReviewScreen(ColorScreen):
         if obj is not None and not isinstance(obj.last_touch, MouseMotionEvent): return
         Logger.info('ReviewScreen: share_event().')
         self._reset_timeout()
+        self._save_collage()
         if hasattr(self, 'qr_popup') and self.qr_popup.parent:
             return
         self.qr_popup = QRCodePopup(on_dismiss=self._dismiss_qr_popup)
@@ -2108,6 +2184,7 @@ class ReviewScreen(ColorScreen):
     def timer_event(self, obj):
         Logger.info('ReviewScreen: timer_event().')
         self._stop_home_timeout()
+        self._save_collage()
         self.app.transition_to(ScreenMgr.START)
 
     def on_keyboard_action(self):

@@ -626,6 +626,20 @@ class PhotoboothApp(App):
         for _ in range(moved_files):
             self.stats_store.track_photo_taken(session_id=session_id)
 
+    def delete_last_saved_session(self):
+        destination = self.last_saved_session_directory
+        if not destination:
+            return False
+        try:
+            shutil.rmtree(destination)
+        except FileNotFoundError:
+            pass
+        except Exception as exc:
+            raise OSError(f'Failed to remove saved session {destination}: {exc}') from exc
+        self.last_saved_session_directory = None
+        Logger.info('PhotoboothApp: removed saved session %s', destination)
+        return True
+
     def purge_tmp(self):
         # List existing files and delete (including _print versions)
         all_files = os.listdir(self.tmp_directory)
