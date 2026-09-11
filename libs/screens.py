@@ -376,15 +376,15 @@ class SelectFormatScreen(ColorScreen):
     |  [card] [card]  |
     +-----------------+
     """
-    # Minimum and maximum card dimensions as window fractions (evaluated at layout time)
+    # Minimum card dimensions follow the window; maximums stay comfortable on large screens.
     @property
     def MIN_CARD_WIDTH(self):  return Window.width * 0.10
     @property
     def MIN_CARD_HEIGHT(self): return Window.height * 0.20
     @property
-    def MAX_CARD_WIDTH(self):  return Window.width * 0.40
+    def MAX_CARD_WIDTH(self):  return min(Window.width * 0.40, dp(360))
     @property
-    def MAX_CARD_HEIGHT(self): return Window.height * 0.92
+    def MAX_CARD_HEIGHT(self): return min(Window.height * 0.92, dp(540))
 
     def __init__(self, app, **kwargs):
         Logger.info('SelectFormatScreen: __init__().')
@@ -461,8 +461,8 @@ class SelectFormatScreen(ColorScreen):
         available_height = Window.height - (2 * padding) - border
         width_from_h = available_height / 1.5
 
-        card_width = max(self.MIN_CARD_WIDTH, min(self.MAX_CARD_WIDTH, min(width_from_w, width_from_h)))
-        card_height = max(self.MIN_CARD_HEIGHT, min(self.MAX_CARD_HEIGHT, card_width * 1.5))
+        card_width = min(self.MAX_CARD_WIDTH, max(self.MIN_CARD_WIDTH, min(width_from_w, width_from_h)))
+        card_height = min(self.MAX_CARD_HEIGHT, max(self.MIN_CARD_HEIGHT, card_width * 1.5))
 
         return (card_width, card_height, cols)
 
