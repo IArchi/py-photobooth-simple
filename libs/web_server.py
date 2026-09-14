@@ -109,6 +109,8 @@ class WebServer:
             'description': 'Camera countdown, calibration and preview behavior.',
             'fields': (
                 {'section': 'Capture', 'option': 'COUNTDOWN', 'label': 'Countdown (seconds)', 'control': 'number', 'number_type': 'int', 'min': 0, 'step': 1},
+                {'section': 'Capture', 'option': 'CAPTURE_TIMEOUT', 'label': 'Capture timeout (seconds)', 'control': 'number', 'number_type': 'int', 'min': 5, 'step': 1},
+                {'section': 'Capture', 'option': 'PROCESSING_TIMEOUT', 'label': 'Image processing timeout (seconds)', 'control': 'number', 'number_type': 'int', 'min': 5, 'step': 1},
                 {'section': 'Capture', 'option': 'CALIBRATION', 'label': 'Calibration', 'control': 'text', 'placeholder': 'None or (zoom, offset_x, offset_y)', 'help': 'This field stays as a raw string because it is produced by the calibration tool.'},
                 {'section': 'Capture', 'option': 'FILTERS', 'label': 'Photo filters', 'control': 'checkbox', 'help': 'Allow visitors to choose a filter after each shot.'},
                 {'section': 'Capture', 'option': 'BLUR_CAMERA', 'label': 'Blur preview borders', 'control': 'checkbox', 'inline_with_next': True},
@@ -124,6 +126,7 @@ class WebServer:
                 {'section': 'Storage', 'option': 'DCIM_DIRECTORY', 'label': 'Photo storage directory', 'control': 'text', 'placeholder': './DCIM'},
                 {'section': 'Storage', 'option': 'DISK_MIN_FREE_GB', 'label': 'Minimum free space (GB)', 'control': 'number', 'number_type': 'float', 'min': 0, 'step': 0.1},
                 {'section': 'Storage', 'option': 'DISK_MAX_USED_PERCENT', 'label': 'Maximum used disk (%)', 'control': 'number', 'number_type': 'float', 'min': 0, 'max': 100, 'step': 0.1},
+                {'section': 'Storage', 'option': 'SAVE_TIMEOUT', 'label': 'Photo save timeout (seconds)', 'control': 'number', 'number_type': 'int', 'min': 5, 'step': 1},
             ),
         },
         {
@@ -135,6 +138,7 @@ class WebServer:
                 {'section': 'Print', 'option': 'PRINTER_WAIT_TIMEOUT', 'label': 'Printer wait timeout (seconds)', 'control': 'number', 'number_type': 'int', 'min': 5, 'step': 1},
                 {'section': 'USB', 'option': 'USB_EXPORT', 'label': 'USB export', 'control': 'checkbox', 'help': 'Automatically copy saved sessions to removable USB media.'},
                 {'section': 'USB', 'option': 'USB_MIN_FREE_GB', 'label': 'USB minimum free space (GB)', 'control': 'number', 'number_type': 'float', 'min': 0, 'step': 0.1},
+                {'section': 'USB', 'option': 'USB_COPY_TIMEOUT', 'label': 'USB copy timeout (seconds)', 'control': 'number', 'number_type': 'int', 'min': 10, 'step': 1},
             ),
         },
         {

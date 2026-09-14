@@ -14,11 +14,12 @@ from libs.screens import ScreenMgr
 class UsbTransfer:
     REMOVABLE_MOUNT_ROOTS = ('/media', '/run/media', '/Volumes')
 
-    def __init__(self, app, folder, min_free_gb=1.0):
+    def __init__(self, app, folder, min_free_gb=1.0, copy_timeout=300):
         Logger.info('UsbTransfer: __init__().')
         self._app = app
         self._folder = folder
         self._min_free_bytes = int(max(0.0, min_free_gb) * 1024 ** 3)
+        self._copy_timeout = max(10, copy_timeout)
         self._worker_thread: Thread = None
         self._stop_event = Event()
         self._pending_mounts = {}
@@ -85,23 +86,48 @@ class UsbTransfer:
                 self._pending_mounts.pop(device.device, None)
                 continue
 
-            self._app.request_transition_to(ScreenMgr.COPYING)
+            screen_ready = Event()
+            Clock.schedule_once(lambda dt: self._show_copying_screen(screen_ready), 0)
+            if not screen_ready.wait(timeout=2):
+                Logger.warning('UsbTransfer: UI did not confirm copying screen in time')
+            result = None
             try:
                 Logger.info('UsbTransfer: starting export device=%s mountpoint=%s', device.device, device.mountpoint)
                 destination = Path(device.mountpoint, 'photobooth')
                 self._check_destination_capacity(destination)
-                copied_files = self.copy_without_overwrite(self._folder, destination)
+                copied_files = self.copy_without_overwrite(
+                    self._folder, destination,
+                    deadline=time.monotonic() + self._copy_timeout,
+                )
                 Logger.info('UsbTransfer: export completed device=%s mountpoint=%s copied_files=%s', device.device, device.mountpoint, copied_files)
+                result = {'status': 'success', 'count': copied_files}
             except Exception as exc:
                 Logger.error('UsbTransfer: Failed to perform folder copy.')
                 Logger.error(traceback.format_exc())
                 if self._stop_event.is_set():
                     return
                 Logger.warning('UsbTransfer: USB export skipped after failure: %s', exc)
+                result = {'status': 'error', 'error': str(exc)}
             finally:
                 self._pending_mounts.pop(device.device, None)
-                if self._app.get_current_screen_name() == ScreenMgr.COPYING:
-                    self._app.request_transition_to(ScreenMgr.START)
+                if result:
+                    Clock.schedule_once(lambda dt, value=result: self._finish_copy(value), 0)
+                    self._stop_event.wait(4)
+                return
+
+    def _finish_copy(self, result):
+        screen = self._app.sm.get_screen(ScreenMgr.COPYING)
+        if self._app.get_current_screen_name() != ScreenMgr.COPYING:
+            self._app.transition_to(ScreenMgr.COPYING)
+        screen.on_update(result)
+        Clock.schedule_once(lambda dt: self._app.transition_to(ScreenMgr.START), 4)
+
+    def _show_copying_screen(self, ready):
+        try:
+            if self._app.get_current_screen_name() != ScreenMgr.COPYING:
+                self._app.transition_to(ScreenMgr.COPYING)
+        finally:
+            ready.set()
 
     def _check_destination_capacity(self, destination_path):
         destination_path.mkdir(parents=True, exist_ok=True)
@@ -149,7 +175,7 @@ class UsbTransfer:
             Logger.warning("UsbTransfer: Cannot copy files to USB drive")
             return
 
-    def copy_without_overwrite(self, src, dest):
+    def copy_without_overwrite(self, src, dest, deadline=None):
         src_path = Path(src)
         dest_path = Path(dest)
         copied_files = 0
@@ -160,14 +186,36 @@ class UsbTransfer:
         for item in src_path.iterdir():
             if self._stop_event.is_set():
                 return copied_files
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError('USB copy timed out')
             s = src_path / item.name
             d = dest_path / item.name
             if s.is_dir():
-                copied_files += self.copy_without_overwrite(s, d)
+                copied_files += self.copy_without_overwrite(s, d, deadline=deadline)
             else:
                 if not d.exists():
                     Clock.schedule_once(lambda dt, label=item.name: self._app.sm.get_screen(ScreenMgr.COPYING).on_update({'label': label}), 0)
-                    shutil.copy2(s, d)
+                    self._copy_file(s, d, deadline)
                     copied_files += 1
 
         return copied_files
+
+    @staticmethod
+    def _copy_file(source, destination, deadline=None):
+        partial = destination.with_name(destination.name + '.partial')
+        try:
+            with open(source, 'rb') as src, open(partial, 'wb') as dst:
+                while True:
+                    if deadline is not None and time.monotonic() >= deadline:
+                        raise TimeoutError('USB copy timed out')
+                    chunk = src.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    dst.write(chunk)
+            shutil.copystat(source, partial)
+            os.replace(partial, destination)
+        finally:
+            try:
+                partial.unlink()
+            except FileNotFoundError:
+                pass

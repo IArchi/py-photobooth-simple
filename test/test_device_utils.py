@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from libs.device_utils import DeviceUtils
+from libs.device_utils import CupsPrinter, DeviceUtils, PrinterStatusError
 from photoboothapp import PhotoboothApp
 
 
@@ -20,6 +20,9 @@ class FakePrinter:
 
     def is_available(self):
         return True
+
+    def get_status(self):
+        return {'ok': True, 'state': 'idle', 'reasons': []}
 
 
 class FakePrintFormat:
@@ -65,6 +68,26 @@ def test_photobooth_app_has_printer_uses_devices():
     assert app.has_printer() is False
 
 
+def test_uncertain_print_state_blocks_duplicates_until_jobs_are_cleared():
+    class Devices:
+        def has_printer(self):
+            return True
+
+        def cancel_stale_print_jobs(self, strict=False):
+            assert strict is True
+            return 1
+
+    app = PhotoboothApp.__new__(PhotoboothApp)
+    app.devices = Devices()
+    app.stats_store = FakeStatsStore()
+    app._print_state_uncertain = False
+
+    app.mark_print_state_uncertain()
+    assert app.can_start_print() is False
+    assert app.cancel_stale_print_jobs() == 1
+    assert app.can_start_print() is True
+
+
 def test_device_diagnostic_reports_hybrid_camera_and_printer():
     class Camera:
         def is_healthy(self):
@@ -82,6 +105,53 @@ def test_device_diagnostic_reports_hybrid_camera_and_printer():
     assert status['camera_name'] == 'Camera + Camera'
     assert status['printer_ok'] is True
     assert status['printer_name'] == 'DNP'
+    assert status['printer_reasons'] == []
+
+
+def test_cups_status_reports_normalized_paper_jam():
+    printer = object.__new__(CupsPrinter)
+    printer._name = 'DNP'
+    printer._instance = type('Connection', (), {
+        'getPrinters': lambda self: {
+            'DNP': {
+                'printer-state': 5,
+                'printer-state-reasons': ['media-jam-error'],
+                'printer-is-accepting-jobs': True,
+            }
+        }
+    })()
+
+    assert printer.get_status() == {
+        'ok': False,
+        'state': 'stopped',
+        'reasons': ['media-jam'],
+    }
+
+
+def test_cups_completed_job_is_only_reported_as_sent():
+    printer = object.__new__(CupsPrinter)
+    printer._name = 'DNP'
+    printer._instance = type('Connection', (), {
+        'getJobAttributes': lambda self, task_id: {'job-state': 9, 'job-state-reasons': ['none']},
+        'getPrinters': lambda self: {
+            'DNP': {'printer-state': 3, 'printer-state-reasons': ['none'], 'printer-is-accepting-jobs': True}
+        },
+    })()
+
+    assert printer.get_print_status(123) == 'sent'
+
+
+def test_cups_job_failure_preserves_reason_code():
+    printer = object.__new__(CupsPrinter)
+    printer._name = 'DNP'
+    printer._instance = type('Connection', (), {
+        'getJobAttributes': lambda self, task_id: {'job-state': 8, 'job-state-reasons': ['media-empty-error']},
+    })()
+
+    with pytest.raises(PrinterStatusError) as error:
+        printer.get_print_status(123)
+
+    assert error.value.reasons == ['media-empty']
 
 
 def test_camera_reconnect_replaces_devices(monkeypatch):

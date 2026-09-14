@@ -109,6 +109,14 @@ class PrintDevice:
     def get_print_status(self, task_id):
         pass
 
+    def get_status(self):
+        return {'ok': False, 'state': 'unavailable', 'reasons': ['unavailable']}
+
+class PrinterStatusError(RuntimeError):
+    def __init__(self, reasons):
+        self.reasons = list(reasons or ['unknown'])
+        super().__init__(', '.join(self.reasons))
+
 class Cv2Camera(CaptureDevice):
     def __init__(self, port=-1):
         self._preview_lock = threading.Lock()
@@ -581,6 +589,31 @@ class Picamera2Camera(CaptureDevice):
 class CupsPrinter(PrintDevice):
     _name = None
 
+    _IGNORED_REASONS = {'none', 'other', 'unknown', 'cups-waiting-for-job-completed'}
+    _BLOCKING_REASONS = {
+        'media-jam', 'media-empty', 'media-needed', 'door-open', 'cover-open',
+        'offline', 'shutdown', 'paused', 'output-area-full', 'marker-supply-empty',
+        'toner-empty', 'not-accepting-jobs', 'stopped', 'unavailable',
+    }
+
+    @staticmethod
+    def _reasons(value):
+        if not value:
+            return []
+        values = value if isinstance(value, (list, tuple)) else str(value).split(',')
+        reasons = []
+        for value in values:
+            reason = str(value).strip()
+            for suffix in ('-error', '-warning', '-report'):
+                reason = reason.removesuffix(suffix)
+            if reason:
+                reasons.append(reason)
+        return reasons
+
+    @classmethod
+    def _actionable_reasons(cls, value):
+        return [reason for reason in cls._reasons(value) if reason not in cls._IGNORED_REASONS]
+
     def __init__(self, name=None):
         if cups:
             # Try to detect connected printer
@@ -612,14 +645,43 @@ class CupsPrinter(PrintDevice):
     def get_print_status(self, task_id):
         attributes = self._instance.getJobAttributes(task_id)
         status = attributes['job-state']
+        reasons = self._actionable_reasons(attributes.get('job-state-reasons'))
+        if status in (7, 8):
+            raise PrinterStatusError(reasons)
+        # CUPS completion confirms spooler hand-off; a later printer fault belongs
+        # to subsequent diagnostics, not to this already completed job.
         if status == 9:
-            reasons = attributes.get('job-state-reasons', 'unknown')
-            raise RuntimeError(f'Print job canceled: {reasons}')
-        if status >= 6:
-            return 'done'
+            return 'sent'
+        printer_status = self.get_status()
+        if not printer_status['ok'] and printer_status['reasons']:
+            raise PrinterStatusError(printer_status['reasons'])
         return 'pending'
 
-    def cancel_stale_jobs(self):
+    def get_status(self):
+        if self._instance is None or not self._name:
+            return {'ok': False, 'state': 'unavailable', 'reasons': ['unavailable']}
+        try:
+            printer = self._instance.getPrinters().get(self._name)
+            if not printer:
+                return {'ok': False, 'state': 'unavailable', 'reasons': ['unavailable']}
+            state = int(printer.get('printer-state', 5))
+            reasons = self._actionable_reasons(printer.get('printer-state-reasons'))
+            accepting = printer.get('printer-is-accepting-jobs') is not False
+            if not accepting:
+                reasons.append('not-accepting-jobs')
+            if state == 5 and not reasons:
+                reasons.append('stopped')
+            blocking = state == 5 or not accepting or any(reason in self._BLOCKING_REASONS for reason in reasons)
+            return {
+                'ok': not blocking,
+                'state': {3: 'idle', 4: 'printing', 5: 'stopped'}.get(state, 'unknown'),
+                'reasons': list(dict.fromkeys(reasons)),
+            }
+        except Exception as exc:
+            Logger.warning('CupsPrinter: status check failed for %s: %s', self._name, exc)
+            return {'ok': False, 'state': 'unavailable', 'reasons': ['unavailable']}
+
+    def cancel_stale_jobs(self, strict=False):
         if self._instance is None or not self._name:
             return 0
         canceled = 0
@@ -632,30 +694,18 @@ class CupsPrinter(PrintDevice):
                         canceled += 1
                     except Exception as exc:
                         Logger.warning('CupsPrinter: could not cancel stale job %s: %s', job_id, exc)
+                        if strict:
+                            raise
         except Exception as exc:
             Logger.warning('CupsPrinter: stale job cleanup failed for %s: %s', self._name, exc)
+            if strict:
+                raise
         if canceled:
             Logger.warning('CupsPrinter: canceled stale jobs count=%s printer=%s', canceled, self._name)
         return canceled
 
     def is_available(self):
-        if self._instance is None or not self._name:
-            return False
-
-        try:
-            printers = self._instance.getPrinters()
-            printer = printers.get(self._name)
-            if not printer:
-                return False
-
-            if printer.get('printer-is-accepting-jobs') is False:
-                return False
-
-            # CUPS states: 3=idle, 4=printing, 5=stopped
-            return printer.get('printer-state') != 5
-        except Exception as e:
-            Logger.warning('CupsPrinter: availability check failed for %s: %s', self._name, e)
-            return False
+        return self.get_status()['ok']
 
 class DeviceUtils:
     _preview = None
@@ -735,6 +785,11 @@ class DeviceUtils:
             return False
         return self._printer.is_available()
 
+    def get_printer_status(self):
+        if self._printer is None:
+            return {'ok': False, 'state': 'unavailable', 'reasons': ['unavailable']}
+        return self._printer.get_status()
+
     def get_diagnostic_status(self):
         """Return cheap, non-invasive device health information for the kiosk UI."""
         preview = self._preview
@@ -744,18 +799,21 @@ class DeviceUtils:
             camera_names.append(type(capture).__name__)
 
         printer_name = getattr(self._printer, '_name', None)
+        printer_status = self.get_printer_status()
         return {
             'camera_ok': bool(preview and capture and preview.is_healthy() and capture.is_healthy()),
             'camera_name': ' + '.join(camera_names),
-            'printer_ok': self.has_printer(),
+            'printer_ok': printer_status['ok'],
             'printer_name': printer_name,
             'printer_configured': self._printer is not None,
+            'printer_state': printer_status['state'],
+            'printer_reasons': printer_status['reasons'],
         }
 
-    def cancel_stale_print_jobs(self):
+    def cancel_stale_print_jobs(self, strict=False):
         if self._printer is None:
             return 0
-        return self._printer.cancel_stale_jobs()
+        return self._printer.cancel_stale_jobs(strict=strict)
 
     def print(self, file_path, print_params={}):
         if not self._printer: raise RuntimeError('No printer configured')

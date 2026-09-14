@@ -97,6 +97,15 @@ class Config:
     def get_countdown(self):
         return self._get_int(('Capture', 'Picture'), 'COUNTDOWN', fallback=5)
 
+    def get_capture_timeout(self):
+        return max(5, self._get_int(('Capture', 'Picture'), 'CAPTURE_TIMEOUT', fallback=15))
+
+    def get_processing_timeout(self):
+        return max(5, self._get_int(('Capture', 'Picture'), 'PROCESSING_TIMEOUT', fallback=30))
+
+    def get_save_timeout(self):
+        return max(5, self._get_int(('Storage', 'Picture'), 'SAVE_TIMEOUT', fallback=30))
+
     def get_dcim_directory(self):
         dcim_directory = self._get_string(('Storage', 'Picture'), 'DCIM_DIRECTORY', fallback='./DCIM')
         path = Path(dcim_directory).expanduser()
@@ -124,6 +133,9 @@ class Config:
 
     def get_usb_min_free_gb(self):
         return max(0.0, self._get_float(('USB', 'Picture'), 'USB_MIN_FREE_GB', fallback=1.0))
+
+    def get_usb_copy_timeout(self):
+        return max(10, self._get_int(('USB', 'Picture'), 'USB_COPY_TIMEOUT', fallback=300))
 
     def get_printer(self):
         printer = self._get_string(('Print', 'Picture'), 'PRINTER', fallback='None')

@@ -20,6 +20,7 @@ from kivy.core.image import Image as CoreImage
 
 from libs.kivywidgets import *
 from libs.file_utils import FileUtils
+from libs.device_utils import PrinterStatusError
 
 # Font sizes as fractions of min(Window.width, Window.height) — DPI-independent and
 # orientation-independent: the shortest side is always the binding constraint so fonts
@@ -53,7 +54,6 @@ def _on_window_resize(instance, size):
 
 Window.bind(size=_on_window_resize)
 
-SHOT_TIMEOUT_SECONDS = 10
 HOME_TIMEOUT_SECONDS = 60
 COUNTDOWN_HOME_TIMEOUT_SECONDS = 30
 CONFIRM_CAPTURE_HOME_TIMEOUT_SECONDS = 30
@@ -359,6 +359,12 @@ class StartScreen(BackgroundScreen):
     def _purge_when_idle(self, *args):
         if self.app.get_current_screen_name() != ScreenMgr.START:
             return
+        if self.app.has_pending_photo_tasks_timed_out():
+            self.app.enter_maintenance_mode(
+                message=self.app.t('processing.error_save_timeout'),
+                show_continue=False,
+            )
+            return
         if self.app.has_pending_photo_tasks() or self.app.has_background_processes():
             Clock.schedule_once(self._purge_when_idle, 0.5)
         else:
@@ -376,6 +382,7 @@ class StartScreen(BackgroundScreen):
 
     def on_click(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if self.app.get_current_screen_name() != ScreenMgr.START: return
         if self.diagnostic_button.collide_point(*obj.last_touch.pos): return
         Logger.info('StartScreen: on_click().')
         self.app.transition_to(ScreenMgr.SELECT_FORMAT)
@@ -427,11 +434,19 @@ class DiagnosticScreen(ColorScreen):
             self.rows[key] = row
             layout.add_widget(row)
 
-        actions = FloatLayout(size_hint=(1, 0.14))
+        actions = BoxLayout(size_hint=(1, 0.14), spacing=dp(12))
+        self.clear_jobs = RoundedButton(
+            text=app.t('diagnostic.clear_jobs'), background_color=HOME_COLOR,
+            font_size=SMALL_FONT(), bold=True, size_hint=(1, 1),
+            halign='center', valign='middle',
+        )
+        self.clear_jobs.bind(size=self.clear_jobs.setter('text_size'))
+        self.clear_jobs.bind(on_release=self.on_clear_jobs)
+        wh_bind(self.clear_jobs, 'font_size', SMALL_FONT)
+        actions.add_widget(self.clear_jobs)
         self.restart = RoundedButton(
             text=app.t('diagnostic.restart'), background_color=CANCEL_COLOR,
-            font_size=SMALL_FONT(), bold=True, size_hint=(0.72, 1),
-            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            font_size=SMALL_FONT(), bold=True, size_hint=(1, 1),
             halign='center', valign='middle',
         )
         self.restart.bind(size=self.restart.setter('text_size'))
@@ -513,6 +528,10 @@ class DiagnosticScreen(ColorScreen):
                 )
                 printer_ok = status['printer_ok']
 
+            reasons = status.get('printer_reasons') or []
+            if reasons:
+                print_detail += '\n     ' + ', '.join(self._printer_reason(reason) for reason in reasons)
+
             storage = status['storage']
             self.rows['camera'].text = self._line(status['camera_ok'], self.app.t('diagnostic.camera'), camera_detail)
             self.rows['printer'].text = self._line(printer_ok, self.app.t('diagnostic.printer'), print_detail)
@@ -585,6 +604,31 @@ class DiagnosticScreen(ColorScreen):
         self.restart.text = self.app.t('diagnostic.restart_confirm')
         self.restart.font_size = SMALL_FONT() * 0.78
         self._restart_clock = Clock.schedule_once(self._disarm_restart, 5)
+
+    def _printer_reason(self, reason):
+        key = 'diagnostic.printer_reason_' + str(reason).replace('-', '_')
+        return self.app.t(key, default=str(reason).replace('-', ' '))
+
+    def on_clear_jobs(self, obj=None):
+        self.clear_jobs.disabled = True
+        self.clear_jobs.text = self.app.t('diagnostic.clear_jobs_working')
+
+        def clear():
+            try:
+                count = self.app.cancel_stale_print_jobs()
+                message = self.app.t('diagnostic.clear_jobs_done', count=count)
+            except Exception as exc:
+                Logger.error('DiagnosticScreen: clear print jobs failed: %s', exc)
+                message = self.app.t('diagnostic.clear_jobs_failed')
+            Clock.schedule_once(lambda dt: self._finish_clear_jobs(message), 0)
+
+        threading.Thread(target=clear, name='photobooth-clear-print-jobs', daemon=True).start()
+
+    def _finish_clear_jobs(self, message):
+        self.clear_jobs.text = message
+        self.clear_jobs.disabled = False
+        Clock.schedule_once(lambda dt: setattr(self.clear_jobs, 'text', self.app.t('diagnostic.clear_jobs')), 4)
+        self.refresh()
 
     def _disarm_restart(self, *args):
         if self._restart_clock:
@@ -1208,12 +1252,11 @@ class CountdownScreen(ColorScreen):
 
     def timer_trigger(self, obj):
         if not(self.app.is_shot_completed(self._current_shot)):
-            if self.app.has_process_timed_out('shot', SHOT_TIMEOUT_SECONDS):
+            if self.app.has_process_timed_out('shot', self.app.CAPTURE_TIMEOUT):
                 Logger.error('CountdownScreen: capture timed out after countdown.')
-                if hasattr(self.app, 'recover_devices_and_return_home'):
-                    self.app.recover_devices_and_return_home(reason='capture_timeout')
-                else:
-                    self.app.transition_to(ScreenMgr.ERROR, message=self.app.t('capture.error_timeout'))
+                # A Python thread cannot be killed safely; restart the supervised process
+                # so a late camera write cannot leak into the next customer session.
+                self.app.request_restart()
             else:
                 # Retry after 1sec
                 self._clock_trigger = Clock.schedule_once(self.timer_trigger, 1)
@@ -1235,7 +1278,11 @@ class CountdownScreen(ColorScreen):
                 self.app.trigger_collage(self._current_format)
                 self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
             elif not self.app.is_collage_completed():
-                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
+                if self.app.has_process_timed_out('collage', self.app.PROCESSING_TIMEOUT):
+                    self.app.abandon_background_processes('collage', reason='collage_timeout')
+                    self.app.request_restart()
+                else:
+                    self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
             elif self.app.has_process_failed('collage'):
                 Logger.error('CountdownScreen: collage generation failed.')
                 error_details = self.app.get_process_error('collage')
@@ -1248,7 +1295,10 @@ class CountdownScreen(ColorScreen):
                 self.app.start_photo_task(self.app.save_collage)
                 self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
             elif self.app.has_pending_photo_tasks():
-                self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
+                if self.app.has_pending_photo_tasks_timed_out():
+                    self.app.request_restart()
+                else:
+                    self._clock_trigger = Clock.schedule_once(self.timer_trigger, 0.2)
             elif self.app.get_pending_photo_error():
                 Logger.error('CountdownScreen: photo save failed.')
                 Logger.error(self.app.get_pending_photo_error())
@@ -1958,7 +2008,10 @@ class ProcessingScreen(ColorScreen):
     def timer_event(self, obj):
         Logger.info('ProcessingScreen: timer_event().')
         if self.app.has_pending_photo_tasks():
-            self._clock = Clock.schedule_once(self.timer_event, 0.2)
+            if self.app.has_pending_photo_tasks_timed_out():
+                self.app.request_restart()
+            else:
+                self._clock = Clock.schedule_once(self.timer_event, 0.2)
             return
 
         if self.app.get_pending_photo_error():
@@ -1974,7 +2027,11 @@ class ProcessingScreen(ColorScreen):
             return
 
         if not(self.app.is_collage_completed()):
-            self._clock = Clock.schedule_once(self.timer_event, 0.5)
+            if self.app.has_process_timed_out('collage', self.app.PROCESSING_TIMEOUT):
+                self.app.abandon_background_processes('collage', reason='collage_timeout')
+                self.app.request_restart()
+            else:
+                self._clock = Clock.schedule_once(self.timer_event, 0.5)
         elif self.app.has_process_failed('collage'):
             Logger.error('ProcessingScreen: collage generation failed.')
             error_details = self.app.get_process_error('collage')
@@ -1994,10 +2051,12 @@ class PrintStatusPopup(FloatLayout):
         self.on_dismiss = on_dismiss
         self._clock = None
         self._close_scheduled = False
+        self._finished = False
         self._started_at = time.monotonic()
         self._print_started = False
         self._print_counted = False
         self._print_task_id = None
+        self._print_io_pending = False
         self._printer_wait_started_at = None
         self._timeout = getattr(self.app, 'PRINTER_WAIT_TIMEOUT', 45)
 
@@ -2086,6 +2145,7 @@ class PrintStatusPopup(FloatLayout):
         self.card_rect.size = instance.size
 
     def _set_done(self, title, message, error=False):
+        self._finished = True
         self.title.text = title
         self.message.text = message
         self.icon.text = ICON_ERROR_PRINTING if error else ICON_SUCCESS
@@ -2100,8 +2160,24 @@ class PrintStatusPopup(FloatLayout):
         Logger.error('PrintStatusPopup: print failed: %s', detail or '-')
         self._set_done(self.app.t('print.error_failed_title'), message, error=True)
 
+    def _set_printer_status_error(self, reasons):
+        details = ', '.join(self._printer_reason(reason) for reason in reasons)
+        self._set_print_error(details)
+
+    def _printer_reason(self, reason):
+        key = 'diagnostic.printer_reason_' + str(reason).replace('-', '_')
+        return self.app.t(key, default=str(reason).replace('-', ' '))
+
     def _tick(self, obj):
+        if self._finished:
+            return
         if self.app.has_pending_photo_tasks():
+            if self.app.has_pending_photo_tasks_timed_out():
+                self.app.transition_to(
+                    ScreenMgr.ERROR, message=self.app.t('processing.error_save_timeout'),
+                    show_continue=False, show_restart=True,
+                )
+                return
             self.message.text = self.app.t('print.status_save_before')
             self._clock = Clock.schedule_once(self._tick, 0.2)
             return
@@ -2114,47 +2190,75 @@ class PrintStatusPopup(FloatLayout):
             return
 
         if time.monotonic() - self._started_at >= self._timeout:
+            if self._print_io_pending and not self._print_started:
+                self.app.mark_print_state_uncertain()
+                self._set_print_error(self.app.t('print.error_submission_unknown'))
+                return
             self._set_print_error(self.app.t('print.error_timeout'))
+            return
+
+        if self._print_io_pending:
+            self._clock = Clock.schedule_once(self._tick, 0.2)
             return
 
         if not self._print_started:
             self.message.text = self.app.t('print.status_sending')
-            try:
-                print_task_id = self.app.trigger_print(1, self.format_idx)
-                if print_task_id is None:
-                    raise RuntimeError('Printer did not return a task id')
-                self._print_task_id = print_task_id
-                self._print_started = True
-                Logger.info('PrintStatusPopup: print started task=%s', self._print_task_id)
-            except Exception as exc:
-                self._set_print_error(str(exc))
-                return
-
-        if not self.app.has_printer():
-            if self._printer_wait_started_at is None:
-                self._printer_wait_started_at = time.monotonic()
-                Logger.warning('PrintStatusPopup: printer unavailable, waiting for recovery')
-            waited = time.monotonic() - self._printer_wait_started_at
-            remaining = max(0, int(self._timeout - waited))
-            self.message.text = self.app.t('print.status_printer_wait', seconds=remaining)
-            if waited >= self._timeout:
-                self._set_print_error(self.app.t('print.error_reconnect_timeout'))
-                return
-            self._clock = Clock.schedule_once(self._tick, 1)
+            self._run_print_io(lambda: self.app.trigger_print(1, self.format_idx), self._print_started_callback)
             return
 
-        if self._printer_wait_started_at is not None:
-            Logger.info('PrintStatusPopup: printer recovered after %.2fs', time.monotonic() - self._printer_wait_started_at)
-            self._printer_wait_started_at = None
+        self._run_print_io(
+            lambda: self.app.devices.get_print_status(self._print_task_id),
+            self._print_status_callback,
+        )
 
-        try:
-            status = self.app.devices.get_print_status(self._print_task_id)
-        except Exception as exc:
-            self._set_print_error(str(exc))
+    def _run_print_io(self, operation, callback):
+        self._print_io_pending = True
+
+        def run():
+            try:
+                result, error = operation(), None
+            except Exception as exc:
+                result, error = None, exc
+            Clock.schedule_once(lambda dt: callback(result, error), 0)
+
+        threading.Thread(target=run, name='photobooth-print-io', daemon=True).start()
+        self._clock = Clock.schedule_once(self._tick, 0.2)
+
+    def _print_started_callback(self, task_id, error):
+        self._print_io_pending = False
+        if self._close_scheduled or self._finished:
+            return
+        if self._clock:
+            self._clock.cancel()
+        if error:
+            if isinstance(error, PrinterStatusError):
+                self._set_printer_status_error(error.reasons)
+            else:
+                self._set_print_error(str(error))
+            return
+        if task_id is None:
+            self._set_print_error('Printer did not return a task id')
+            return
+        self._print_task_id = task_id
+        self._print_started = True
+        Logger.info('PrintStatusPopup: print started task=%s', task_id)
+        self._clock = Clock.schedule_once(self._tick, 0)
+
+    def _print_status_callback(self, status, error):
+        self._print_io_pending = False
+        if self._close_scheduled or self._finished:
+            return
+        if self._clock:
+            self._clock.cancel()
+        if error:
+            if isinstance(error, PrinterStatusError):
+                self._set_printer_status_error(error.reasons)
+            else:
+                self._set_print_error(str(error))
             return
 
         Logger.info('PrintStatusPopup: print status task=%s status=%s', self._print_task_id, status)
-        if status == 'done':
+        if status == 'sent':
             if not self._print_counted:
                 self.app.track_print_sent()
                 self._print_counted = True
@@ -2518,13 +2622,13 @@ class CopyingScreen(ColorScreen):
             wh_fraction=0.22,
         )
         layout.add_widget(icon)
-        info = ResizeLabel(
+        self.info = ResizeLabel(
             size_hint=(0.9, 0.1),
             pos_hint={'center_x': 0.5, 'center_y': 0.6},
             text=app.t('copying.info'),
             wh_fraction=0.07,
         )
-        layout.add_widget(info)
+        layout.add_widget(self.info)
 
         # Display progress
         self.progress = ResizeLabel(
@@ -2550,6 +2654,8 @@ class CopyingScreen(ColorScreen):
     def on_entry(self, kwargs={}):
         Logger.info('CopyingScreen: on_entry().')
         self.loading.start_animation()
+        self.info.text = self.app.t('copying.info')
+        self.progress.text = '-'
         if self.app.ringled:
             self.app.ringled.wave([255, 255, 255])
 
@@ -2560,8 +2666,16 @@ class CopyingScreen(ColorScreen):
             self.app.ringled.clear()
 
     def on_update(self, kwargs={}):
-        if not 'label' in kwargs: return
-        self.progress.text = self.app.t('copying.progress', label=kwargs.get('label'))
+        if 'label' in kwargs:
+            self.progress.text = self.app.t('copying.progress', label=kwargs.get('label'))
+        elif kwargs.get('status') == 'success':
+            self.loading.stop_animation()
+            self.info.text = self.app.t('copying.success')
+            self.progress.text = self.app.t('copying.files_copied', count=kwargs.get('count', 0))
+        elif kwargs.get('status') == 'error':
+            self.loading.stop_animation()
+            self.info.text = self.app.t('copying.error')
+            self.progress.text = str(kwargs.get('error') or self.app.t('copying.error_unknown'))
 
 class QRCodePopup(FloatLayout):
     """Popup overlay to show QR code."""

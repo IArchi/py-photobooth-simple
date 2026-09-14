@@ -33,10 +33,7 @@ from kivy.base import EventLoop
 from kivy.clock import Clock
 
 from libs.file_utils import FileUtils
-import libs.screens as screens_module
 from libs.screens import ConfirmCaptureScreen, CountdownScreen, ScreenMgr
-
-screens_module.SHOT_TIMEOUT_SECONDS = 0.5
 
 
 class DummyFormat:
@@ -94,6 +91,7 @@ class FakeApp:
     SHARE = False
     FILTERS = False
     COUNTDOWN = 1
+    CAPTURE_TIMEOUT = 0.5
     ringled = None
 
     def __init__(self, tmp_dir, devices):

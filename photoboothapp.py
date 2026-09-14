@@ -38,7 +38,7 @@ LabelBase.register(
 )
 
 from libs.config import Config
-from libs.device_utils import DeviceUtils
+from libs.device_utils import DeviceUtils, PrinterStatusError
 from libs.file_utils import FileUtils
 from libs.i18n import I18n
 from libs.screens import ScreenMgr
@@ -80,12 +80,16 @@ class PhotoboothApp(App):
         self.BLUR_IMAGES = config.get_blur_images()
         self.BLUR_COLLAGE = config.get_blur_collage()
         self.COUNTDOWN = config.get_countdown()
+        self.CAPTURE_TIMEOUT = config.get_capture_timeout()
+        self.PROCESSING_TIMEOUT = config.get_processing_timeout()
         self.DCIM_DIRECTORY = config.get_dcim_directory()
         self.DISK_MIN_FREE_GB = config.get_disk_min_free_gb()
         self.DISK_MAX_USED_PERCENT = config.get_disk_max_used_percent()
+        self.SAVE_TIMEOUT = config.get_save_timeout()
         self.PRINTER_WAIT_TIMEOUT = config.get_printer_wait_timeout()
         self.USB_EXPORT = config.get_usb_export_enabled()
         self.USB_MIN_FREE_GB = config.get_usb_min_free_gb()
+        self.USB_COPY_TIMEOUT = config.get_usb_copy_timeout()
         self.PRINTER = config.get_printer()
         self.MAX_PRINTS = config.get_max_prints()
         self.CALIBRATION = config.get_calibration()
@@ -111,6 +115,7 @@ class PhotoboothApp(App):
         self._requested_kwargs = None
         self.pending_photo_tasks = []
         self._pending_photo_error = None
+        self._pending_photo_started_at = None
         self._pending_photo_lock = threading.Lock()
         self.last_saved_session_directory = None
         self.processes = []
@@ -127,6 +132,7 @@ class PhotoboothApp(App):
         self._device_reconnect_lock = threading.Lock()
         self._device_reconnecting = False
         self._device_reconnect_last_attempt = 0
+        self._print_state_uncertain = False
         self.usb_transfer = None
         self.ringled = RINGLED
         self.devices = DeviceUtils(
@@ -157,7 +163,10 @@ class PhotoboothApp(App):
 
         # Start USB transfer
         if self.USB_EXPORT:
-            self.usb_transfer = UsbTransfer(self, self.save_directory, min_free_gb=self.USB_MIN_FREE_GB)
+            self.usb_transfer = UsbTransfer(
+                self, self.save_directory, min_free_gb=self.USB_MIN_FREE_GB,
+                copy_timeout=self.USB_COPY_TIMEOUT,
+            )
             self.usb_transfer.start()
         else:
             Logger.info('PhotoboothApp: USB export disabled')
@@ -492,10 +501,16 @@ class PhotoboothApp(App):
     def has_printer(self):
         return self.devices.has_printer()
 
+    def get_printer_status(self):
+        return self.devices.get_printer_status()
+
     def can_start_print(self):
-        if not self.has_printer():
+        if self._print_state_uncertain or not self.has_printer():
             return False
         return self.stats_store.can_print()
+
+    def mark_print_state_uncertain(self):
+        self._print_state_uncertain = True
 
     def get_print_limit_info(self):
         return self.stats_store.get_print_limit_info()
@@ -516,6 +531,11 @@ class PhotoboothApp(App):
         if not devices['camera_ok']:
             self.request_camera_reconnect()
         return devices
+
+    def cancel_stale_print_jobs(self):
+        count = self.devices.cancel_stale_print_jobs(strict=True)
+        self._print_state_uncertain = False
+        return count
 
     def request_camera_reconnect(self):
         """Retry camera discovery in the background without freezing the kiosk UI."""
@@ -556,7 +576,7 @@ class PhotoboothApp(App):
     def trigger_print(self, copies, format=0):
         Logger.info('PhotoboothApp: trigger_print().')
         if not self.has_printer():
-            raise RuntimeError('Printer is not available')
+            raise PrinterStatusError(self.get_printer_status().get('reasons'))
         if not self.stats_store.can_print():
             raise RuntimeError('Print limit reached')
         options = self.print_formats[format].get_print_params()
@@ -587,6 +607,7 @@ class PhotoboothApp(App):
         task = threading.Thread(target=run_target, name='photobooth-photo-task', daemon=True)
         with self._pending_photo_lock:
             self._pending_photo_error = None
+            self._pending_photo_started_at = time.monotonic()
             self.pending_photo_tasks = [task for task in self.pending_photo_tasks if task.is_alive()]
             self.pending_photo_tasks.append(task)
         task.start()
@@ -594,7 +615,18 @@ class PhotoboothApp(App):
     def has_pending_photo_tasks(self):
         with self._pending_photo_lock:
             self.pending_photo_tasks = [task for task in self.pending_photo_tasks if task.is_alive()]
+            if not self.pending_photo_tasks:
+                self._pending_photo_started_at = None
             return bool(self.pending_photo_tasks)
+
+    def has_pending_photo_tasks_timed_out(self, timeout_seconds=None):
+        timeout = timeout_seconds or self.SAVE_TIMEOUT
+        with self._pending_photo_lock:
+            return bool(
+                self._pending_photo_started_at is not None
+                and any(task.is_alive() for task in self.pending_photo_tasks)
+                and time.monotonic() - self._pending_photo_started_at >= timeout
+            )
 
     def get_pending_photo_error(self):
         with self._pending_photo_lock:
@@ -608,7 +640,7 @@ class PhotoboothApp(App):
         try:
             status = self.devices.get_print_status(print_task_id)
             Logger.info('PhotoboothApp: print status task=%s status=%s', print_task_id, status)
-            return status == 'done'
+            return status == 'sent'
         except Exception as exc:
             Logger.error('PhotoboothApp: print status check failed task=%s error=%s', print_task_id, exc)
             return False
