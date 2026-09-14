@@ -18,6 +18,9 @@ class FakePrinter:
         self.print_params = print_params
         return 123
 
+    def is_available(self):
+        return True
+
 
 class FakePrintFormat:
     def __init__(self, print_params=None, uses_print_version=False):
@@ -60,6 +63,84 @@ def test_photobooth_app_has_printer_uses_devices():
     app.devices = NoPrinterDevices()
 
     assert app.has_printer() is False
+
+
+def test_device_diagnostic_reports_hybrid_camera_and_printer():
+    class Camera:
+        def is_healthy(self):
+            return True
+
+    devices = object.__new__(DeviceUtils)
+    devices._preview = Camera()
+    devices._capture = Camera()
+    devices._printer = FakePrinter()
+    devices._printer._name = 'DNP'
+
+    status = devices.get_diagnostic_status()
+
+    assert status['camera_ok'] is True
+    assert status['camera_name'] == 'Camera + Camera'
+    assert status['printer_ok'] is True
+    assert status['printer_name'] == 'DNP'
+
+
+def test_camera_reconnect_replaces_devices(monkeypatch):
+    class Devices:
+        def __init__(self, *args, **kwargs):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    old_devices = Devices()
+    app = PhotoboothApp.__new__(PhotoboothApp)
+    app.devices = old_devices
+    app.PRINTER = None
+    app.CALIBRATION = None
+    app._dslr_liveview_params = {}
+    app._dslr_capture_params = {}
+    app._device_reconnect_lock = __import__('threading').Lock()
+    app._device_reconnecting = False
+    app._device_reconnect_last_attempt = 0
+    monkeypatch.setattr('photoboothapp.DeviceUtils', Devices)
+
+    class ImmediateThread:
+        def __init__(self, target, **kwargs):
+            self.target = target
+
+        def start(self):
+            self.target()
+
+    monkeypatch.setattr('photoboothapp.threading.Thread', ImmediateThread)
+
+    app.request_camera_reconnect()
+
+    assert app.devices is not old_devices
+    assert old_devices.closed is True
+    assert app._device_reconnecting is False
+
+
+def test_app_diagnostic_marks_missing_printer_configuration_as_disabled():
+    class Devices:
+        def get_diagnostic_status(self):
+            return {'camera_ok': True, 'printer_ok': True, 'printer_configured': True}
+
+    class WebServer:
+        def is_running(self):
+            return True
+
+    app = PhotoboothApp.__new__(PhotoboothApp)
+    app.devices = Devices()
+    app.web_server = WebServer()
+    app.PRINTER = None
+    app.WEB_PORT = 5000
+    app._device_reconnecting = False
+    app.get_disk_usage = lambda: {'free_gb': 10, 'total_gb': 20, 'used_percent': 50}
+    app.get_print_limit_info = lambda: {'enabled': False, 'prints': 3, 'remaining': None}
+    app.is_disk_space_critical = lambda: False
+    app.request_camera_reconnect = lambda: None
+
+    assert app.get_diagnostic_status()['printer_configured'] is False
 
 
 def test_trigger_print_ignores_stale_print_collage_for_fullpage(tmp_path):

@@ -1424,3 +1424,6 @@ class WebServer:
         if self._watchdog_thread and self._watchdog_thread.is_alive():
             self._watchdog_thread.join(timeout=5)
         self._watchdog_thread = None
+
+    def is_running(self):
+        return bool(self.server is not None and self.server_thread and self.server_thread.is_alive())

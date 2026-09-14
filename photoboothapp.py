@@ -124,6 +124,9 @@ class PhotoboothApp(App):
             'finished_at': None,
         }
         self._process_token = 0
+        self._device_reconnect_lock = threading.Lock()
+        self._device_reconnecting = False
+        self._device_reconnect_last_attempt = 0
         self.usb_transfer = None
         self.ringled = RINGLED
         self.devices = DeviceUtils(
@@ -496,6 +499,56 @@ class PhotoboothApp(App):
 
     def get_print_limit_info(self):
         return self.stats_store.get_print_limit_info()
+
+    def get_diagnostic_status(self):
+        """Collect read-only health data without taking control of camera or printer."""
+        devices = self.devices.get_diagnostic_status()
+        usage = self.get_disk_usage()
+        devices.update({
+            'print_limit': self.get_print_limit_info(),
+            'printer_configured': self.PRINTER is not None,
+            'web_ok': self.web_server.is_running(),
+            'web_port': self.WEB_PORT,
+            'storage_ok': not self.is_disk_space_critical(),
+            'storage': usage,
+            'camera_reconnecting': self._device_reconnecting,
+        })
+        if not devices['camera_ok']:
+            self.request_camera_reconnect()
+        return devices
+
+    def request_camera_reconnect(self):
+        """Retry camera discovery in the background without freezing the kiosk UI."""
+        with self._device_reconnect_lock:
+            now = time.monotonic()
+            if self._device_reconnecting or now - self._device_reconnect_last_attempt < 5:
+                return
+            self._device_reconnecting = True
+            self._device_reconnect_last_attempt = now
+
+        def reconnect():
+            replacement = None
+            old_devices = self.devices
+            try:
+                # A disconnected gPhoto/Picamera handle must be released before rediscovery.
+                old_devices.close()
+                replacement = DeviceUtils(
+                    printer_name=self.PRINTER,
+                    zoom=self.CALIBRATION,
+                    dslr_liveview_params=self._dslr_liveview_params,
+                    dslr_capture_params=self._dslr_capture_params,
+                )
+                self.devices = replacement
+                Logger.info('PhotoboothApp: camera reconnected')
+            except Exception as exc:
+                Logger.warning('PhotoboothApp: camera reconnect failed: %s', exc)
+                if replacement:
+                    replacement.close()
+            finally:
+                with self._device_reconnect_lock:
+                    self._device_reconnecting = False
+
+        threading.Thread(target=reconnect, name='photobooth-camera-reconnect', daemon=True).start()
 
     def track_print_sent(self):
         self.stats_store.track_print()

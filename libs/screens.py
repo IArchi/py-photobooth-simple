@@ -118,6 +118,10 @@ ICON_USB = '\u49ba'
 ICON_TRIGGER = '\u3d3e'
 ICON_QRCODE = '\u45f4'
 ICON_SHARE = '\u46d4'
+ICON_DIAGNOSTIC = '\u41be'
+ICON_DIAGNOSTIC_OK = '\u3da6'
+ICON_DIAGNOSTIC_ERROR = '\u3d45'
+ICON_DIAGNOSTIC_DISABLED = '\u43ae'
 
 
 class ScreenMgr(ScreenManager):
@@ -133,6 +137,7 @@ class ScreenMgr(ScreenManager):
     PRINTING = 'printing'
     SUCCESS = 'success'
     COPYING = 'copying'
+    DIAGNOSTIC = 'diagnostic'
 
     def __init__(self, app, **kwargs):
         Logger.info('ScreenMgr: __init__().')
@@ -148,6 +153,7 @@ class ScreenMgr(ScreenManager):
             self.REVIEW             : ReviewScreen(app, name=self.REVIEW),
             self.SUCCESS            : SuccessScreen(app, name=self.SUCCESS),
             self.COPYING            : CopyingScreen(app, name=self.COPYING),
+            self.DIAGNOSTIC         : DiagnosticScreen(app, name=self.DIAGNOSTIC),
         }
         for screen in self.pb_screens.values(): self.add_widget(screen)
 
@@ -320,7 +326,7 @@ class StartScreen(BackgroundScreen):
             halign='left',
             valign='middle',
             size_hint=(0.1, 0.05),
-            pos_hint={'x': 0.9, 'y': 0.95},
+            pos_hint={'x': 0.9, 'y': 0.01},
         )
         wh_bind(version, 'font_size', TINY_FONT)
         overlay_layout.add_widget(version)
@@ -328,6 +334,17 @@ class StartScreen(BackgroundScreen):
         overlay_layout.bind(on_release=self.on_click)
 
         self.add_widget(overlay_layout)
+
+        self.diagnostic_button = make_icon_button(
+            ICON_DIAGNOSTIC,
+            size=0.075,
+            font=ICON_TTF,
+            pos_hint={'right': 0.985, 'top': 0.985},
+            font_size_fraction=0.035,
+            bgcolor=(*label_color[:3], 0),
+            on_release=self.on_diagnostic,
+        )
+        self.add_widget(self.diagnostic_button)
 
     def on_entry(self, kwargs={}):
         Logger.info('StartScreen: on_entry().')
@@ -359,12 +376,226 @@ class StartScreen(BackgroundScreen):
 
     def on_click(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
+        if self.diagnostic_button.collide_point(*obj.last_touch.pos): return
         Logger.info('StartScreen: on_click().')
         self.app.transition_to(ScreenMgr.SELECT_FORMAT)
+
+    def on_diagnostic(self, obj):
+        Logger.info('StartScreen: opening diagnostics.')
+        self.app.transition_to(ScreenMgr.DIAGNOSTIC)
 
     def on_keyboard_action(self):
         Logger.info('StartScreen: on_keyboard_action().')
         self.app.transition_to(ScreenMgr.SELECT_FORMAT)
+        return True
+
+class DiagnosticScreen(ColorScreen):
+    """At-a-glance health screen intended for non-technical on-site users."""
+
+    def __init__(self, app, **kwargs):
+        Logger.info('DiagnosticScreen: __init__().')
+        super(DiagnosticScreen, self).__init__(**kwargs)
+        self.app = app
+        self._clock = None
+        self._restart_armed = False
+        self._restart_clock = None
+        self._refreshing = False
+        self._home_timeout_clock = None
+        self._home_progress_clock = None
+
+        layout = BoxLayout(
+            orientation='vertical',
+            padding=(Window.width * 0.08, Window.height * 0.05),
+            spacing=dp(10),
+        )
+        title = Label(
+            text=app.t('diagnostic.title'), bold=True, font_size=LARGE_FONT(),
+            size_hint=(1, 0.16), halign='center', valign='middle',
+        )
+        title.bind(size=title.setter('text_size'))
+        wh_bind(title, 'font_size', LARGE_FONT)
+        layout.add_widget(title)
+
+        self.rows = {}
+        for key in ('camera', 'printer', 'web', 'storage'):
+            row = Label(
+                font_size=SMALL_FONT(), size_hint=(1, 0.14),
+                halign='left', valign='middle', markup=True,
+            )
+            row.bind(size=row.setter('text_size'))
+            wh_bind(row, 'font_size', SMALL_FONT)
+            self.rows[key] = row
+            layout.add_widget(row)
+
+        actions = FloatLayout(size_hint=(1, 0.14))
+        self.restart = RoundedButton(
+            text=app.t('diagnostic.restart'), background_color=CANCEL_COLOR,
+            font_size=SMALL_FONT(), bold=True, size_hint=(0.72, 1),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            halign='center', valign='middle',
+        )
+        self.restart.bind(size=self.restart.setter('text_size'))
+        self.restart.bind(on_release=self.on_restart)
+        wh_bind(self.restart, 'font_size', SMALL_FONT)
+        actions.add_widget(self.restart)
+        layout.add_widget(actions)
+        self.add_widget(layout)
+
+        self.btn_home = make_icon_button(
+            ICON_HOME,
+            size=0.14,
+            pos_hint={'x': 0.05, 'top': 0.95},
+            font=ICON_TTF,
+            font_size_fraction=0.07,
+            bgcolor=HOME_COLOR,
+            progress=True,
+            progress_color=HOME_PROGRESS_COLOR,
+            progress_line_width_fraction=0.028,
+            on_release=self.on_back,
+        )
+        self.add_widget(self.btn_home)
+
+    def _line(self, ok, title, detail):
+        if ok is None:
+            color, icon, status = 'b8c1c7', ICON_DIAGNOSTIC_DISABLED, self.app.t('diagnostic.disabled')
+        else:
+            color = '63c174' if ok else 'ff7676'
+            icon = ICON_DIAGNOSTIC_OK if ok else ICON_DIAGNOSTIC_ERROR
+            status = self.app.t('diagnostic.ok') if ok else self.app.t('diagnostic.error')
+        return f'[color=#{color}][font={ICON_TTF}]{icon}[/font] {status}[/color]  [b]{title}[/b]\n     {detail}'
+
+    def _camera_name(self, name):
+        names = {
+            'Gphoto2Camera': self.app.t('diagnostic.camera_dslr'),
+            'Cv2Camera': self.app.t('diagnostic.camera_usb'),
+            'Picamera2Camera': self.app.t('diagnostic.camera_ondevice'),
+        }
+        return ' + '.join(names.get(part, part) for part in name.split(' + '))
+
+    def refresh(self, *args):
+        if self._refreshing:
+            return
+        self._refreshing = True
+
+        def collect():
+            try:
+                status = self.app.get_diagnostic_status()
+                Clock.schedule_once(lambda dt: self._render_status(status), 0)
+            except Exception as exc:
+                error = str(exc)
+                Clock.schedule_once(lambda dt: self._render_error(error), 0)
+
+        threading.Thread(target=collect, name='photobooth-diagnostic', daemon=True).start()
+
+    def _render_status(self, status):
+        self._refreshing = False
+        if self.app.get_current_screen_name() != ScreenMgr.DIAGNOSTIC:
+            return
+        try:
+            camera_detail = self._camera_name(status['camera_name'])
+            if status.get('camera_reconnecting'):
+                camera_detail += ' — ' + self.app.t('diagnostic.reconnecting')
+
+            limit = status['print_limit']
+            printer_name = status['printer_name'] or self.app.t('diagnostic.not_detected')
+            if not status['printer_configured']:
+                print_detail = self.app.t('diagnostic.printer_disabled', prints=limit['prints'])
+                printer_ok = None
+            elif limit['enabled']:
+                print_detail = self.app.t(
+                    'diagnostic.printer_limited', name=printer_name,
+                    prints=limit['prints'], remaining=limit['remaining'],
+                )
+                printer_ok = status['printer_ok']
+            else:
+                print_detail = self.app.t(
+                    'diagnostic.printer_unlimited', name=printer_name, prints=limit['prints'],
+                )
+                printer_ok = status['printer_ok']
+
+            storage = status['storage']
+            self.rows['camera'].text = self._line(status['camera_ok'], self.app.t('diagnostic.camera'), camera_detail)
+            self.rows['printer'].text = self._line(printer_ok, self.app.t('diagnostic.printer'), print_detail)
+            self.rows['web'].text = self._line(
+                status['web_ok'], self.app.t('diagnostic.web'),
+                self.app.t('diagnostic.web_port', port=status['web_port']),
+            )
+            self.rows['storage'].text = self._line(
+                status['storage_ok'], self.app.t('diagnostic.storage'),
+                self.app.t('diagnostic.storage_free', free=storage['free_gb'], used=storage['used_percent']),
+            )
+        except Exception as exc:
+            self._render_error(str(exc))
+
+    def _render_error(self, error):
+        self._refreshing = False
+        Logger.error('DiagnosticScreen: refresh failed: %s', error)
+        if self.app.get_current_screen_name() != ScreenMgr.DIAGNOSTIC:
+            return
+        for row in self.rows.values():
+            row.text = self._line(False, self.app.t('diagnostic.unavailable'), error)
+
+    def on_entry(self, kwargs={}):
+        self.refresh()
+        self._clock = Clock.schedule_interval(self.refresh, 2)
+        self._start_home_timeout()
+
+    def on_exit(self, kwargs={}):
+        if self._clock:
+            self._clock.cancel()
+            self._clock = None
+        self._stop_home_timeout()
+        self._disarm_restart()
+
+    def on_touch_down(self, touch):
+        if self.app.get_current_screen_name() == ScreenMgr.DIAGNOSTIC:
+            self._start_home_timeout()
+        return super(DiagnosticScreen, self).on_touch_down(touch)
+
+    def _start_home_timeout(self):
+        self._stop_home_timeout()
+        self._home_timeout_started_at = Clock.get_boottime()
+        self.btn_home.progress = 1.0
+        self.btn_home.show_progress = True
+        self._home_timeout_clock = Clock.schedule_once(self.on_back, HOME_TIMEOUT_SECONDS)
+        self._home_progress_clock = Clock.schedule_interval(self._update_home_progress, 1 / 30.0)
+
+    def _stop_home_timeout(self):
+        if self._home_timeout_clock:
+            self._home_timeout_clock.cancel()
+            self._home_timeout_clock = None
+        if self._home_progress_clock:
+            self._home_progress_clock.cancel()
+            self._home_progress_clock = None
+        self.btn_home.progress = 1.0
+        self.btn_home.show_progress = False
+
+    def _update_home_progress(self, dt):
+        elapsed = Clock.get_boottime() - self._home_timeout_started_at
+        self.btn_home.progress = max(0, 1.0 - (elapsed / HOME_TIMEOUT_SECONDS))
+
+    def on_back(self, obj=None):
+        self.app.transition_to(ScreenMgr.START)
+
+    def on_restart(self, obj=None):
+        if self._restart_armed:
+            self.app.request_restart()
+            return
+        self._restart_armed = True
+        self.restart.text = self.app.t('diagnostic.restart_confirm')
+        self.restart.font_size = SMALL_FONT() * 0.78
+        self._restart_clock = Clock.schedule_once(self._disarm_restart, 5)
+
+    def _disarm_restart(self, *args):
+        if self._restart_clock:
+            self._restart_clock.cancel()
+        self._restart_armed = False
+        self.restart.text = self.app.t('diagnostic.restart')
+        self.restart.font_size = SMALL_FONT()
+        self._restart_clock = None
+
+    def on_keyboard_action(self):
+        self.on_back()
         return True
 
 class SelectFormatScreen(ColorScreen):

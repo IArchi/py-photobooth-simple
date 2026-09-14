@@ -213,6 +213,16 @@ class Cv2Camera(CaptureDevice):
             self._instance.release()
             self._instance = None
 
+    def is_healthy(self):
+        if self._instance is None or not self._instance.isOpened():
+            return False
+        try:
+            # grab() validates the USB stream without decoding or saving a frame.
+            with self._camera_lock:
+                return bool(self._instance.grab())
+        except Exception:
+            return False
+
 class Gphoto2Camera(CaptureDevice):
     def __init__(self, dslr_liveview_params=None, dslr_capture_params=None):
         self._preview_failures = 0
@@ -426,6 +436,12 @@ class Gphoto2Camera(CaptureDevice):
                 Logger.warning('Gphoto2Camera: could not close camera cleanly: %s', e)
             self._instance = None
 
+    def is_healthy(self):
+        try:
+            return self._instance is not None and gp is not None and gp.cameraList().count() > 0
+        except Exception:
+            return False
+
 class Picamera2Camera(CaptureDevice):
     def __init__(self, port=0):
         self._preview_lock = threading.Lock()
@@ -558,6 +574,9 @@ class Picamera2Camera(CaptureDevice):
             except Exception:
                 pass
             self._instance = None
+
+    def is_healthy(self):
+        return self._instance is not None and bool(getattr(self._instance, 'started', True))
 
 class CupsPrinter(PrintDevice):
     _name = None
@@ -715,6 +734,23 @@ class DeviceUtils:
         if self._printer is None:
             return False
         return self._printer.is_available()
+
+    def get_diagnostic_status(self):
+        """Return cheap, non-invasive device health information for the kiosk UI."""
+        preview = self._preview
+        capture = self._capture
+        camera_names = [type(preview).__name__]
+        if capture is not preview:
+            camera_names.append(type(capture).__name__)
+
+        printer_name = getattr(self._printer, '_name', None)
+        return {
+            'camera_ok': bool(preview and capture and preview.is_healthy() and capture.is_healthy()),
+            'camera_name': ' + '.join(camera_names),
+            'printer_ok': self.has_printer(),
+            'printer_name': printer_name,
+            'printer_configured': self._printer is not None,
+        }
 
     def cancel_stale_print_jobs(self):
         if self._printer is None:
