@@ -364,7 +364,7 @@ if ask_yes_no "Step 7/9: Do you want to install printer support (CUPS)?"; then
     sudo cupsctl --remote-admin --remote-any
     
     # Install printer drivers
-    sudo install -m 644 "$SCRIPT_DIR/doc/DS620.ppd" /usr/share/cups/model/DS620.ppd
+    sudo install -m 644 "$SCRIPT_DIR/docs/DS620.ppd" /usr/share/cups/model/DS620.ppd
     
     # Restart CUPS
     sudo /etc/init.d/cups restart
