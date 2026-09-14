@@ -15,11 +15,11 @@ A simple and intuitive photobooth application designed to be easy to use, even f
 
 ## Screenshots
 
-![Waiting Screen](doc/waiting.jpeg)
-![Select Format](doc/select_format.jpeg)
-![Capture Screen](doc/capture.jpeg)
-![Capture Screen](doc/confirm.jpeg)
-![Review Screen](doc/review.jpeg)
+![Waiting Screen](docs/waiting.jpeg)
+![Select Format](docs/select_format.jpeg)
+![Capture Screen](docs/capture.jpeg)
+![Capture Screen](docs/confirm.jpeg)
+![Review Screen](docs/review.jpeg)
 
 ## Screen Flow
 
@@ -197,7 +197,7 @@ A web instance is also available directly on this page: https://iarchi.github.io
 - **Import/Export:** Save templates as JSON files and import existing templates
 - **Live Preview:** Real-time preview with scaling and duplication visualization
 
-![Template Editor](doc/template_editor.png)
+![Template Editor](docs/template_editor.png)
 
 ## USB Photo Export
 
