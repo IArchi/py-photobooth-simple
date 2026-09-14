@@ -136,6 +136,20 @@ For detailed installation instructions, please see [INSTALLATION.md](INSTALLATIO
 
 ### Quick Start
 
+Install and launch the interactive setup in one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/IArchi/py-photobooth-simple/main/bootstrap.sh | bash
+```
+
+By default, the repository is cloned into `~/py-photobooth-simple`. To use another directory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/IArchi/py-photobooth-simple/main/bootstrap.sh | PHOTOBOOTH_INSTALL_DIR=/opt/photobooth bash
+```
+
+Alternatively, clone and install it manually:
+
 ```bash
 # Clone the repository
 git clone https://github.com/IArchi/py-photobooth-simple.git
