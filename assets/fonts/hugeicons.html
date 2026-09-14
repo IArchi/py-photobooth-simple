@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hugeicons — table Unicode</title>
+  <style>
+    @font-face {
+      font-family: "Hugeicons";
+      src: url("hugeicons.ttf") format("truetype");
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 2rem;
+      color: #172033;
+      background: #f6f7fb;
+      font: 14px/1.4 system-ui, sans-serif;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    h1 { margin: 0; font-size: 1.5rem; }
+    p { margin: 0; color: #667085; }
+    #search {
+      flex-basis: 100%;
+      padding: .75rem 1rem;
+      border: 1px solid #d0d5dd;
+      border-radius: .5rem;
+      font: inherit;
+    }
+    #icons {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: .75rem;
+    }
+    .icon {
+      display: grid;
+      place-items: center;
+      min-height: 110px;
+      padding: 1rem;
+      border: 1px solid #e3e6ee;
+      border-radius: .75rem;
+      background: white;
+    }
+    .icon[hidden] { display: none; }
+    .glyph {
+      font: 40px/1 "Hugeicons";
+      speak: never;
+    }
+    .name {
+      max-width: 100%;
+      margin-top: .75rem;
+      overflow-wrap: anywhere;
+      text-align: center;
+      font-weight: 600;
+    }
+    code { margin-top: .75rem; color: #475467; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Hugeicons</h1>
+    <p id="count"></p>
+    <input id="search" type="search" placeholder="Rechercher une icône…" aria-label="Rechercher une icône" autofocus>
+  </header>
+  <main id="icons"></main>
+
+  <script src="hugeicons-data.js"></script>
+  <script>
+    const icons = document.querySelector("#icons");
+    const fragment = document.createDocumentFragment();
+
+    for (const [name, codePoint] of HUGEICONS) {
+      const glyph = String.fromCodePoint(codePoint);
+      const unicode = `U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`;
+      const item = document.createElement("div");
+      item.className = "icon";
+      item.dataset.name = name;
+      item.innerHTML = `<span class="glyph" aria-hidden="true">${glyph}</span><span class="name">${name}</span><code>${unicode}</code>`;
+      fragment.append(item);
+    }
+
+    icons.append(fragment);
+    const count = document.querySelector("#count");
+    count.textContent = `${HUGEICONS.length} icônes`;
+
+    document.querySelector("#search").addEventListener("input", event => {
+      const query = event.target.value.trim().toLowerCase();
+      let visible = 0;
+
+      for (const item of icons.children) {
+        const match = item.dataset.name.includes(query);
+        item.hidden = !match;
+        visible += match;
+      }
+
+      count.textContent = `${visible} icône${visible === 1 ? "" : "s"}`;
+    });
+  </script>
+</body>
+</html>
