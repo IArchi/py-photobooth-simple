@@ -648,8 +648,7 @@ if is_raspberry_pi; then
         write_root_file_if_changed "/etc/systemd/system/photobooth.service" "$(cat <<EOF
 [Unit]
 Description=Simple PhotoBooth application
-After=network-online.target display-manager.service graphical.target
-Wants=network-online.target
+After=display-manager.service
 
 [Service]
 Type=simple
