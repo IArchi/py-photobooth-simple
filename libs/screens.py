@@ -122,6 +122,8 @@ ICON_DIAGNOSTIC = '\u41be'
 ICON_DIAGNOSTIC_OK = '\u3da6'
 ICON_DIAGNOSTIC_ERROR = '\u3d45'
 ICON_DIAGNOSTIC_DISABLED = '\u43ae'
+ICON_THUMB_UP = '\u4905'
+ICON_THUMB_DOWN = '\u4901'
 
 
 class ScreenMgr(ScreenManager):
@@ -2564,6 +2566,42 @@ class SuccessScreen(ColorScreen):
         title.bind(size=title.setter('text_size'))
         layout.add_widget(title)
 
+        feedback_prompt = Label(
+            size_hint=(1, 0.06),
+            text=app.t('success.feedback_prompt'),
+            font_size=SMALL_FONT(),
+            halign='center',
+            valign='middle',
+        )
+        wh_bind(feedback_prompt, 'font_size', SMALL_FONT)
+        feedback_prompt.bind(size=feedback_prompt.setter('text_size'))
+        layout.add_widget(feedback_prompt)
+
+        feedback_actions = BoxLayout(
+            size_hint=(0.28, 0.12),
+            pos_hint={'center_x': 0.5},
+            spacing=dp(12),
+        )
+        self.positive_feedback = RoundedButton(
+            font_name=ICON_TTF,
+            text=ICON_THUMB_UP,
+            font_size=NORMAL_FONT(),
+            background_color=CONFIRM_COLOR,
+        )
+        self.negative_feedback = RoundedButton(
+            font_name=ICON_TTF,
+            text=ICON_THUMB_DOWN,
+            font_size=NORMAL_FONT(),
+            background_color=CANCEL_COLOR,
+        )
+        wh_bind(self.positive_feedback, 'font_size', NORMAL_FONT)
+        wh_bind(self.negative_feedback, 'font_size', NORMAL_FONT)
+        self.positive_feedback.bind(on_release=lambda _: self.on_feedback(True))
+        self.negative_feedback.bind(on_release=lambda _: self.on_feedback(False))
+        feedback_actions.add_widget(self.positive_feedback)
+        feedback_actions.add_widget(self.negative_feedback)
+        layout.add_widget(feedback_actions)
+
         # Display success2 icon
         icon2 = ResizeLabel(
             size_hint=(0.1, 0.1),
@@ -2578,7 +2616,10 @@ class SuccessScreen(ColorScreen):
 
     def on_entry(self, kwargs={}):
         Logger.info('SuccessScreen: on_entry().')
-        self._clock = Clock.schedule_once(self.timer_event, 1)
+        self._feedback_recorded = False
+        self.positive_feedback.disabled = False
+        self.negative_feedback.disabled = False
+        self._clock = Clock.schedule_once(self.timer_event, 5)
         if self.app.ringled:
             self.app.ringled.blink([255, 255, 255])
 
@@ -2590,6 +2631,16 @@ class SuccessScreen(ColorScreen):
 
     def on_click_start(self, obj):
         Logger.info('SuccessScreen: on_click_start(%s).', obj)
+        self.app.transition_to(ScreenMgr.START)
+
+    def on_feedback(self, positive):
+        if self._feedback_recorded:
+            return
+        self._feedback_recorded = True
+        self.positive_feedback.disabled = True
+        self.negative_feedback.disabled = True
+        self.app.track_feedback(positive)
+        Logger.info('SuccessScreen: feedback=%s.', 'positive' if positive else 'negative')
         self.app.transition_to(ScreenMgr.START)
 
     def timer_event(self, obj):

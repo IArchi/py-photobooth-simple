@@ -573,6 +573,9 @@ class PhotoboothApp(App):
     def track_print_sent(self):
         self.stats_store.track_print()
 
+    def track_feedback(self, positive):
+        self.stats_store.track_feedback(positive)
+
     def trigger_print(self, copies, format=0):
         Logger.info('PhotoboothApp: trigger_print().')
         if not self.has_printer():

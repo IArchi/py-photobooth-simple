@@ -21,6 +21,8 @@ class StatsStore:
             'gallery_views': 0,
             'collage_views': 0,
             'image_views': 0,
+            'positive_feedback': 0,
+            'negative_feedback': 0,
             'first_photo_date': None,
             'last_photo_date': None,
             'last_print_date': None,
@@ -84,6 +86,10 @@ class StatsStore:
                     stats['collage_views'] += 1
                 elif event_type == 'image_view':
                     stats['image_views'] += 1
+                elif event_type == 'positive_feedback':
+                    stats['positive_feedback'] += 1
+                elif event_type == 'negative_feedback':
+                    stats['negative_feedback'] += 1
 
                 stats_directory = os.path.dirname(self.stats_file)
                 if stats_directory:
@@ -145,3 +151,6 @@ class StatsStore:
 
     def track_print(self):
         self.track_event('print')
+
+    def track_feedback(self, positive):
+        self.track_event('positive_feedback' if positive else 'negative_feedback')
