@@ -138,8 +138,15 @@ class Config:
         return max(10, self._get_int(('USB', 'Picture'), 'USB_COPY_TIMEOUT', fallback=300))
 
     def get_printer(self):
-        printer = self._get_string(('Print', 'Picture'), 'PRINTER', fallback='None')
-        return printer if printer != 'None' else None
+        printer = self._get_string(('Print', 'Picture'), 'PRINTER', fallback='None').strip()
+        if not printer:
+            return None
+        normalized_printer = printer.lower()
+        if normalized_printer == 'none':
+            return None
+        if normalized_printer == 'auto':
+            return 'auto'
+        return printer
 
     def get_max_prints(self):
         max_prints = self._get_string(('Print', 'Picture'), 'MAX_PRINTS', fallback='None').strip()

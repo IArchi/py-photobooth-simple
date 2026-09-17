@@ -619,9 +619,10 @@ class CupsPrinter(PrintDevice):
             # Try to detect connected printer
             printer_found = False
             cups_conn = cups.Connection()
-            if not name or name.lower() == 'default':
-                printer_found = cups_conn.getDefault()
-                if not printer_found and cups_conn.getPrinters(): printer_found = list(cups_conn.getPrinters().keys())[0]
+            if name and name.lower() == 'auto':
+                printers = cups_conn.getPrinters()
+                if printers:
+                    printer_found = list(printers.keys())[0]
             elif name in cups_conn.getPrinters():
                 printer_found = name
 
@@ -630,8 +631,8 @@ class CupsPrinter(PrintDevice):
                 self._name = printer_found
                 self._instance = cups_conn
                 Logger.info('CupsPrinter: Connected to printer \'%s\'', printer_found)
-            elif not name or name.lower() == 'default':
-                Logger.warning('CupsPrinter: No printer configured in CUPS (see http://localhost:631)')
+            elif name and name.lower() == 'auto':
+                Logger.warning('CupsPrinter: No printer available in CUPS auto mode (see http://localhost:631)')
             else:
                 Logger.warning('CupsPrinter: No printer named \'%s\' in CUPS (see http://localhost:631)', name)
         if not self._instance: raise Exception('Cannot find any CUPS printer or cups is not installed.')
@@ -716,11 +717,15 @@ class DeviceUtils:
                  dslr_liveview_params=None, dslr_capture_params=None):
         self._zoom = zoom
 
-        try:
-            self._printer = CupsPrinter(printer_name)
-        except Exception as e:
-            Logger.warning('DeviceUtils: printer initialization failed: %s', e)
+        if printer_name is None:
+            Logger.info('DeviceUtils: printing disabled by configuration')
             self._printer = None
+        else:
+            try:
+                self._printer = CupsPrinter(printer_name)
+            except Exception as e:
+                Logger.warning('DeviceUtils: printer initialization failed: %s', e)
+                self._printer = None
 
         # Try to load cameras
         try:
