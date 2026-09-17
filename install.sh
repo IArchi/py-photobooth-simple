@@ -7,6 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 NEED_REBOOT=false
+SKIP_ONLINE_STEPS=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -185,6 +186,18 @@ get_wifi_country() {
     fi
 }
 
+has_internet_connection() {
+    if command_exists curl; then
+        curl -fsI --connect-timeout 5 --max-time 10 https://deb.debian.org >/dev/null 2>&1 && return 0
+    fi
+
+    if command_exists wget; then
+        wget -q --spider --timeout=10 https://deb.debian.org >/dev/null 2>&1 && return 0
+    fi
+
+    ping -c 1 -W 2 1.1.1.1 >/dev/null 2>&1
+}
+
 # Banner
 cd "$SCRIPT_DIR"
 
@@ -217,15 +230,30 @@ echo ""
 print_info "Starting installation..."
 echo ""
 
+if ! has_internet_connection; then
+    print_warning "No Internet connection detected. Network downloads and package installations will be skipped."
+    if ask_yes_no "Do you want to continue anyway?"; then
+        SKIP_ONLINE_STEPS=true
+    else
+        print_info "Installation cancelled"
+        exit 0
+    fi
+    echo ""
+fi
+
 # ============================================================================
 # STEP 1: Base System Dependencies
 # ============================================================================
 print_info "Step 1/9: Installing base system dependencies..."
 
-sudo apt-get update
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y gcc make build-essential git scons swig ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev
+if [ "$SKIP_ONLINE_STEPS" = true ]; then
+    print_warning "Skipping base dependencies installation because Internet is unavailable"
+else
+    sudo apt-get update
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y gcc make build-essential git scons swig ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev
 
-print_success "Base dependencies installed"
+    print_success "Base dependencies installed"
+fi
 echo ""
 
 # ============================================================================
@@ -233,9 +261,13 @@ echo ""
 # ============================================================================
 print_info "Step 2/9: Installing Python dependencies for the current user..."
 
-python3 -m pip install --user -r "$SCRIPT_DIR/requirements.txt"
+if [ "$SKIP_ONLINE_STEPS" = true ]; then
+    print_warning "Skipping Python dependencies installation because Internet is unavailable"
+else
+    python3 -m pip install --user -r "$SCRIPT_DIR/requirements.txt"
 
-print_success "Python dependencies installed for user $(id -un)"
+    print_success "Python dependencies installed for user $(id -un)"
+fi
 echo ""
 
 # ============================================================================
@@ -328,25 +360,29 @@ echo ""
 # ============================================================================
 echo ""
 if ask_yes_no "Step 6/9: Do you want to install DSLR support (gPhoto2)?"; then
-    print_info "Installing gPhoto2..."
-    
-    # Download and run gPhoto2 updater
-    GPHOTO_TMP_DIR=$(mktemp -d)
-    download_file https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/gphoto2-updater.sh "$GPHOTO_TMP_DIR/gphoto2-updater.sh"
-    download_file https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/.env "$GPHOTO_TMP_DIR/.env"
-    chmod +x "$GPHOTO_TMP_DIR/gphoto2-updater.sh"
-    
-    print_info "Running gPhoto2 updater (this may take several minutes)..."
-    sudo "$GPHOTO_TMP_DIR/gphoto2-updater.sh" -s
-    
-    rm -rf "$GPHOTO_TMP_DIR"
-    
-    # Fix USB access issues
-    sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor || true
-    sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2 || true
-    
-    print_success "gPhoto2 installed"
-    print_warning "After installation, test with: gphoto2 --capture-image"
+    if [ "$SKIP_ONLINE_STEPS" = true ]; then
+        print_warning "Skipping gPhoto2 installation because Internet is unavailable"
+    else
+        print_info "Installing gPhoto2..."
+        
+        # Download and run gPhoto2 updater
+        GPHOTO_TMP_DIR=$(mktemp -d)
+        download_file https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/gphoto2-updater.sh "$GPHOTO_TMP_DIR/gphoto2-updater.sh"
+        download_file https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/.env "$GPHOTO_TMP_DIR/.env"
+        chmod +x "$GPHOTO_TMP_DIR/gphoto2-updater.sh"
+        
+        print_info "Running gPhoto2 updater (this may take several minutes)..."
+        sudo "$GPHOTO_TMP_DIR/gphoto2-updater.sh" -s
+        
+        rm -rf "$GPHOTO_TMP_DIR"
+        
+        # Fix USB access issues
+        sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor || true
+        sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2 || true
+        
+        print_success "gPhoto2 installed"
+        print_warning "After installation, test with: gphoto2 --capture-image"
+    fi
 else
     print_info "Skipping gPhoto2 installation"
 fi
@@ -357,21 +393,25 @@ echo ""
 # ============================================================================
 echo ""
 if ask_yes_no "Step 7/9: Do you want to install printer support (CUPS)?"; then
-    print_info "Installing CUPS..."
-    
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cups libcups2-dev python3-cups printer-driver-gutenprint
-    sudo usermod -a -G lpadmin $USER
-    sudo cupsctl --remote-admin --remote-any
-    
-    # Install printer drivers
-    sudo install -m 644 "$SCRIPT_DIR/docs/DS620.ppd" /usr/share/cups/model/DS620.ppd
-    
-    # Restart CUPS
-    sudo /etc/init.d/cups restart
-    
-    print_success "CUPS and DS620 PPD installed"
-    print_info "Configure your printer at: https://$(hostname -I | awk '{print $1}'):631/admin/"
-    print_warning "Remember to name your printer 'DS620' (or update config.ini accordingly)"
+    if [ "$SKIP_ONLINE_STEPS" = true ]; then
+        print_warning "Skipping CUPS installation because Internet is unavailable"
+    else
+        print_info "Installing CUPS..."
+        
+        sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y cups libcups2-dev python3-cups printer-driver-gutenprint
+        sudo usermod -a -G lpadmin $USER
+        sudo cupsctl --remote-admin --remote-any
+        
+        # Install printer drivers
+        sudo install -m 644 "$SCRIPT_DIR/docs/DS620.ppd" /usr/share/cups/model/DS620.ppd
+        
+        # Restart CUPS
+        sudo /etc/init.d/cups restart
+        
+        print_success "CUPS and DS620 PPD installed"
+        print_info "Configure your printer at: https://$(hostname -I | awk '{print $1}'):631/admin/"
+        print_warning "Remember to name your printer 'DS620' (or update config.ini accordingly)"
+    fi
 else
     print_info "Skipping CUPS installation"
 fi
@@ -395,7 +435,11 @@ if is_raspberry_pi; then
         fi
         
         # Install Python dependency
-        python3 -m pip install --user spidev
+        if [ "$SKIP_ONLINE_STEPS" = true ]; then
+            print_warning "Skipping spidev installation because Internet is unavailable"
+        else
+            python3 -m pip install --user spidev
+        fi
         
         print_success "LED Ring support configured"
         print_info "Connect LED Ring: GND to Pin 6/9/14/20/25, DIN to Pin 19 (GPIO 10), VCC to Pin 2/4 (5V)"
@@ -414,37 +458,40 @@ echo ""
 if is_raspberry_pi; then
     echo ""
     if ask_yes_no "Step 9/9: Do you want to configure WiFi Access Point for photo downloads?"; then
-        print_info "Configuring WiFi Access Point..."
-        
-        # Install required packages
-        print_info "Installing hostapd and dnsmasq..."
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y hostapd dnsmasq iptables
-        
-        # Stop services during configuration
-        print_info "Stopping services..."
-        sudo systemctl stop hostapd 2>/dev/null || true
-        sudo systemctl stop dnsmasq 2>/dev/null || true
-        
-        # Backup original configuration files
-        print_info "Backing up original configurations..."
-        backup_root_file_once /etc/dhcpcd.conf
-        backup_root_file_once /etc/dnsmasq.conf
-        backup_root_file_once /etc/hostapd/hostapd.conf
-        backup_root_file_once /etc/NetworkManager/conf.d/unmanaged-wlan0.conf
-        backup_root_file_once /etc/systemd/system/photobooth-ap-network.service
-        backup_root_file_once /etc/systemd/system/photobooth-http-redirect.service
-        
-        # Configure static IP for wlan0 using the active network manager
-        if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
-            print_info "Configuring NetworkManager to ignore wlan0..."
-            write_root_file_if_changed "/etc/NetworkManager/conf.d/unmanaged-wlan0.conf" "$(cat <<'EOF'
+        if [ "$SKIP_ONLINE_STEPS" = true ]; then
+            print_warning "Skipping WiFi Access Point setup because Internet is unavailable"
+        else
+            print_info "Configuring WiFi Access Point..."
+            
+            # Install required packages
+            print_info "Installing hostapd and dnsmasq..."
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y hostapd dnsmasq iptables
+            
+            # Stop services during configuration
+            print_info "Stopping services..."
+            sudo systemctl stop hostapd 2>/dev/null || true
+            sudo systemctl stop dnsmasq 2>/dev/null || true
+            
+            # Backup original configuration files
+            print_info "Backing up original configurations..."
+            backup_root_file_once /etc/dhcpcd.conf
+            backup_root_file_once /etc/dnsmasq.conf
+            backup_root_file_once /etc/hostapd/hostapd.conf
+            backup_root_file_once /etc/NetworkManager/conf.d/unmanaged-wlan0.conf
+            backup_root_file_once /etc/systemd/system/photobooth-ap-network.service
+            backup_root_file_once /etc/systemd/system/photobooth-http-redirect.service
+            
+            # Configure static IP for wlan0 using the active network manager
+            if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+                print_info "Configuring NetworkManager to ignore wlan0..."
+                write_root_file_if_changed "/etc/NetworkManager/conf.d/unmanaged-wlan0.conf" "$(cat <<'EOF'
 [keyfile]
 unmanaged-devices=interface-name:wlan0
 EOF
 )"
 
-            print_info "Creating static IP service for wlan0..."
-            write_root_file_if_changed "/etc/systemd/system/photobooth-ap-network.service" "$(cat <<'EOF'
+                print_info "Creating static IP service for wlan0..."
+                write_root_file_if_changed "/etc/systemd/system/photobooth-ap-network.service" "$(cat <<'EOF'
 [Unit]
 Description=Static IP for PhotoBooth AP
 Before=hostapd.service dnsmasq.service photobooth-http-redirect.service
@@ -463,16 +510,16 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 )"
-        else
-            print_info "Configuring static IP for wlan0 via dhcpcd..."
-            append_root_block_if_missing /etc/dhcpcd.conf "# PhotoBooth WiFi AP Configuration" "interface wlan0
+            else
+                print_info "Configuring static IP for wlan0 via dhcpcd..."
+                append_root_block_if_missing /etc/dhcpcd.conf "# PhotoBooth WiFi AP Configuration" "interface wlan0
     static ip_address=192.168.4.1/24
     nohook wpa_supplicant"
-        fi
-        
-        # Configure dnsmasq (DHCP and DNS server)
-        print_info "Configuring dnsmasq..."
-        write_root_file_if_changed "/etc/dnsmasq.conf" "$(cat <<'EOF'
+            fi
+            
+            # Configure dnsmasq (DHCP and DNS server)
+            print_info "Configuring dnsmasq..."
+            write_root_file_if_changed "/etc/dnsmasq.conf" "$(cat <<'EOF'
 # PhotoBooth WiFi AP Configuration
 interface=wlan0
 bind-interfaces
@@ -508,9 +555,9 @@ log-dhcp
 EOF
 )"
 
-        # Redirect HTTP traffic from port 80 to the application on port 5000
-        print_info "Creating HTTP redirect service (80 -> 5000)..."
-        write_root_file_if_changed "/etc/systemd/system/photobooth-http-redirect.service" "$(cat <<'EOF'
+            # Redirect HTTP traffic from port 80 to the application on port 5000
+            print_info "Creating HTTP redirect service (80 -> 5000)..."
+            write_root_file_if_changed "/etc/systemd/system/photobooth-http-redirect.service" "$(cat <<'EOF'
 [Unit]
 Description=Redirect HTTP traffic to PhotoBooth web app
 After=photobooth-ap-network.service hostapd.service
@@ -526,15 +573,15 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 )"
-        
-        # Configure hostapd (WiFi Access Point)
-        print_info "Configuring hostapd..."
-        WIFI_COUNTRY=$(get_wifi_country) || {
-            print_error "Unable to detect the WiFi country. Configure it with raspi-config, then run this installer again."
-            exit 1
-        }
-        print_info "Using WiFi country: $WIFI_COUNTRY"
-        write_root_file_if_changed "/etc/hostapd/hostapd.conf" "$(cat <<EOF
+            
+            # Configure hostapd (WiFi Access Point)
+            print_info "Configuring hostapd..."
+            WIFI_COUNTRY=$(get_wifi_country) || {
+                print_error "Unable to detect the WiFi country. Configure it with raspi-config, then run this installer again."
+                exit 1
+            }
+            print_info "Using WiFi country: $WIFI_COUNTRY"
+            write_root_file_if_changed "/etc/hostapd/hostapd.conf" "$(cat <<EOF
 # PhotoBooth WiFi AP Configuration
 interface=wlan0
 driver=nl80211
@@ -569,18 +616,18 @@ beacon_int=100
 dtim_period=2
 EOF
 )"
-        
-        # Tell hostapd where to find the config file
-        print_info "Updating hostapd daemon configuration..."
-        write_root_file_if_changed "/etc/default/hostapd" "$(cat <<'EOF'
+            
+            # Tell hostapd where to find the config file
+            print_info "Updating hostapd daemon configuration..."
+            write_root_file_if_changed "/etc/default/hostapd" "$(cat <<'EOF'
 # Defaults for hostapd initscript
 DAEMON_CONF="/etc/hostapd/hostapd.conf"
 EOF
 )"
 
-        if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
-            print_info "Making hostapd wait for wlan0 AP setup..."
-            write_root_file_if_changed "/etc/systemd/system/hostapd.service.d/photobooth-ap.conf" "$(cat <<'EOF'
+            if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+                print_info "Making hostapd wait for wlan0 AP setup..."
+                write_root_file_if_changed "/etc/systemd/system/hostapd.service.d/photobooth-ap.conf" "$(cat <<'EOF'
 [Unit]
 After=photobooth-ap-network.service
 Requires=photobooth-ap-network.service
@@ -589,38 +636,39 @@ Requires=photobooth-ap-network.service
 ExecStartPre=/usr/sbin/rfkill unblock wifi
 EOF
 )"
+            fi
+            
+            # Unmask and enable services
+            print_info "Enabling services..."
+            sudo systemctl unmask hostapd
+            sudo systemctl enable hostapd
+            sudo systemctl enable dnsmasq
+            sudo systemctl daemon-reload
+            sudo systemctl enable photobooth-http-redirect.service
+            if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+                sudo systemctl enable photobooth-ap-network.service
+            fi
+            
+            # Start services
+            print_info "Starting services..."
+            if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+                sudo systemctl restart NetworkManager
+                sudo nmcli device set wlan0 managed no 2>/dev/null || true
+                sudo systemctl start photobooth-ap-network.service
+            else
+                sudo systemctl restart dhcpcd 2>/dev/null || true
+            fi
+            sudo systemctl restart hostapd || { sudo journalctl -xeu hostapd.service --no-pager; exit 1; }
+            sudo systemctl restart dnsmasq
+            sudo systemctl restart photobooth-http-redirect.service
+            
+            print_success "WiFi Access Point configured"
+            print_info "SSID: PhotoBooth"
+            print_info "IP Address: 192.168.4.1"
+            print_info "Web Server: http://192.168.4.1 (redirected to port 5000)"
+            print_info "Captive Portal: DNS wildcard and HTTP redirect configured"
+            NEED_REBOOT=true
         fi
-        
-        # Unmask and enable services
-        print_info "Enabling services..."
-        sudo systemctl unmask hostapd
-        sudo systemctl enable hostapd
-        sudo systemctl enable dnsmasq
-        sudo systemctl daemon-reload
-        sudo systemctl enable photobooth-http-redirect.service
-        if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
-            sudo systemctl enable photobooth-ap-network.service
-        fi
-        
-        # Start services
-        print_info "Starting services..."
-        if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
-            sudo systemctl restart NetworkManager
-            sudo nmcli device set wlan0 managed no 2>/dev/null || true
-            sudo systemctl start photobooth-ap-network.service
-        else
-            sudo systemctl restart dhcpcd 2>/dev/null || true
-        fi
-        sudo systemctl restart hostapd || { sudo journalctl -xeu hostapd.service --no-pager; exit 1; }
-        sudo systemctl restart dnsmasq
-        sudo systemctl restart photobooth-http-redirect.service
-        
-        print_success "WiFi Access Point configured"
-        print_info "SSID: PhotoBooth"
-        print_info "IP Address: 192.168.4.1"
-        print_info "Web Server: http://192.168.4.1 (redirected to port 5000)"
-        print_info "Captive Portal: DNS wildcard and HTTP redirect configured"
-        NEED_REBOOT=true
     else
         print_info "Skipping WiFi Access Point configuration"
     fi
@@ -642,13 +690,15 @@ if is_raspberry_pi; then
         PHOTOBOOTH_GROUP=$(id -gn)
         PHOTOBOOTH_DIR_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_DIR")
         PHOTOBOOTH_PYTHON_ESCAPED=$(escape_systemd_value "/usr/bin/python3")
-        DISPLAY_TARGET="$(loginctl show-user "$PHOTOBOOTH_USER" -p Display --value 2>/dev/null || true)"
-        DISPLAY_TARGET=${DISPLAY_TARGET:-:0}
+        PHOTOBOOTH_APP_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_DIR/photoboothapp.py")
 
         write_root_file_if_changed "/etc/systemd/system/photobooth.service" "$(cat <<EOF
 [Unit]
 Description=Simple PhotoBooth application
-After=display-manager.service
+After=display-manager.service graphical.target systemd-user-sessions.service
+Wants=graphical.target
+StartLimitIntervalSec=300
+StartLimitBurst=20
 
 [Service]
 Type=simple
@@ -656,12 +706,12 @@ User=$PHOTOBOOTH_USER
 Group=$PHOTOBOOTH_GROUP
 WorkingDirectory=$PHOTOBOOTH_DIR_ESCAPED
 Environment=PYTHONUNBUFFERED=1
-Environment=DISPLAY=$DISPLAY_TARGET
-ExecStart=$PHOTOBOOTH_PYTHON_ESCAPED $PHOTOBOOTH_DIR_ESCAPED/photoboothapp.py
+Environment=DISPLAY=:0
+Environment=XDG_SESSION_TYPE=wayland
+ExecStartPre=/bin/bash -lc 'uid=\$\$(id -u); runtime="/run/user/\$\$uid"; attempt=0; while [ "\$\$attempt" -lt 30 ]; do for socket in "\$\$runtime"/wayland-*; do if [ -S "\$\$socket" ]; then exit 0; fi; done; sleep 1; attempt=\$\$((attempt + 1)); done; echo "No Wayland socket found in \$\$runtime" >&2; exit 1'
+ExecStart=/bin/bash -lc 'uid=\$\$(id -u); export XDG_RUNTIME_DIR="/run/user/\$\$uid"; export DISPLAY="\$\${DISPLAY:-:0}"; export XDG_SESSION_TYPE="\$\${XDG_SESSION_TYPE:-wayland}"; for socket in "\$\$XDG_RUNTIME_DIR"/wayland-*; do if [ -S "\$\$socket" ]; then export WAYLAND_DISPLAY="\$\${socket##*/}"; break; fi; done; exec $PHOTOBOOTH_PYTHON_ESCAPED $PHOTOBOOTH_APP_ESCAPED'
 Restart=always
-RestartSec=5
-StartLimitIntervalSec=300
-StartLimitBurst=20
+RestartSec=1
 KillMode=control-group
 TimeoutStopSec=15
 StandardOutput=append:/var/log/photobooth.log
@@ -675,10 +725,11 @@ EOF
         sudo touch /var/log/photobooth.log
         sudo chown "$PHOTOBOOTH_USER:$PHOTOBOOTH_GROUP" /var/log/photobooth.log
         sudo systemctl daemon-reload
+        sudo systemctl unmask photobooth.service >/dev/null 2>&1 || true
         sudo systemctl enable photobooth.service
 
         print_success "systemd service configured"
-        print_info "Photobooth will start automatically on boot and restart on crash"
+        print_info "Photobooth will start automatically on boot and wait for the Wayland session before launching"
     else
         print_info "Skipping autostart configuration"
     fi

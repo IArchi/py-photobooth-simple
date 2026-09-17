@@ -55,6 +55,7 @@ def _on_window_resize(instance, size):
 Window.bind(size=_on_window_resize)
 
 HOME_TIMEOUT_SECONDS = 60
+SELECT_FORMAT_HOME_TIMEOUT_SECONDS = 30
 COUNTDOWN_HOME_TIMEOUT_SECONDS = 30
 CONFIRM_CAPTURE_HOME_TIMEOUT_SECONDS = 30
 
@@ -667,6 +668,7 @@ class SelectFormatScreen(ColorScreen):
         Logger.info('SelectFormatScreen: __init__().')
         super(SelectFormatScreen, self).__init__(**kwargs)
         self.app = app
+        self._home_timeout_clock = None
 
         # Format cards container (scrollable if needed)
         from kivy.uix.gridlayout import GridLayout
@@ -872,18 +874,41 @@ class SelectFormatScreen(ColorScreen):
         # OPTIMIZED: Previews are now cached in templates, no need to reload
         # Previously: reloaded all previews on every entry (slow)
         # Now: previews are generated once and cached in TemplateCollage
+        self._start_home_timeout()
         if self.app.ringled:
             self.app.ringled.start_rainbow()
 
     def on_exit(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_exit().')
+        self._stop_home_timeout()
         if self.app.ringled:
             self.app.ringled.clear()
+
+    def on_touch_down(self, touch):
+        if self.app.get_current_screen_name() == ScreenMgr.SELECT_FORMAT:
+            self._start_home_timeout()
+        return super(SelectFormatScreen, self).on_touch_down(touch)
+
+    def _start_home_timeout(self):
+        Logger.info('SelectFormatScreen: _start_home_timeout().')
+        self._stop_home_timeout()
+        self._home_timeout_clock = Clock.schedule_once(self.home_timeout_event, SELECT_FORMAT_HOME_TIMEOUT_SECONDS)
+
+    def _stop_home_timeout(self):
+        if self._home_timeout_clock:
+            self._home_timeout_clock.cancel()
+            self._home_timeout_clock = None
+
+    def home_timeout_event(self, obj):
+        Logger.info('SelectFormatScreen: home_timeout_event().')
+        self._stop_home_timeout()
+        self.app.transition_to(ScreenMgr.START)
 
     def on_format_selected(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         format_idx = obj.format_idx
         Logger.info(f'SelectFormatScreen: on_format_selected({format_idx}).')
+        self._stop_home_timeout()
         self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=format_idx)
 
 class ErrorScreen(ColorScreen):
@@ -2342,7 +2367,6 @@ class ReviewScreen(ColorScreen):
             bgcolor=CONFIRM_COLOR,
             on_release=self.print_event,
         )
-        self.overlay_layout.add_widget(self.btn_print)
 
         self.btn_share = None
         if self.app.SHARE:
