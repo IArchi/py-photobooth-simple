@@ -810,7 +810,6 @@ class DeviceUtils:
             'camera_name': ' + '.join(camera_names),
             'printer_ok': printer_status['ok'],
             'printer_name': printer_name,
-            'printer_configured': self._printer is not None,
             'printer_state': printer_status['state'],
             'printer_reasons': printer_status['reasons'],
         }
