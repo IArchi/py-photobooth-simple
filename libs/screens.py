@@ -1,6 +1,7 @@
 import threading
 import time
 import io
+from xml.sax.saxutils import escape as xml_escape
 import cv2
 import numpy as np
 from kivy.clock import Clock
@@ -55,6 +56,7 @@ def _on_window_resize(instance, size):
 Window.bind(size=_on_window_resize)
 
 HOME_TIMEOUT_SECONDS = 60
+SELECT_FORMAT_HOME_TIMEOUT_SECONDS = 30
 COUNTDOWN_HOME_TIMEOUT_SECONDS = 30
 CONFIRM_CAPTURE_HOME_TIMEOUT_SECONDS = 30
 
@@ -124,6 +126,11 @@ ICON_DIAGNOSTIC_ERROR = '\u3d45'
 ICON_DIAGNOSTIC_DISABLED = '\u43ae'
 ICON_THUMB_UP = '\u4905'
 ICON_THUMB_DOWN = '\u4901'
+
+
+def _escape_kivy_markup(value):
+    """Escape dynamic text before inserting it into a markup-enabled Label."""
+    return xml_escape(str(value), {'[': '&#91;', ']': '&#93;'})
 
 
 class ScreenMgr(ScreenManager):
@@ -427,14 +434,9 @@ class DiagnosticScreen(ColorScreen):
 
         self.rows = {}
         for key in ('camera', 'printer', 'web', 'storage'):
-            row = Label(
-                font_size=SMALL_FONT(), size_hint=(1, 0.14),
-                halign='left', valign='middle', markup=True,
-            )
-            row.bind(size=row.setter('text_size'))
-            wh_bind(row, 'font_size', SMALL_FONT)
+            row = self._build_diagnostic_row()
             self.rows[key] = row
-            layout.add_widget(row)
+            layout.add_widget(row['container'])
 
         actions = BoxLayout(size_hint=(1, 0.14), spacing=dp(12))
         self.clear_jobs = RoundedButton(
@@ -479,7 +481,51 @@ class DiagnosticScreen(ColorScreen):
             color = '63c174' if ok else 'ff7676'
             icon = ICON_DIAGNOSTIC_OK if ok else ICON_DIAGNOSTIC_ERROR
             status = self.app.t('diagnostic.ok') if ok else self.app.t('diagnostic.error')
-        return f'[color=#{color}][font={ICON_TTF}]{icon}[/font] {status}[/color]  [b]{title}[/b]\n     {detail}'
+        safe_title = _escape_kivy_markup(title)
+        safe_detail = _escape_kivy_markup(detail)
+        return {
+            'color': color,
+            'icon': icon,
+            'status': _escape_kivy_markup(status),
+            'text_markup': f'[b]{safe_title}[/b]\n{safe_detail}',
+        }
+
+    def _build_diagnostic_row(self):
+        container = BoxLayout(
+            orientation='horizontal',
+            size_hint=(1, 0.14),
+            spacing=dp(12),
+        )
+        status = Label(
+            font_size=SMALL_FONT(),
+            size_hint=(0.28, 1),
+            halign='left', valign='middle',
+            markup=True,
+        )
+        status.bind(size=status.setter('text_size'))
+        wh_bind(status, 'font_size', SMALL_FONT)
+
+        text = Label(
+            font_size=SMALL_FONT(),
+            size_hint=(0.72, 1),
+            halign='left', valign='middle',
+            markup=True,
+        )
+        text.bind(size=text.setter('text_size'))
+        wh_bind(text, 'font_size', SMALL_FONT)
+
+        container.add_widget(status)
+        container.add_widget(text)
+        return {
+            'container': container,
+            'status': status,
+            'text': text,
+        }
+
+    def _set_row(self, row, ok, title, detail):
+        line = self._line(ok, title, detail)
+        row['status'].text = f'[color=#{line["color"]}][font={ICON_TTF}]{line["icon"]}[/font] {line["status"]}[/color]'
+        row['text'].text = line['text_markup']
 
     def _camera_name(self, name):
         names = {
@@ -514,34 +560,57 @@ class DiagnosticScreen(ColorScreen):
                 camera_detail += ' — ' + self.app.t('diagnostic.reconnecting')
 
             limit = status['print_limit']
-            printer_name = status['printer_name'] or self.app.t('diagnostic.not_detected')
-            if not status['printer_configured']:
+            printer_detected = bool(status['printer_name'])
+            printer_title = self.app.t('diagnostic.printer')
+            printer_config_name = status.get('printer_config_name')
+            reasons = status.get('printer_reasons') or []
+            reason_lines = self._printer_reason_lines(reasons)
+            if printer_config_name is None:
                 print_detail = self.app.t('diagnostic.printer_disabled', prints=limit['prints'])
                 printer_ok = None
+            elif not status['printer_ok'] or not printer_detected or reasons:
+                printer_display_name = status['printer_name'] or printer_config_name or self.app.t('diagnostic.not_detected')
+                printer_title = self.app.t(
+                    'diagnostic.printer_name_with_config',
+                    default='{name} ({config})',
+                    name=printer_title,
+                    config=printer_display_name,
+                )
+                if limit['enabled']:
+                    print_detail = self.app.t(
+                        'diagnostic.printer_limited_count',
+                        prints=limit['prints'], remaining=limit['remaining'],
+                    )
+                else:
+                    print_detail = self.app.t(
+                        'diagnostic.printer_unlimited_count',
+                        prints=limit['prints'],
+                    )
+                if reason_lines:
+                    print_detail += '\n' + '\n'.join(reason_lines)
+                printer_ok = False
             elif limit['enabled']:
                 print_detail = self.app.t(
-                    'diagnostic.printer_limited', name=printer_name,
+                    'diagnostic.printer_limited_count',
                     prints=limit['prints'], remaining=limit['remaining'],
                 )
-                printer_ok = status['printer_ok']
+                printer_ok = True
             else:
                 print_detail = self.app.t(
-                    'diagnostic.printer_unlimited', name=printer_name, prints=limit['prints'],
+                    'diagnostic.printer_unlimited_count',
+                    prints=limit['prints'],
                 )
-                printer_ok = status['printer_ok']
-
-            reasons = status.get('printer_reasons') or []
-            if reasons:
-                print_detail += '\n     ' + ', '.join(self._printer_reason(reason) for reason in reasons)
-
+                printer_ok = True
             storage = status['storage']
-            self.rows['camera'].text = self._line(status['camera_ok'], self.app.t('diagnostic.camera'), camera_detail)
-            self.rows['printer'].text = self._line(printer_ok, self.app.t('diagnostic.printer'), print_detail)
-            self.rows['web'].text = self._line(
+            self._set_row(self.rows['camera'], status['camera_ok'], self.app.t('diagnostic.camera'), camera_detail)
+            self._set_row(self.rows['printer'], printer_ok, printer_title, print_detail)
+            self._set_row(
+                self.rows['web'],
                 status['web_ok'], self.app.t('diagnostic.web'),
                 self.app.t('diagnostic.web_port', port=status['web_port']),
             )
-            self.rows['storage'].text = self._line(
+            self._set_row(
+                self.rows['storage'],
                 status['storage_ok'], self.app.t('diagnostic.storage'),
                 self.app.t('diagnostic.storage_free', free=storage['free_gb'], used=storage['used_percent']),
             )
@@ -554,7 +623,7 @@ class DiagnosticScreen(ColorScreen):
         if self.app.get_current_screen_name() != ScreenMgr.DIAGNOSTIC:
             return
         for row in self.rows.values():
-            row.text = self._line(False, self.app.t('diagnostic.unavailable'), error)
+            self._set_row(row, False, self.app.t('diagnostic.unavailable'), error)
 
     def on_entry(self, kwargs={}):
         self.refresh()
@@ -610,6 +679,12 @@ class DiagnosticScreen(ColorScreen):
     def _printer_reason(self, reason):
         key = 'diagnostic.printer_reason_' + str(reason).replace('-', '_')
         return self.app.t(key, default=str(reason).replace('-', ' '))
+
+    def _printer_reason_lines(self, reasons):
+        normalized = list(dict.fromkeys(str(reason) for reason in reasons if reason))
+        if len(normalized) > 1 and 'unavailable' in normalized:
+            normalized = [reason for reason in normalized if reason != 'unavailable']
+        return [self._printer_reason(reason) for reason in normalized]
 
     def on_clear_jobs(self, obj=None):
         self.clear_jobs.disabled = True
@@ -667,6 +742,7 @@ class SelectFormatScreen(ColorScreen):
         Logger.info('SelectFormatScreen: __init__().')
         super(SelectFormatScreen, self).__init__(**kwargs)
         self.app = app
+        self._home_timeout_clock = None
 
         # Format cards container (scrollable if needed)
         from kivy.uix.gridlayout import GridLayout
@@ -872,18 +948,41 @@ class SelectFormatScreen(ColorScreen):
         # OPTIMIZED: Previews are now cached in templates, no need to reload
         # Previously: reloaded all previews on every entry (slow)
         # Now: previews are generated once and cached in TemplateCollage
+        self._start_home_timeout()
         if self.app.ringled:
             self.app.ringled.start_rainbow()
 
     def on_exit(self, kwargs={}):
         Logger.info('SelectFormatScreen: on_exit().')
+        self._stop_home_timeout()
         if self.app.ringled:
             self.app.ringled.clear()
+
+    def on_touch_down(self, touch):
+        if self.app.get_current_screen_name() == ScreenMgr.SELECT_FORMAT:
+            self._start_home_timeout()
+        return super(SelectFormatScreen, self).on_touch_down(touch)
+
+    def _start_home_timeout(self):
+        Logger.info('SelectFormatScreen: _start_home_timeout().')
+        self._stop_home_timeout()
+        self._home_timeout_clock = Clock.schedule_once(self.home_timeout_event, SELECT_FORMAT_HOME_TIMEOUT_SECONDS)
+
+    def _stop_home_timeout(self):
+        if self._home_timeout_clock:
+            self._home_timeout_clock.cancel()
+            self._home_timeout_clock = None
+
+    def home_timeout_event(self, obj):
+        Logger.info('SelectFormatScreen: home_timeout_event().')
+        self._stop_home_timeout()
+        self.app.transition_to(ScreenMgr.START)
 
     def on_format_selected(self, obj):
         if not isinstance(obj.last_touch, MouseMotionEvent): return
         format_idx = obj.format_idx
         Logger.info(f'SelectFormatScreen: on_format_selected({format_idx}).')
+        self._stop_home_timeout()
         self.app.transition_to(ScreenMgr.COUNTDOWN, shot=0, format=format_idx)
 
 class ErrorScreen(ColorScreen):
@@ -2342,7 +2441,6 @@ class ReviewScreen(ColorScreen):
             bgcolor=CONFIRM_COLOR,
             on_release=self.print_event,
         )
-        self.overlay_layout.add_widget(self.btn_print)
 
         self.btn_share = None
         if self.app.SHARE:

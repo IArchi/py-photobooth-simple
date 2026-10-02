@@ -133,7 +133,7 @@ class WebServer:
             'title': 'Print & USB',
             'description': 'Printer usage limits and USB export.',
             'fields': (
-                {'section': 'Print', 'option': 'PRINTER', 'label': 'Printer name', 'control': 'text', 'placeholder': 'None', 'none_means_empty': True, 'help': 'Leave empty to disable printing.'},
+                {'section': 'Print', 'option': 'PRINTER', 'label': 'Printer name', 'control': 'text', 'placeholder': 'None or auto', 'none_means_empty': True, 'help': 'Leave empty to disable printing, or use auto to pick the first available CUPS printer.'},
                 {'section': 'Print', 'option': 'MAX_PRINTS', 'label': 'Maximum prints', 'control': 'number', 'number_type': 'optional_int', 'min': 0, 'step': 1, 'placeholder': 'Unlimited', 'help': 'Leave empty for unlimited prints.'},
                 {'section': 'Print', 'option': 'PRINTER_WAIT_TIMEOUT', 'label': 'Printer wait timeout (seconds)', 'control': 'number', 'number_type': 'int', 'min': 5, 'step': 1},
                 {'section': 'USB', 'option': 'USB_EXPORT', 'label': 'USB export', 'control': 'checkbox', 'help': 'Automatically copy saved sessions to removable USB media.'},

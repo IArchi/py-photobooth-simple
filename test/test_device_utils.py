@@ -193,7 +193,7 @@ def test_camera_reconnect_replaces_devices(monkeypatch):
 def test_app_diagnostic_marks_missing_printer_configuration_as_disabled():
     class Devices:
         def get_diagnostic_status(self):
-            return {'camera_ok': True, 'printer_ok': True, 'printer_configured': True}
+            return {'camera_ok': True, 'printer_ok': True}
 
     class WebServer:
         def is_running(self):
@@ -210,7 +210,7 @@ def test_app_diagnostic_marks_missing_printer_configuration_as_disabled():
     app.is_disk_space_critical = lambda: False
     app.request_camera_reconnect = lambda: None
 
-    assert app.get_diagnostic_status()['printer_configured'] is False
+    assert app.get_diagnostic_status()['printer_config_name'] is None
 
 
 def test_trigger_print_ignores_stale_print_collage_for_fullpage(tmp_path):

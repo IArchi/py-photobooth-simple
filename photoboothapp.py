@@ -521,7 +521,7 @@ class PhotoboothApp(App):
         usage = self.get_disk_usage()
         devices.update({
             'print_limit': self.get_print_limit_info(),
-            'printer_configured': self.PRINTER is not None,
+            'printer_config_name': self.PRINTER,
             'web_ok': self.web_server.is_running(),
             'web_port': self.WEB_PORT,
             'storage_ok': not self.is_disk_space_critical(),
