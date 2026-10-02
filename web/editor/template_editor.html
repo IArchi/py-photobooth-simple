@@ -1533,7 +1533,7 @@
                     renderTemplateList();
                     selectTemplate(templates.length - 1);
 
-                    alert(`Template "${importedTemplate.name}" imported successfully!`);
+                    alert(`Template "${importedTemplate.name}" imported successfully! Don't forget to save it to the sever.`);
                 } catch (error) {
                     alert('Error parsing JSON file: ' + error.message);
                 }
