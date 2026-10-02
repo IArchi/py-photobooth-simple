@@ -649,6 +649,9 @@ if is_raspberry_pi; then
 [Unit]
 Description=Simple PhotoBooth application
 After=display-manager.service
+# The UI may exit repeatedly while the graphical session is coming up.  Do not
+# permanently stop recovery after the systemd start-rate limit is reached.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -660,8 +663,6 @@ Environment=DISPLAY=$DISPLAY_TARGET
 ExecStart=$PHOTOBOOTH_PYTHON_ESCAPED $PHOTOBOOTH_DIR_ESCAPED/photoboothapp.py
 Restart=always
 RestartSec=5
-StartLimitIntervalSec=300
-StartLimitBurst=20
 KillMode=control-group
 TimeoutStopSec=15
 StandardOutput=append:/var/log/photobooth.log
