@@ -67,11 +67,13 @@ If you're using the Ingcool 7" touchscreen:
 ```bash
 sudo sh -c "echo '# Ingcool 7in touch screen' >> /boot/firmware/config.txt"
 sudo sh -c "echo 'max_usb_current=1' >> /boot/firmware/config.txt"
+sudo sh -c "echo 'usb_max_current_enable=1' >> /boot/firmware/config.txt"
 sudo sh -c "echo 'hdmi_group=2' >> /boot/firmware/config.txt"
 sudo sh -c "echo 'hdmi_mode=87' >> /boot/firmware/config.txt"
 sudo sh -c "echo 'hdmi_cvt 1024 600 60 6 0 0 0' >> /boot/firmware/config.txt"
 sudo sh -c "echo 'hdmi_drive=1' >> /boot/firmware/config.txt"
 sudo sh -c "echo '' >> /boot/firmware/config.txt"
+
 
 # Reboot to apply changes
 sudo reboot

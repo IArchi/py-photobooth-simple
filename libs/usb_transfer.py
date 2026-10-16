@@ -55,7 +55,7 @@ class UsbTransfer:
             # poll every 1 seconds
             time.sleep(1)
 
-    def handle_mount(self, device: psutil._common.sdiskpart):
+    def handle_mount(self, device):
         Logger.info("UsbTransfer: handle_mount({})".format(device.device))
 
         if not device.mountpoint:
@@ -70,7 +70,7 @@ class UsbTransfer:
 
         self._process_pending_mounts()
 
-    def handle_unmount(self, device: psutil._common.sdiskpart):
+    def handle_unmount(self, device):
         Logger.info("UsbTransfer: handle_unmount({})".format(device.device))
         self._pending_mounts.pop(device.device, None)
 
@@ -144,7 +144,7 @@ class UsbTransfer:
         }
 
     @classmethod
-    def is_removable_partition(cls, device: psutil._common.sdiskpart):
+    def is_removable_partition(cls, device):
         mountpoint = Path(device.mountpoint or '')
         opts = {opt.strip() for opt in (device.opts or '').split(',') if opt.strip()}
 
