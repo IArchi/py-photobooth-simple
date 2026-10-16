@@ -6,6 +6,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="$SCRIPT_DIR/.venv"
+PHOTOBOOTH_PYTHON="$VENV_DIR/bin/python"
 NEED_REBOOT=false
 SKIP_ONLINE_STEPS=false
 
@@ -250,7 +252,7 @@ if [ "$SKIP_ONLINE_STEPS" = true ]; then
     print_warning "Skipping base dependencies installation because Internet is unavailable"
 else
     sudo apt-get update
-    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y gcc make build-essential git scons swig ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y gcc make build-essential git scons swig ffmpeg libturbojpeg0 python3-pip python3-venv libgl1 libgphoto2-dev
 
     print_success "Base dependencies installed"
 fi
@@ -259,14 +261,18 @@ echo ""
 # ============================================================================
 # STEP 2: Python Dependencies
 # ============================================================================
-print_info "Step 2/9: Installing Python dependencies for the current user..."
+print_info "Step 2/9: Preparing the project virtual environment..."
+
+# Use the distribution Python so APT's libcamera and CUPS bindings share its ABI.
+# Re-running venv also enables system packages in an existing isolated environment.
+/usr/bin/python3 -m venv --system-site-packages "$VENV_DIR"
 
 if [ "$SKIP_ONLINE_STEPS" = true ]; then
     print_warning "Skipping Python dependencies installation because Internet is unavailable"
 else
-    python3 -m pip install --user -r "$SCRIPT_DIR/requirements.txt"
+    "$PHOTOBOOTH_PYTHON" -m pip install -r "$SCRIPT_DIR/requirements.txt"
 
-    print_success "Python dependencies installed for user $(id -un)"
+    print_success "Python dependencies installed in $VENV_DIR"
 fi
 echo ""
 
@@ -337,6 +343,12 @@ if is_raspberry_pi; then
     echo ""
     if ask_yes_no "Step 5/9: Do you want to configure Raspberry Pi Camera Module V3?"; then
         print_info "Configuring Pi Camera Module V3..."
+
+        if [ "$SKIP_ONLINE_STEPS" = true ]; then
+            print_warning "Skipping Picamera2 installation because Internet is unavailable"
+        else
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y python3-picamera2 rpicam-apps
+        fi
         
         # Allocate more memory
         replace_or_append_root_line /boot/firmware/config.txt '^dtoverlay=vc4-kms-v3d$' 'dtoverlay=vc4-kms-v3d,cma-512'
@@ -345,7 +357,7 @@ if is_raspberry_pi; then
         append_root_block_if_missing /boot/firmware/config.txt "# Camera module 3" "dtoverlay=imx708,cam0"
         
         print_success "Pi Camera Module V3 configured"
-        print_warning "After reboot, you can test the camera with: libcamera-still --list-camera"
+        print_warning "After reboot, you can test the camera with: rpicam-hello --list-cameras"
         NEED_REBOOT=true
     else
         print_info "Skipping Pi Camera configuration"
@@ -376,12 +388,9 @@ if ask_yes_no "Step 6/9: Do you want to install DSLR support (gPhoto2)?"; then
         
         rm -rf "$GPHOTO_TMP_DIR"
         
-        # Fix USB access issues
-        sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor || true
-        sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2 || true
-        
         print_success "gPhoto2 installed"
-        print_warning "After installation, test with: gphoto2 --capture-image"
+        print_warning "Stop the photobooth and unmount the camera in your file manager before testing: gphoto2 --capture-image-and-download"
+        print_info "For USB claim errors (-53), see the gPhoto2 troubleshooting section in INSTALLATION.md"
     fi
 else
     print_info "Skipping gPhoto2 installation"
@@ -438,7 +447,7 @@ if is_raspberry_pi; then
         if [ "$SKIP_ONLINE_STEPS" = true ]; then
             print_warning "Skipping spidev installation because Internet is unavailable"
         else
-            python3 -m pip install --user spidev
+            "$PHOTOBOOTH_PYTHON" -m pip install spidev
         fi
         
         print_success "LED Ring support configured"
@@ -689,7 +698,7 @@ if is_raspberry_pi; then
         PHOTOBOOTH_USER=$(id -un)
         PHOTOBOOTH_GROUP=$(id -gn)
         PHOTOBOOTH_DIR_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_DIR")
-        PHOTOBOOTH_PYTHON_ESCAPED=$(escape_systemd_value "/usr/bin/python3")
+        PHOTOBOOTH_PYTHON_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_PYTHON")
         PHOTOBOOTH_APP_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_DIR/photoboothapp.py")
 
         write_root_file_if_changed "/etc/systemd/system/photobooth.service" "$(cat <<EOF
@@ -771,7 +780,7 @@ fi
 echo ""
 print_info "To start the photobooth manually, run:"
 echo "  cd $SCRIPT_DIR"
-echo "  python3 photoboothapp.py"
+echo "  \"$PHOTOBOOTH_PYTHON\" photoboothapp.py"
 echo ""
 print_info "For more information, see INSTALLATION.md and README.md"
 echo ""

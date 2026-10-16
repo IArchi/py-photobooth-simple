@@ -9,6 +9,11 @@ This guide will help you install and configure the Simple PhotoBooth application
 - Python 3.x
 - Internet connection for initial setup
 
+Use the distribution's Python for access to native camera bindings. Raspberry Pi OS
+and generic Debian are not interchangeable for camera support: generic Debian needs
+a working Raspberry Pi libcamera stack. Trixie / Python 3.13 is not yet hardware-validated
+by this project; successful installation alone does not validate camera operation.
+
 ## Quick Installation
 
 For automated installation, you can use the installation script:
@@ -19,10 +24,12 @@ chmod +x install.sh
 ```
 
 The script will guide you through the installation process and ask which components you want to install.
+It creates or reuses `.venv` with access to system Python packages, without bypassing
+PEP 668. Both the generated systemd service and manual launch use that environment.
 
 ## Manual Installation
 
-### 1. Global Packages
+### 1. System Packages and Virtual Environment
 
 Install system dependencies and Python packages:
 
@@ -32,11 +39,20 @@ sudo apt update
 
 # Install build dependencies
 sudo apt-get install -y gcc make build-essential git scons swig
-sudo apt install -y ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev
+sudo apt install -y ffmpeg libturbojpeg0 python3-pip python3-venv libgl1 libgphoto2-dev
 
 # Install Python dependencies
-pip3 install -r requirements.txt --break-system-packages
+/usr/bin/python3 -m venv --system-site-packages .venv
+.venv/bin/python -m pip install -r requirements.txt
 ```
+
+Run these commands from the project directory. `pip --user` is also blocked by
+PEP 668; do not use `sudo pip` or `--break-system-packages`. The system-packages
+option exposes APT-installed Picamera2, libcamera and CUPS bindings to the venv.
+Use the same distribution Python version as those bindings, not a separate pyenv
+or manually compiled Python. Re-running the venv command enables system packages
+in an existing venv; if it was created with another Python version, move it aside
+and create a fresh one before reinstalling requirements.
 
 ### 2. Kiosk Mode Configuration (Optional)
 
@@ -84,6 +100,9 @@ sudo reboot
 If you're using the Raspberry Pi Camera Module V3:
 
 ```bash
+# Install the matching Picamera2/libcamera stack from Raspberry Pi OS repositories
+sudo apt install -y python3-picamera2 rpicam-apps
+
 # Allocate more memory for camera
 sudo sed -i 's/^dtoverlay=vc4-kms-v3d/dtoverlay=vc4-kms-v3d,cma-512/' /boot/firmware/config.txt
 
@@ -96,9 +115,21 @@ sudo sh -c "echo '' >> /boot/firmware/config.txt"
 sudo reboot
 
 # Test camera after reboot
-libcamera-still --list-camera
-libcamera-still --autofocus-mode=auto -f -o test.jpg
+rpicam-hello --list-cameras
+rpicam-still --autofocus-mode=auto -o test.jpg
 ```
+
+After reboot, from the project directory, check the actual application interpreter:
+
+```bash
+.venv/bin/python -c 'from picamera2 import Picamera2; from libcamera import controls, Transform; print(Picamera2.global_camera_info())'
+```
+
+Prefer APT over `pip install picamera2`: Picamera2 and libcamera must be compatible.
+On older images, camera utilities may be named `libcamera-hello` / `libcamera-still`.
+The installer configures the IMX708 Module 3 on CAM0; do not apply that overlay to
+another sensor or connector. The application's Pi backend currently configures
+autofocus, so fixed-focus modules are not validated by this setup.
 
 ### 5. DSLR Camera Support with GPhoto2 (Optional)
 
@@ -112,13 +143,26 @@ chmod +x gphoto2-updater.sh
 sudo ./gphoto2-updater.sh -s
 rm gphoto2-updater.sh .env
 
-# Fix USB access issues
-sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor
-sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2
-
-# Test camera connection
-gphoto2 --capture-image
+# Test with the photobooth stopped and the camera unmounted in the file manager
+gphoto2 --auto-detect
+gphoto2 --capture-image-and-download
 ```
+
+The Canon EOS 600D is supported for capture and preview by upstream libgphoto2;
+this does not imply model-specific hardware validation by this project. Set JPEG
+capture on the camera because the application decodes the downloaded image with OpenCV.
+
+#### Hybrid preview and capture
+
+When both cameras initialize successfully, the application automatically uses
+Picamera2 for live preview and gPhoto2 for the final photo after the countdown.
+Look for `Switch to hybrid camera (Picamera + gPhoto2)` in the logs. The Canon's
+liveview is not required during normal hybrid operation. If either backend fails,
+the application falls back to another available camera configuration.
+
+For framing alignment, use `[Capture] CALIBRATION` in `config.ini` and the existing
+`tools/calibrate_zoom.py` utility. Unlike normal hybrid operation, this utility
+requires a working DSLR preview. Calibration does not remove depth-dependent parallax.
 
 ### 6. Printer Setup with CUPS (Optional)
 
@@ -154,7 +198,7 @@ If you're using a WS2812 LED ring:
 sudo sed -i 's/^#dtparam=spi=on/dtparam=spi=on/' /boot/firmware/config.txt
 
 # Install Python SPI library
-pip3 install spidev --break-system-packages
+.venv/bin/python -m pip install spidev
 
 # Reboot to apply changes
 sudo reboot
@@ -182,11 +226,14 @@ echo 'photobooth = /home/pi/photobooth.sh' >> ~/.config/wayfire.ini
 # Create startup script
 echo '#!/bin/bash' > /home/pi/photobooth.sh
 echo 'cd /home/pi/photobooth/' >> /home/pi/photobooth.sh
-echo 'python3 photoboothapp.py' >> /home/pi/photobooth.sh
+echo 'exec /home/pi/photobooth/.venv/bin/python photoboothapp.py' >> /home/pi/photobooth.sh
 chmod +x /home/pi/photobooth.sh
 ```
 
 **Note:** Adjust the path in the script if you've installed the photobooth in a different location.
+This is an alternative to the installer's systemd service; do not enable both.
+For an existing service, rerun the installer's autostart setup or update its Python
+path to the project's `.venv/bin/python`, then reload systemd and restart the service.
 
 ## Running the Application
 
@@ -194,7 +241,7 @@ To start the photobooth manually:
 
 ```bash
 cd /path/to/photobooth
-python3 photoboothapp.py
+.venv/bin/python photoboothapp.py
 ```
 
 ## Configuration
@@ -216,6 +263,36 @@ You can customize the photobooth behavior by editing `config.ini`:
 - **Pi Camera:** Check cable connection and ensure camera is enabled in `raspi-config`
 - **DSLR:** Ensure gPhoto2 is properly installed and camera is compatible
 - **Webcam:** Check USB connection and camera permissions
+
+### Picamera2 Unavailable in a Virtual Environment
+
+Run the import check in the camera setup section. The application warning can mean
+an import failed, no sensor was found, or initialization failed; inspect preceding
+`Picamera2Camera` errors too. If the system Python imports Picamera2 but the venv
+does not, check `include-system-site-packages = true` in `.venv/pyvenv.cfg` and
+recreate the environment with the distribution Python if necessary. If the logs
+report a NumPy ABI mismatch, check the installed NumPy and native extension versions:
+a pip-installed NumPy can shadow the version required by APT camera packages.
+
+### gPhoto2: Could Not Claim the USB Device (-53)
+
+This means libgphoto2 could not claim the USB interface, not that the model is
+unsupported. Another process holding the camera is a common cause.
+
+1. Stop the application and, if enabled, `sudo systemctl stop photobooth.service`.
+2. Close photo importers and other camera software. Unmount/eject the camera's
+   filesystem connection in the desktop file manager without disconnecting USB.
+   `gio mount -l` lists desktop mounts; `gio mount -u 'gphoto2://…'` can unmount
+   the exact camera URI shown there. GVFS may remount it, so disable camera
+   auto-import in desktop settings if needed. Do not change executable permissions
+   on system GVFS binaries.
+3. Run `gphoto2 --auto-detect`, then `gphoto2 --capture-image-and-download` as the
+   same user as the application. Detection alone does not prove capture works.
+4. If claiming still fails, inspect the device's udev permissions and the installed
+   libgphoto2 rules, then try another data cable/USB port and check Pi power stability.
+
+Do not test the CLI while the application owns the Canon, or run the whole
+photobooth as root to work around permissions.
 
 ### Printer Not Working
 

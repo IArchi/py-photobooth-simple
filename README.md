@@ -160,10 +160,12 @@ chmod +x install.sh
 ./install.sh
 
 # Or install manually
-pip3 install -r requirements.txt --break-system-packages
+# Install system prerequisites first; see INSTALLATION.md for camera dependencies.
+/usr/bin/python3 -m venv --system-site-packages .venv
+.venv/bin/python -m pip install -r requirements.txt
 
 # Run the application
-python3 photoboothapp.py
+.venv/bin/python photoboothapp.py
 ```
 
 ## Customization
