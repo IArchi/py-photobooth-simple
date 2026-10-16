@@ -143,6 +143,11 @@ chmod +x gphoto2-updater.sh
 sudo ./gphoto2-updater.sh -s
 rm gphoto2-updater.sh .env
 
+# Fix USB access issues
+sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor
+sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2
+killall gvfs-gphoto2-volume-monitor
+
 # Test with the photobooth stopped and the camera unmounted in the file manager
 gphoto2 --auto-detect
 gphoto2 --capture-image-and-download
@@ -263,36 +268,6 @@ You can customize the photobooth behavior by editing `config.ini`:
 - **Pi Camera:** Check cable connection and ensure camera is enabled in `raspi-config`
 - **DSLR:** Ensure gPhoto2 is properly installed and camera is compatible
 - **Webcam:** Check USB connection and camera permissions
-
-### Picamera2 Unavailable in a Virtual Environment
-
-Run the import check in the camera setup section. The application warning can mean
-an import failed, no sensor was found, or initialization failed; inspect preceding
-`Picamera2Camera` errors too. If the system Python imports Picamera2 but the venv
-does not, check `include-system-site-packages = true` in `.venv/pyvenv.cfg` and
-recreate the environment with the distribution Python if necessary. If the logs
-report a NumPy ABI mismatch, check the installed NumPy and native extension versions:
-a pip-installed NumPy can shadow the version required by APT camera packages.
-
-### gPhoto2: Could Not Claim the USB Device (-53)
-
-This means libgphoto2 could not claim the USB interface, not that the model is
-unsupported. Another process holding the camera is a common cause.
-
-1. Stop the application and, if enabled, `sudo systemctl stop photobooth.service`.
-2. Close photo importers and other camera software. Unmount/eject the camera's
-   filesystem connection in the desktop file manager without disconnecting USB.
-   `gio mount -l` lists desktop mounts; `gio mount -u 'gphoto2://…'` can unmount
-   the exact camera URI shown there. GVFS may remount it, so disable camera
-   auto-import in desktop settings if needed. Do not change executable permissions
-   on system GVFS binaries.
-3. Run `gphoto2 --auto-detect`, then `gphoto2 --capture-image-and-download` as the
-   same user as the application. Detection alone does not prove capture works.
-4. If claiming still fails, inspect the device's udev permissions and the installed
-   libgphoto2 rules, then try another data cable/USB port and check Pi power stability.
-
-Do not test the CLI while the application owns the Canon, or run the whole
-photobooth as root to work around permissions.
 
 ### Printer Not Working
 

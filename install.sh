@@ -325,6 +325,12 @@ hdmi_group=2
 hdmi_mode=87
 hdmi_cvt 1024 600 60 6 0 0 0
 hdmi_drive=1"
+
+        print_warning "usb_max_current_enable=1 raises the Pi 5 USB power limit; use a suitable power supply."
+        if ask_yes_no "Do you want to enable the higher USB current limit for the touchscreen?"; then
+            # Keep this outside the block so existing installations receive it too.
+            append_root_line_if_missing /boot/firmware/config.txt "usb_max_current_enable=1"
+        fi
         
         print_success "Ingcool touchscreen configured"
         NEED_REBOOT=true
@@ -390,8 +396,29 @@ if ask_yes_no "Step 6/9: Do you want to install DSLR support (gPhoto2)?"; then
         
         print_success "gPhoto2 installed"
         print_warning "Stop the photobooth and unmount the camera in your file manager before testing: gphoto2 --capture-image-and-download"
-        print_info "For USB claim errors (-53), see the gPhoto2 troubleshooting section in INSTALLATION.md"
     fi
+
+    # This local workaround also applies to an already-installed, offline setup.
+    print_warning "The GVFS USB workaround disables desktop camera browsing/import for all users. Package updates may undo it."
+    if ask_yes_no "Do you want to disable GVFS camera access to avoid gPhoto2 USB claim errors (-53)?"; then
+        for gvfs_dir in /usr/lib/gvfs /usr/libexec; do
+            for gvfs_binary in gvfs-gphoto2-volume-monitor gvfsd-gphoto2; do
+                if [ -f "$gvfs_dir/$gvfs_binary" ]; then
+                    sudo chmod a-x "$gvfs_dir/$gvfs_binary"
+                fi
+            done
+        done
+        if command_exists killall; then
+            # Only stop this user's camera processes; no running process is normal.
+            killall gvfs-gphoto2-volume-monitor gvfsd-gphoto2 2>/dev/null || true
+        else
+            print_warning "killall is unavailable; log out and back in to stop existing GVFS camera processes."
+        fi
+        print_info "Unmount the camera in your file manager and reconnect it before testing."
+        print_info "To restore desktop camera access, run sudo chmod a+x on the affected GVFS binaries."
+    fi
+    print_info "With the photobooth stopped, test manually: gphoto2 --auto-detect"
+    print_info "Then test capture: gphoto2 --capture-image-and-download"
 else
     print_info "Skipping gPhoto2 installation"
 fi
