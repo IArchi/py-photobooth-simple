@@ -183,8 +183,11 @@ class ScreenMgr(ScreenManager):
 class BackgroundScreen(Screen):
     def __init__(self, bg='./assets/backgrounds/bg_default.jpeg', **kwargs):
         super(BackgroundScreen, self).__init__(**kwargs)
-        with self.canvas.before:
-            self.background_image = Rectangle(pos=self.pos, size=self.size, source=bg)
+        self.background_image = Image(
+            pos=self.pos, size=self.size, size_hint=(None, None),
+            source=bg, fit_mode='cover',
+        )
+        self.add_widget(self.background_image)
 
     def on_pos(self, *args):
         self.background_image.pos = self.pos
@@ -1087,6 +1090,11 @@ class ErrorScreen(ColorScreen):
         self.btn_continue.disabled = not self._show_continue
         self.btn_restart.opacity = 1 if self._show_restart else 0
         self.btn_restart.disabled = not self._show_restart
+        self.actions.clear_widgets()
+        if self._show_restart:
+            self.actions.add_widget(self.btn_restart)
+        if self._show_continue:
+            self.actions.add_widget(self.btn_continue)
         self.actions.opacity = 1 if (self._show_continue or self._show_restart) else 0
 
     def on_exit(self, kwargs={}):
