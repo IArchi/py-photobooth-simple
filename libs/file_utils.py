@@ -233,7 +233,7 @@ class FileUtils:
     @staticmethod
     def extract_blurred_region(image, screen_size, region, blur_kernel_size=51):
         """
-        Stretch the source image to the screen size, then crop and blur one region.
+        Cover the screen with the centered source image, then crop and blur one region.
 
         `region` uses Kivy coordinates: (x, y, width, height) with y starting at the bottom.
         """
@@ -246,14 +246,21 @@ class FileUtils:
         target_width = max(1, width)
         target_height = max(1, height)
 
-        stretched = cv2.resize(image, (screen_width, screen_height), interpolation=cv2.INTER_LINEAR)
+        image_height, image_width = image.shape[:2]
+        scale = max(screen_width / image_width, screen_height / image_height)
+        transform = np.array([
+            [scale, 0, (screen_width - image_width * scale) / 2],
+            [0, scale, (screen_height - image_height * scale) / 2],
+        ], dtype=np.float32)
+        covered = cv2.warpAffine(image, transform, (screen_width, screen_height),
+                                 flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
 
         left = max(0, min(screen_width, x))
         right = max(left + 1, min(screen_width, x + width))
         top = max(0, min(screen_height, screen_height - (y + height)))
         bottom = max(top + 1, min(screen_height, screen_height - y))
 
-        region_image = stretched[top:bottom, left:right]
+        region_image = covered[top:bottom, left:right]
         if region_image.size == 0:
             return None
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Logo</title>
+  <g transform="translate(7 13) rotate(-8 25 19)">
+    <path d="M25 0H42Q50 0 50 8V19Q50 38 25 38H8Q0 38 0 30V19Q0 0 25 0Z" fill="#f0be3d"/>
+    <circle cx="25" cy="19" r="6" fill="none" stroke="#1d4438" stroke-width="4"/>
+  </g>
+</svg>

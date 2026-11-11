@@ -4,3 +4,4 @@ __pycache__/
 DCIM/
 .DS_Store
 logs/
+.venv/

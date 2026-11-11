@@ -6,6 +6,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="$SCRIPT_DIR/.venv"
+PHOTOBOOTH_PYTHON="$VENV_DIR/bin/python"
 NEED_REBOOT=false
 SKIP_ONLINE_STEPS=false
 
@@ -121,28 +123,13 @@ replace_or_append_root_line() {
     rm -f "$temp_file"
 }
 
-download_file() {
-    local url="$1"
-    local destination="$2"
-
-    if command_exists curl; then
-        curl -fsSL "$url" -o "$destination"
-        return 0
-    fi
-
-    if command_exists wget; then
-        wget -q -O "$destination" "$url"
-        return 0
-    fi
-
-    print_error "Neither curl nor wget is available for downloading $url"
-    return 1
-}
-
 # Ask yes/no question
 ask_yes_no() {
     while true; do
-        read -r -p "$1 (y/n): " yn
+        if ! read -r -p "$1 (y/n): " yn; then
+            print_error "Input closed; installation stopped"
+            exit 1
+        fi
         case $yn in
             [Yy]* ) return 0;;
             [Nn]* ) return 1;;
@@ -250,7 +237,7 @@ if [ "$SKIP_ONLINE_STEPS" = true ]; then
     print_warning "Skipping base dependencies installation because Internet is unavailable"
 else
     sudo apt-get update
-    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y gcc make build-essential git scons swig ffmpeg libturbojpeg0 python3-pip libgl1 libgphoto2-dev
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y gcc make build-essential git scons swig ffmpeg libturbojpeg0 python3-pip python3-venv python3-numpy libgl1 libgphoto2-dev
 
     print_success "Base dependencies installed"
 fi
@@ -259,14 +246,23 @@ echo ""
 # ============================================================================
 # STEP 2: Python Dependencies
 # ============================================================================
-print_info "Step 2/9: Installing Python dependencies for the current user..."
+print_info "Step 2/9: Preparing the project virtual environment..."
+
+# Use the distribution Python so APT's libcamera and CUPS bindings share its ABI.
+# Re-running venv also enables system packages in an existing isolated environment.
+/usr/bin/python3 -m venv --system-site-packages "$VENV_DIR"
 
 if [ "$SKIP_ONLINE_STEPS" = true ]; then
     print_warning "Skipping Python dependencies installation because Internet is unavailable"
 else
-    python3 -m pip install --user -r "$SCRIPT_DIR/requirements.txt"
+    # Keep APT's NumPy ABI for native camera extensions. An incompatible OpenCV
+    # release must be resolved to an older compatible version, not upgrade NumPy.
+    SYSTEM_NUMPY_VERSION=$(/usr/bin/python3 -c 'import numpy; print(numpy.__version__)')
+    "$PHOTOBOOTH_PYTHON" -m pip install "numpy==$SYSTEM_NUMPY_VERSION" -r "$SCRIPT_DIR/requirements.txt"
+    "$PHOTOBOOTH_PYTHON" -c 'import numpy, cv2, kivy, lxml.etree, psutil, flask, qrcode, PIL; print("Application dependency imports OK")'
+    "$PHOTOBOOTH_PYTHON" -m pip check
 
-    print_success "Python dependencies installed for user $(id -un)"
+    print_success "Python dependencies installed in $VENV_DIR"
 fi
 echo ""
 
@@ -279,8 +275,11 @@ if is_raspberry_pi; then
         print_info "Configuring Kiosk Mode..."
         
         if [ -f /etc/wayfire/defaults.ini ]; then
+            backup_root_file_once /etc/wayfire/defaults.ini
             # Hide mouse and panel
-            sudo sed -i 's/\[autostart\]/\[autostart\]\r\background = wf-background/g' /etc/wayfire/defaults.ini
+            if ! sudo grep -Eq '^[[:space:]]*background[[:space:]]*=[[:space:]]*wf-background[[:space:]]*$' /etc/wayfire/defaults.ini; then
+                sudo sed -i '/^\[autostart\]$/a background = wf-background' /etc/wayfire/defaults.ini
+            fi
 
             # Hide taskbar
             sudo sed -i '/^[^#].*wfrespawn wf-panel-pi/ s/^/# /' /etc/wayfire/defaults.ini
@@ -293,6 +292,8 @@ if is_raspberry_pi; then
         sudo apt remove lxplug-ptbatt -y || true
         
         # Disable media mount dialog
+        backup_root_file_once /etc/xdg/pcmanfm/LXDE-pi/pcmanfm.conf
+        backup_root_file_once /etc/xdg/pcmanfm/default/pcmanfm.conf
         sudo sed -i -e 's/autorun=1/autorun=0/g' /etc/xdg/pcmanfm/LXDE-pi/pcmanfm.conf || true
         sudo sed -i -e 's/autorun=1/autorun=0/g' /etc/xdg/pcmanfm/default/pcmanfm.conf || true
         
@@ -319,6 +320,12 @@ hdmi_group=2
 hdmi_mode=87
 hdmi_cvt 1024 600 60 6 0 0 0
 hdmi_drive=1"
+
+        print_warning "usb_max_current_enable=1 raises the Pi 5 USB power limit; use a suitable power supply."
+        if ask_yes_no "Do you want to enable the higher USB current limit for the touchscreen?"; then
+            # Keep this outside the block so existing installations receive it too.
+            append_root_line_if_missing /boot/firmware/config.txt "usb_max_current_enable=1"
+        fi
         
         print_success "Ingcool touchscreen configured"
         NEED_REBOOT=true
@@ -337,6 +344,13 @@ if is_raspberry_pi; then
     echo ""
     if ask_yes_no "Step 5/9: Do you want to configure Raspberry Pi Camera Module V3?"; then
         print_info "Configuring Pi Camera Module V3..."
+
+        if [ "$SKIP_ONLINE_STEPS" = true ]; then
+            print_warning "Skipping Picamera2 installation because Internet is unavailable"
+        else
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y python3-picamera2 rpicam-apps
+            "$PHOTOBOOTH_PYTHON" -c 'from picamera2 import Picamera2; from libcamera import controls, Transform; print("Camera binding imports OK; test the sensor after reboot")'
+        fi
         
         # Allocate more memory
         replace_or_append_root_line /boot/firmware/config.txt '^dtoverlay=vc4-kms-v3d$' 'dtoverlay=vc4-kms-v3d,cma-512'
@@ -345,7 +359,7 @@ if is_raspberry_pi; then
         append_root_block_if_missing /boot/firmware/config.txt "# Camera module 3" "dtoverlay=imx708,cam0"
         
         print_success "Pi Camera Module V3 configured"
-        print_warning "After reboot, you can test the camera with: libcamera-still --list-camera"
+        print_warning "After reboot, you can test the camera with: rpicam-hello --list-cameras"
         NEED_REBOOT=true
     else
         print_info "Skipping Pi Camera configuration"
@@ -365,24 +379,33 @@ if ask_yes_no "Step 6/9: Do you want to install DSLR support (gPhoto2)?"; then
     else
         print_info "Installing gPhoto2..."
         
-        # Download and run gPhoto2 updater
-        GPHOTO_TMP_DIR=$(mktemp -d)
-        download_file https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/gphoto2-updater.sh "$GPHOTO_TMP_DIR/gphoto2-updater.sh"
-        download_file https://raw.githubusercontent.com/gonzalo/gphoto2-updater/master/.env "$GPHOTO_TMP_DIR/.env"
-        chmod +x "$GPHOTO_TMP_DIR/gphoto2-updater.sh"
-        
-        print_info "Running gPhoto2 updater (this may take several minutes)..."
-        sudo "$GPHOTO_TMP_DIR/gphoto2-updater.sh" -s
-        
-        rm -rf "$GPHOTO_TMP_DIR"
-        
-        # Fix USB access issues
-        sudo chmod -x /usr/lib/gvfs/gvfs-gphoto2-volume-monitor || true
-        sudo chmod -x /usr/lib/gvfs/gvfsd-gphoto2 || true
+        # Use the distribution's signed packages instead of a remote root script.
+        sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y gphoto2
         
         print_success "gPhoto2 installed"
-        print_warning "After installation, test with: gphoto2 --capture-image"
+        print_warning "Eject/unmount the camera in your file manager and reconnect it before testing: gphoto2 --capture-image-and-download"
     fi
+
+    # This local workaround also applies to an already-installed, offline setup.
+    print_warning "The GVFS USB workaround disables desktop camera browsing/import for all users. Package updates may undo it."
+    if ask_yes_no "Do you want to disable GVFS camera access to avoid gPhoto2 USB claim errors (-53)?"; then
+        for gvfs_dir in /usr/lib/gvfs /usr/libexec; do
+            for gvfs_binary in gvfs-gphoto2-volume-monitor gvfsd-gphoto2; do
+                if [ -f "$gvfs_dir/$gvfs_binary" ]; then
+                    sudo chmod a-x "$gvfs_dir/$gvfs_binary"
+                fi
+            done
+        done
+        if command_exists killall; then
+            # Only stop this user's camera processes; no running process is normal.
+            killall gvfs-gphoto2-volume-monitor gvfsd-gphoto2 2>/dev/null || true
+        else
+            print_warning "killall is unavailable; log out and back in to stop existing GVFS camera processes."
+        fi
+        print_info "Eject/unmount the camera in your file manager and reconnect it before testing."
+    fi
+    print_info "With the photobooth stopped, test manually: gphoto2 --auto-detect"
+    print_info "Then test capture: gphoto2 --capture-image-and-download"
 else
     print_info "Skipping gPhoto2 installation"
 fi
@@ -399,8 +422,14 @@ if ask_yes_no "Step 7/9: Do you want to install printer support (CUPS)?"; then
         print_info "Installing CUPS..."
         
         sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y cups libcups2-dev python3-cups printer-driver-gutenprint
-        sudo usermod -a -G lpadmin $USER
-        sudo cupsctl --remote-admin --remote-any
+        sudo usermod -a -G lpadmin "$USER"
+        print_warning "Remote CUPS administration exposes the printer server to network clients, including the open PhotoBooth AP."
+        if ask_yes_no "Do you want to allow remote CUPS administration from any network?"; then
+            sudo cupsctl --remote-admin --remote-any
+        else
+            sudo cupsctl --no-remote-admin --no-remote-any
+        fi
+        "$PHOTOBOOTH_PYTHON" -c 'import cups; print("CUPS binding import OK")'
         
         # Install printer drivers
         sudo install -m 644 "$SCRIPT_DIR/docs/DS620.ppd" /usr/share/cups/model/DS620.ppd
@@ -409,7 +438,7 @@ if ask_yes_no "Step 7/9: Do you want to install printer support (CUPS)?"; then
         sudo /etc/init.d/cups restart
         
         print_success "CUPS and DS620 PPD installed"
-        print_info "Configure your printer at: https://$(hostname -I | awk '{print $1}'):631/admin/"
+        print_info "Configure your printer locally at: http://localhost:631/admin/ (or use SSH port forwarding)"
         print_warning "Remember to name your printer 'DS620' (or update config.ini accordingly)"
     fi
 else
@@ -438,7 +467,7 @@ if is_raspberry_pi; then
         if [ "$SKIP_ONLINE_STEPS" = true ]; then
             print_warning "Skipping spidev installation because Internet is unavailable"
         else
-            python3 -m pip install --user spidev
+            "$PHOTOBOOTH_PYTHON" -m pip install spidev
         fi
         
         print_success "LED Ring support configured"
@@ -457,10 +486,22 @@ echo ""
 # ============================================================================
 if is_raspberry_pi; then
     echo ""
+    print_warning "AP setup replaces /etc/dnsmasq.conf (backup saved), takes over wlan0 and can disconnect SSH. Use Ethernet or a local console."
     if ask_yes_no "Step 9/9: Do you want to configure WiFi Access Point for photo downloads?"; then
         if [ "$SKIP_ONLINE_STEPS" = true ]; then
             print_warning "Skipping WiFi Access Point setup because Internet is unavailable"
         else
+            USE_NETWORK_MANAGER=false
+            if systemctl is-active --quiet NetworkManager.service; then
+                USE_NETWORK_MANAGER=true
+            elif ! systemctl is-active --quiet dhcpcd.service; then
+                print_error "Neither NetworkManager nor dhcpcd is active; AP setup cannot proceed safely."
+                exit 1
+            fi
+            WIFI_COUNTRY=$(get_wifi_country) || {
+                print_error "Unable to detect the WiFi country. Configure it with raspi-config, then run this installer again."
+                exit 1
+            }
             print_info "Configuring WiFi Access Point..."
             
             # Install required packages
@@ -482,7 +523,7 @@ if is_raspberry_pi; then
             backup_root_file_once /etc/systemd/system/photobooth-http-redirect.service
             
             # Configure static IP for wlan0 using the active network manager
-            if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+            if [ "$USE_NETWORK_MANAGER" = true ]; then
                 print_info "Configuring NetworkManager to ignore wlan0..."
                 write_root_file_if_changed "/etc/NetworkManager/conf.d/unmanaged-wlan0.conf" "$(cat <<'EOF'
 [keyfile]
@@ -576,10 +617,6 @@ EOF
             
             # Configure hostapd (WiFi Access Point)
             print_info "Configuring hostapd..."
-            WIFI_COUNTRY=$(get_wifi_country) || {
-                print_error "Unable to detect the WiFi country. Configure it with raspi-config, then run this installer again."
-                exit 1
-            }
             print_info "Using WiFi country: $WIFI_COUNTRY"
             write_root_file_if_changed "/etc/hostapd/hostapd.conf" "$(cat <<EOF
 # PhotoBooth WiFi AP Configuration
@@ -625,7 +662,7 @@ DAEMON_CONF="/etc/hostapd/hostapd.conf"
 EOF
 )"
 
-            if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+            if [ "$USE_NETWORK_MANAGER" = true ]; then
                 print_info "Making hostapd wait for wlan0 AP setup..."
                 write_root_file_if_changed "/etc/systemd/system/hostapd.service.d/photobooth-ap.conf" "$(cat <<'EOF'
 [Unit]
@@ -645,18 +682,18 @@ EOF
             sudo systemctl enable dnsmasq
             sudo systemctl daemon-reload
             sudo systemctl enable photobooth-http-redirect.service
-            if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
+            if [ "$USE_NETWORK_MANAGER" = true ]; then
                 sudo systemctl enable photobooth-ap-network.service
             fi
             
             # Start services
             print_info "Starting services..."
-            if systemctl list-unit-files | grep -q '^NetworkManager.service'; then
-                sudo systemctl restart NetworkManager
-                sudo nmcli device set wlan0 managed no 2>/dev/null || true
-                sudo systemctl start photobooth-ap-network.service
+            if [ "$USE_NETWORK_MANAGER" = true ]; then
+                sudo nmcli general reload conf
+                sudo nmcli device set wlan0 managed no
+                sudo systemctl restart photobooth-ap-network.service
             else
-                sudo systemctl restart dhcpcd 2>/dev/null || true
+                sudo systemctl restart dhcpcd
             fi
             sudo systemctl restart hostapd || { sudo journalctl -xeu hostapd.service --no-pager; exit 1; }
             sudo systemctl restart dnsmasq
@@ -689,7 +726,7 @@ if is_raspberry_pi; then
         PHOTOBOOTH_USER=$(id -un)
         PHOTOBOOTH_GROUP=$(id -gn)
         PHOTOBOOTH_DIR_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_DIR")
-        PHOTOBOOTH_PYTHON_ESCAPED=$(escape_systemd_value "/usr/bin/python3")
+        PHOTOBOOTH_PYTHON_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_PYTHON")
         PHOTOBOOTH_APP_ESCAPED=$(escape_systemd_value "$PHOTOBOOTH_DIR/photoboothapp.py")
 
         write_root_file_if_changed "/etc/systemd/system/photobooth.service" "$(cat <<EOF
@@ -747,13 +784,17 @@ echo "║                                                       ║"
 echo "╚═══════════════════════════════════════════════════════╝"
 echo ""
 
-print_success "Simple PhotoBooth has been installed successfully!"
+print_success "Selected installation steps completed"
 echo ""
 
 # Summary
 print_info "Installation Summary:"
-echo "  ✓ Base dependencies installed"
-echo "  ✓ Python packages installed"
+if [ "$SKIP_ONLINE_STEPS" = true ]; then
+    print_warning "Package installations skipped (offline); existing dependencies were not verified."
+else
+    print_success "Base dependencies installed; application dependency imports checked."
+fi
+print_info "Camera capture, display, printing and network operation still require hardware testing."
 
 if [ "$NEED_REBOOT" = true ]; then
     echo ""
@@ -771,7 +812,7 @@ fi
 echo ""
 print_info "To start the photobooth manually, run:"
 echo "  cd $SCRIPT_DIR"
-echo "  python3 photoboothapp.py"
+echo "  \"$PHOTOBOOTH_PYTHON\" photoboothapp.py"
 echo ""
 print_info "For more information, see INSTALLATION.md and README.md"
 echo ""

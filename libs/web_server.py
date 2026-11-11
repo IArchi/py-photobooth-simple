@@ -9,11 +9,29 @@ import threading
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, jsonify, request, send_file, render_template, redirect, session
+from flask import Flask, Response, jsonify, request, send_file, render_template, redirect, session
 from werkzeug.serving import make_server
 from kivy.logger import Logger
 from libs.config import DEFAULT_STARTSCREEN_BACKGROUND_IMAGE, Config
 from libs.i18n import I18n
+
+
+class _ZipBuffer(io.RawIOBase):
+    """Non-seekable ZIP output, drained after each photo chunk."""
+
+    def __init__(self):
+        super().__init__()
+        self.buffer = bytearray()
+
+    def write(self, data):
+        self.buffer.extend(data)
+        return len(data)
+
+    def drain(self):
+        data = bytes(self.buffer)
+        self.buffer.clear()
+        return data
+
 
 class WebServer:
     """Flask web server for photo gallery with captive portal."""
@@ -464,6 +482,27 @@ class WebServer:
             Logger.error(f'WebServer: Error getting downloadable photos: {e}')
 
         return photos
+
+    def _stream_photo_archive(self, photos):
+        """Build the archive on demand, without buffering photo contents."""
+        buffer = _ZipBuffer()
+        try:
+            # ponytail: JPEGs are already compressed; only ZIP metadata grows
+            # with the file count. For millions of entries, split the export.
+            with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_STORED) as archive:
+                for photo in photos:
+                    info = zipfile.ZipInfo.from_file(photo['path'], arcname=photo['archive_name'])
+                    with open(photo['path'], 'rb') as source, archive.open(info, 'w', force_zip64=True) as target:
+                        yield buffer.drain()
+                        while chunk := source.read(64 * 1024):
+                            target.write(chunk)
+                            yield buffer.drain()
+                    yield buffer.drain()
+            yield buffer.drain()
+        except Exception as e:
+            # Headers may already be sent: abort rather than return a valid but incomplete ZIP.
+            Logger.error(f'WebServer: Error streaming photo archive: {e}')
+            raise
 
     def _delete_all_sessions(self):
         """Delete all valid session directories and reset photo-related stats."""
@@ -1131,31 +1170,23 @@ class WebServer:
 
         @self.app.route('/download/all-photos')
         def download_all_photos():
-            """Download all photos as a ZIP archive."""
+            """Stream all photos as a ZIP archive as it is built."""
             photos = self._get_all_downloadable_photos()
 
             if not photos:
                 return 'No photos found', 404
 
-            archive_buffer = io.BytesIO()
-
-            try:
-                with zipfile.ZipFile(archive_buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
-                    for photo in photos:
-                        archive.write(photo['path'], arcname=photo['archive_name'])
-            except Exception as e:
-                Logger.error(f'WebServer: Error creating photo archive: {e}')
-                return 'Unable to create archive', 500
-
-            archive_buffer.seek(0)
             if self.stats_store is not None:
                 self.stats_store.track_event('download')
 
-            return send_file(
-                archive_buffer,
+            return Response(
+                self._stream_photo_archive(photos),
                 mimetype='application/zip',
-                as_attachment=True,
-                download_name='photobooth_photos.zip'
+                headers={
+                    'Content-Disposition': 'attachment; filename=photobooth_photos.zip',
+                    'Cache-Control': 'no-store',
+                    'X-Accel-Buffering': 'no',
+                },
             )
 
         @self.app.route('/admin')

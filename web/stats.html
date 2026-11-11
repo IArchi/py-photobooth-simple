@@ -72,13 +72,14 @@
                     <p>{{ t('web.stats.description') }}</p>
                 </div>
                 <div class="actions stats-actions">
-                    <a href="/download/all-photos" class="btn btn-success {% if not downloadable_photos %}disabled{% endif %}">{{ t('web.stats.download_all') }}</a>
+                    <a href="/download/all-photos" download="photobooth_photos.zip" aria-describedby="download-help" class="btn btn-success {% if not downloadable_photos %}disabled{% endif %}">{{ t('web.stats.download_all') }}</a>
                     <a href="/gallery" class="btn btn-ghost">{{ t('web.gallery.title') }}</a>
                 </div>
             </section>
 
             <section class="panel">
                 <div class="panel-section">
+                    <p id="download-help">{{ t('web.stats.download_help') }} <code>http://192.168.4.1/stats</code></p>
                     <div class="stats-grid">
                         <article class="stat-card">
                             <div class="stat-label">{{ t('web.stats.photos_taken') }}</div>
