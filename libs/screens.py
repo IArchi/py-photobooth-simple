@@ -2832,7 +2832,10 @@ class CopyingScreen(ColorScreen):
         elif kwargs.get('status') == 'error':
             self.loading.stop_animation()
             self.info.text = self.app.t('copying.error')
-            self.progress.text = str(kwargs.get('error') or self.app.t('copying.error_unknown'))
+            self.progress.text = (
+                self.app.t(kwargs['error_key']) if kwargs.get('error_key')
+                else str(kwargs.get('error') or self.app.t('copying.error_unknown'))
+            )
 
 class QRCodePopup(FloatLayout):
     """Popup overlay to show QR code."""

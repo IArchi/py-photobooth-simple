@@ -41,6 +41,7 @@
   "copying.files_copied": "{count} fichier(s) copié(s)",
   "copying.error": "ÉCHEC DE LA COPIE — NE RETIREZ PAS ENCORE LA CLÉ",
   "copying.error_unknown": "Erreur USB inconnue",
+  "copying.incompatible": "Clé USB incompatible ou en lecture seule.\nUtilisez une clé en FAT32 ou exFAT.",
   "qr.scan": "SCANNEZ-MOI",
   "qr.hint": "Allez sur http://192.168.4.1",
   "storage.full": "Le stockage photo est plein. Veuillez appeler un opérateur.",

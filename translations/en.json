@@ -41,6 +41,7 @@
   "copying.files_copied": "{count} file(s) copied",
   "copying.error": "COPY FAILED — DO NOT REMOVE THE USB DRIVE YET",
   "copying.error_unknown": "Unknown USB error",
+  "copying.incompatible": "USB drive incompatible or read-only.\nUse a FAT32 or exFAT drive.",
   "qr.scan": "SCAN ME",
   "qr.hint": "Go to http://192.168.4.1",
   "storage.full": "Photo storage is full. Please call an operator.",

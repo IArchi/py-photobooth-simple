@@ -1,9 +1,14 @@
 import os
+import errno
+import json
+import subprocess
+import sys
 import time
 import psutil
 import shutil
 import traceback
 from pathlib import Path
+from types import SimpleNamespace
 
 from threading import Event, Thread
 from kivy.clock import Clock
@@ -13,6 +18,7 @@ from libs.screens import ScreenMgr
 
 class UsbTransfer:
     REMOVABLE_MOUNT_ROOTS = ('/media', '/run/media', '/Volumes')
+    MOUNT_GRACE_SECONDS = 10
 
     def __init__(self, app, folder, min_free_gb=1.0, copy_timeout=300):
         Logger.info('UsbTransfer: __init__().')
@@ -40,6 +46,8 @@ class UsbTransfer:
     def _worker_fun(self):
         # init worker, get devices first time
         _previous_devices = self.get_current_removable_media()
+        previous_unmounted = self.get_unmounted_usb_devices()
+        waiting_for_mount = {}
 
         while not self._stop_event.is_set():
             current_devices = self.get_current_removable_media()
@@ -48,6 +56,17 @@ class UsbTransfer:
 
             for device in added: self.handle_mount(device)
             for device in removed: self.handle_unmount(device)
+            unmounted = self.get_unmounted_usb_devices()
+            now = time.monotonic()
+            for device in unmounted - previous_unmounted:
+                waiting_for_mount[device] = now
+            for device, inserted_at in list(waiting_for_mount.items()):
+                if device not in unmounted:
+                    waiting_for_mount.pop(device)
+                elif now - inserted_at >= self.MOUNT_GRACE_SECONDS:
+                    self.handle_mount(SimpleNamespace(device=device, mountpoint='', opts=''))
+                    waiting_for_mount.pop(device)
+            previous_unmounted = unmounted
             if self._pending_mounts:
                 self._process_pending_mounts()
             _previous_devices = current_devices
@@ -57,10 +76,6 @@ class UsbTransfer:
 
     def handle_mount(self, device):
         Logger.info("UsbTransfer: handle_mount({})".format(device.device))
-
-        if not device.mountpoint:
-            Logger.error("USB device {} not correctly mounted".format(device.device))
-            return
 
         self._pending_mounts[device.device] = device
         Logger.info('UsbTransfer: pending exports=%s', len(self._pending_mounts))
@@ -82,7 +97,7 @@ class UsbTransfer:
         for device in pending_devices:
             if self._stop_event.is_set():
                 return
-            if not device.mountpoint:
+            if not device.mountpoint and device.device not in self.get_unmounted_usb_devices():
                 self._pending_mounts.pop(device.device, None)
                 continue
 
@@ -92,6 +107,8 @@ class UsbTransfer:
                 Logger.warning('UsbTransfer: UI did not confirm copying screen in time')
             result = None
             try:
+                if not device.mountpoint or 'ro' in device.opts.split(','):
+                    raise OSError(errno.EROFS, 'USB drive is unmounted or read-only')
                 Logger.info('UsbTransfer: starting export device=%s mountpoint=%s', device.device, device.mountpoint)
                 destination = Path(device.mountpoint, 'photobooth')
                 self._check_destination_capacity(destination)
@@ -108,6 +125,8 @@ class UsbTransfer:
                     return
                 Logger.warning('UsbTransfer: USB export skipped after failure: %s', exc)
                 result = {'status': 'error', 'error': str(exc)}
+                if isinstance(exc, OSError) and exc.errno in (errno.EROFS, errno.EACCES, errno.EPERM):
+                    result['error_key'] = 'copying.incompatible'
             finally:
                 self._pending_mounts.pop(device.device, None)
                 if result:
@@ -136,10 +155,37 @@ class UsbTransfer:
             raise RuntimeError('USB drive has only %.2fGB free, minimum is %.2fGB' % (usage.free / (1024 ** 3), self._min_free_bytes / (1024 ** 3)))
 
     @staticmethod
+    def get_unmounted_usb_devices():
+        if not sys.platform.startswith('linux'):
+            return set()
+        try:
+            result = subprocess.run(
+                ['lsblk', '--json', '--paths', '--output', 'NAME,TRAN,RM,SIZE,MOUNTPOINTS', '--bytes'],
+                capture_output=True, text=True, check=True, timeout=2,
+            )
+            devices = json.loads(result.stdout)['blockdevices']
+        except (OSError, subprocess.SubprocessError, ValueError, KeyError):
+            Logger.debug('UsbTransfer: unable to inspect unmounted USB drives')
+            return set()
+
+        def has_mount(device):
+            return any(device.get('mountpoints') or []) or any(
+                has_mount(child) for child in device.get('children', [])
+            )
+
+        # ponytail: inspect whole disks, not partitions (an unused EFI partition is normal).
+        # lsblk only detects Linux block devices; other platforms keep mounted-volume detection.
+        return {
+            device['name'] for device in devices
+            if (device.get('tran') == 'usb' or device.get('rm'))
+            and int(device.get('size') or 0) > 0 and not has_mount(device)
+        }
+
+    @staticmethod
     def get_current_removable_media():
         return {
             device
-            for device in psutil.disk_partitions(all=False)
+            for device in psutil.disk_partitions(all=True)
             if UsbTransfer.is_removable_partition(device)
         }
 
@@ -151,7 +197,7 @@ class UsbTransfer:
         if not device.mountpoint or device.mountpoint == '/':
             return False
 
-        if 'rootfs' in opts or 'dontbrowse' in opts or 'ro' in opts:
+        if 'rootfs' in opts or 'dontbrowse' in opts:
             return False
 
         return any(
