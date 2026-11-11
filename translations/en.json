@@ -65,6 +65,7 @@
   "web.stats.heading": "PhotoBooth usage overview",
   "web.stats.description": "Review captured sessions, downloads and gallery usage from the embedded web server.",
   "web.stats.download_all": "Download all photos",
+  "web.stats.download_help": "The captive portal window may close or block downloads. To download the ZIP, stay connected to the PhotoBooth Wi-Fi and enter this address in your regular browser (Safari, Chrome or Firefox):",
   "web.stats.photos_taken": "Photos taken",
   "web.stats.photos_taken_help": "Total collages created by the booth.",
   "web.stats.downloads": "Downloads",

@@ -65,6 +65,7 @@
   "web.stats.heading": "Vue d'ensemble",
   "web.stats.description": "Consultez les sessions capturées, les téléchargements et l'utilisation de la galerie.",
   "web.stats.download_all": "Télécharger toutes les photos",
+  "web.stats.download_help": "La fenêtre du portail captif peut se fermer ou refuser les téléchargements. Pour télécharger le ZIP, restez connecté au Wi-Fi PhotoBooth et saisissez cette adresse dans votre navigateur habituel (Safari, Chrome ou Firefox) :",
   "web.stats.photos_taken": "Photos prises",
   "web.stats.photos_taken_help": "Nombre total de collages créés.",
   "web.stats.downloads": "Téléchargements",
