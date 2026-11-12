@@ -115,11 +115,9 @@ ICON_RETAKE = '\u3b82'
 ICON_HOME = '\u4161'
 ICON_PRINT = '\u458e'
 ICON_SUCCESS = '\u4903'
-ICON_SUCCESS2 = '\u4304'
 ICON_USB = '\u49ba'
 ICON_TRIGGER = '\u3d3e'
-ICON_QRCODE = '\u45f4'
-ICON_SHARE = '\u46d4'
+ICON_SHARE = '\u45B6'
 ICON_DIAGNOSTIC = '\u41be'
 ICON_DIAGNOSTIC_OK = '\u3da6'
 ICON_DIAGNOSTIC_ERROR = '\u3d45'
@@ -2426,40 +2424,34 @@ class ReviewScreen(ColorScreen):
         )
         self.overlay_layout.add_widget(self.btn_home)
 
-        self.btn_retake = make_icon_text_button(
+        self.btn_retake = make_icon_button(
             icon=ICON_RETAKE,
-            text=app.t('review.retake'),
-            size_hint=(0.16, 0.09),
+            size=0.14,
             pos_hint={'x': 0.05, 'y': 0.05},
-            icon_font=ICON_TTF,
-            icon_font_size_fraction=0.07,
-            text_font_size_fraction=0.035,
+            font=ICON_TTF,
+            font_size_fraction=0.07,
             bgcolor=RETAKE_COLOR,
             on_release=self.retake_event,
         )
 
-        self.btn_print = make_icon_text_button(
+        self.btn_print = make_icon_button(
             icon=ICON_PRINT,
-            text=app.t('review.print'),
-            size_hint=(0.16, 0.09),
+            size=0.14,
             pos_hint={},
-            icon_font=ICON_TTF,
-            icon_font_size_fraction=0.07,
-            text_font_size_fraction=0.035,
+            font=ICON_TTF,
+            font_size_fraction=0.07,
             bgcolor=CONFIRM_COLOR,
             on_release=self.print_event,
         )
 
         self.btn_share = None
         if self.app.SHARE:
-            self.btn_share = make_icon_text_button(
+            self.btn_share = make_icon_button(
                 icon=ICON_SHARE,
-                text=app.t('review.share'),
-                size_hint=(0.16, 0.09),
+                size=0.14,
                 pos_hint={},
-                icon_font=ICON_TTF,
-                icon_font_size_fraction=0.07,
-                text_font_size_fraction=0.035,
+                font=ICON_TTF,
+                font_size_fraction=0.07,
                 bgcolor=SHARE_COLOR,
                 on_release=self.share_event,
             )
@@ -2500,8 +2492,8 @@ class ReviewScreen(ColorScreen):
         max_h = max(dp(18), (self.overlay_layout.height - bottom - top - gap * (len(buttons) - 1)) / len(buttons))
         y = bottom
         for btn in buttons:
-            if btn.height > max_h:
-                btn.height = max_h
+            side = min(min(Window.size) * btn.size_square, max_h)
+            btn.size = (side, side)
             btn.pos_hint = {}
             btn.x = max(0, min(self.overlay_layout.width * 0.95 - btn.width, self.overlay_layout.width - btn.width))
             btn.y = y
@@ -2707,16 +2699,6 @@ class SuccessScreen(ColorScreen):
         feedback_actions.add_widget(self.positive_feedback)
         feedback_actions.add_widget(self.negative_feedback)
         layout.add_widget(feedback_actions)
-
-        # Display success2 icon
-        icon2 = ResizeLabel(
-            size_hint=(0.1, 0.1),
-            pos_hint={'center_x': 0.5, 'y': 0.3},
-            font_name=ICON_TTF,
-            text=ICON_SUCCESS2,
-            wh_fraction=0.055,
-        )
-        layout.add_widget(icon2)
 
         self.add_widget(layout)
 
