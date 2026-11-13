@@ -194,6 +194,8 @@ sudo /etc/init.d/cups restart
 5. Name it `DS620` (or update the name in `config.ini` to match)
 6. Select the appropriate brand and model (e.g., DNP DS620)
 
+You can also run `install-printer.sh` to automatically install all connected printers.
+
 ### 7. LED Ring Configuration (Optional)
 
 If you're using a WS2812 LED ring:

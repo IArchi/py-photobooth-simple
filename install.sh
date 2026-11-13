@@ -432,12 +432,12 @@ if ask_yes_no "Step 7/9: Do you want to install printer support (CUPS)?"; then
         "$PHOTOBOOTH_PYTHON" -c 'import cups; print("CUPS binding import OK")'
         
         # Install printer drivers
-        sudo install -m 644 "$SCRIPT_DIR/docs/DS620.ppd" /usr/share/cups/model/DS620.ppd
+        sudo install -m 644 "$SCRIPT_DIR/docs/DNP-DS620.ppd" /usr/share/cups/model/DNP-DS620.ppd
         
         # Restart CUPS
         sudo /etc/init.d/cups restart
         
-        print_success "CUPS and DS620 PPD installed"
+        print_success "CUPS and PPD installed"
         print_info "Configure your printer locally at: http://localhost:631/admin/ (or use SSH port forwarding)"
         print_warning "Remember to name your printer 'DS620' (or update config.ini accordingly)"
     fi

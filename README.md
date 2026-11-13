@@ -199,6 +199,8 @@ A web instance is also available directly on this page: https://iarchi.github.io
 - **Import/Export:** Save templates as JSON files and import existing templates
 - **Live Preview:** Real-time preview with scaling and duplication visualization
 
+The print parameter for Canon Selphy CP1500 and printers other than DNP DS620 can be retrieve using `lpoptions -p <printer-name> -l | grep '^PageSize/'`.
+
 ![Template Editor](docs/template_editor.png)
 
 ## USB Photo Export
